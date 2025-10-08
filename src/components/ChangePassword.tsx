@@ -72,16 +72,19 @@ const ChangePassword: React.FC<ChangePasswordProps> = ({ onSuccess }) => {
       }
 
       console.log('Waiting for auth state propagation...');
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      await new Promise(resolve => setTimeout(resolve, 500));
 
-      console.log('Refreshing session...');
-      const { data: { session }, error: refreshError } = await supabase.auth.refreshSession();
+      console.log('Attempting to refresh session...');
+      try {
+        const { data: { session }, error: refreshError } = await supabase.auth.refreshSession();
 
-      if (refreshError) {
-        console.error('Error refreshing session:', refreshError);
-      } else {
-        console.log('Session refreshed successfully');
-        console.log('Updated user metadata:', session?.user?.user_metadata);
+        if (refreshError) {
+          console.warn('Session refresh failed (this is expected after password change):', refreshError.message);
+        } else {
+          console.log('Session refreshed successfully');
+        }
+      } catch (refreshErr) {
+        console.warn('Session refresh error (non-critical):', refreshErr);
       }
 
       console.log('Refreshing profile data in store...');
@@ -97,7 +100,7 @@ const ChangePassword: React.FC<ChangePasswordProps> = ({ onSuccess }) => {
 
       toast.success('Password changed successfully! Redirecting...');
 
-      await new Promise(resolve => setTimeout(resolve, 500));
+      await new Promise(resolve => setTimeout(resolve, 300));
 
       console.log('Calling onSuccess callback');
       onSuccess();
