@@ -734,9 +734,18 @@ const LeadManagement: React.FC = () => {
                       <div className="text-sm text-gray-500">{lead.email}</div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
-                      <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full border ${getStatusColor(lead.status)}`}>
-                        {lead.status.replace('_', ' ')}
-                      </span>
+                      <select
+                        value={lead.status}
+                        onChange={(e) => handleUpdateLeadStatus(lead.id, e.target.value)}
+                        className={`px-2 py-1 text-xs font-semibold rounded-full border ${getStatusColor(lead.status)} cursor-pointer focus:ring-2 focus:ring-red-500 focus:outline-none transition-all`}
+                      >
+                        <option value="new">New</option>
+                        <option value="contacted">Contacted</option>
+                        <option value="qualified">Qualified</option>
+                        <option value="proposal_sent">Proposal Sent</option>
+                        <option value="won">Won</option>
+                        <option value="lost">Lost</option>
+                      </select>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className={`inline-flex items-center px-2 py-1 rounded-full ${getScoreColor(lead.score)}`}>
