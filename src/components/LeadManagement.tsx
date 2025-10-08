@@ -173,13 +173,16 @@ const LeadManagement: React.FC = () => {
   };
 
   const handleUpdateLeadStatus = async (leadId: string, newStatus: string) => {
+    console.log('Attempting to update lead:', leadId, 'to status:', newStatus);
     try {
       const updatedLead = await supabaseService.updateLead(leadId, { status: newStatus });
+      console.log('Lead updated successfully:', updatedLead);
       setLeads(prev => prev.map(lead => lead.id === leadId ? updatedLead : lead));
       toast.success('Lead status updated!');
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error updating lead:', error);
-      toast.error('Failed to update lead status');
+      console.error('Error details:', error.message, error.details, error.hint);
+      toast.error(`Failed to update lead status: ${error.message || 'Unknown error'}`);
     }
   };
 

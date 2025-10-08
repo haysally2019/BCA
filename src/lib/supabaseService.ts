@@ -272,6 +272,8 @@ export const supabaseService = {
 
   async updateLead(leadId: string, updates: Partial<Lead>): Promise<Lead> {
     try {
+      console.log('updateLead called with:', { leadId, updates });
+
       const { data, error } = await supabase
         .from('leads')
         .update({
@@ -282,7 +284,16 @@ export const supabaseService = {
         .select()
         .single();
 
-      if (error) throw error;
+      console.log('Supabase update response:', { data, error });
+
+      if (error) {
+        console.error('Supabase error details:', error);
+        throw error;
+      }
+
+      if (!data) {
+        throw new Error('No data returned from update operation');
+      }
 
       // Log status change activity if status was updated
       if (updates.status) {
@@ -293,8 +304,11 @@ export const supabaseService = {
       }
 
       return data;
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error updating lead:', error);
+      console.error('Error type:', typeof error);
+      console.error('Error message:', error?.message);
+      console.error('Error code:', error?.code);
       throw error;
     }
   },
