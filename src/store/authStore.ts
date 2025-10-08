@@ -108,8 +108,30 @@ export const useAuthStore = create<AuthState>((set, get) => ({
               .maybeSingle();
 
             if (existingProfile) {
-              console.log('[AuthStore] Profile already exists for user');
-              set({ profile: existingProfile });
+              console.log('[AuthStore] Profile already exists, updating with correct role and subscription');
+
+              const { data: updatedProfile, error: updateError } = await supabase
+                .from('profiles')
+                .update({
+                  company_name: name,
+                  company_email: email,
+                  subscription_plan: userType === 'management' ? 'enterprise' : 'professional',
+                  user_role: userType === 'management' ? 'manager' : 'sales_rep',
+                  affiliatewp_id: affiliatewpId,
+                  updated_at: new Date().toISOString()
+                })
+                .eq('user_id', data.user.id)
+                .select()
+                .single();
+
+              if (updateError) {
+                console.error('[AuthStore] Failed to update profile:', updateError);
+                set({ profile: existingProfile });
+              } else if (updatedProfile) {
+                console.log('[AuthStore] Profile updated successfully');
+                set({ profile: updatedProfile });
+              }
+
               profileCreated = true;
             } else {
               console.log(`[AuthStore] Creating profile (attempt ${retryCount + 1}/${maxRetries})`);
@@ -131,16 +153,37 @@ export const useAuthStore = create<AuthState>((set, get) => ({
                 console.error('[AuthStore] Profile creation error:', createError);
 
                 if (createError.code === '23505') {
-                  const { data: retryProfile } = await supabase
-                    .from('profiles')
-                    .select('*')
-                    .eq('user_id', data.user.id)
-                    .maybeSingle();
+                  console.log('[AuthStore] Duplicate key error, updating existing profile');
 
-                  if (retryProfile) {
-                    console.log('[AuthStore] Profile exists after duplicate key error');
-                    set({ profile: retryProfile });
+                  const { data: updatedProfile, error: updateError } = await supabase
+                    .from('profiles')
+                    .update({
+                      company_name: name,
+                      company_email: email,
+                      subscription_plan: userType === 'management' ? 'enterprise' : 'professional',
+                      user_role: userType === 'management' ? 'manager' : 'sales_rep',
+                      affiliatewp_id: affiliatewpId,
+                      updated_at: new Date().toISOString()
+                    })
+                    .eq('user_id', data.user.id)
+                    .select()
+                    .single();
+
+                  if (!updateError && updatedProfile) {
+                    console.log('[AuthStore] Profile updated after duplicate key error');
+                    set({ profile: updatedProfile });
                     profileCreated = true;
+                  } else {
+                    const { data: retryProfile } = await supabase
+                      .from('profiles')
+                      .select('*')
+                      .eq('user_id', data.user.id)
+                      .maybeSingle();
+
+                    if (retryProfile) {
+                      set({ profile: retryProfile });
+                      profileCreated = true;
+                    }
                   }
                 } else {
                   retryCount++;
