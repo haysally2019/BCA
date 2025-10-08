@@ -308,12 +308,14 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   refreshProfile: async () => {
     const { user } = get();
     if (!user) {
-      // Cannot refresh profile: no user logged in
+      console.log('[AuthStore] Cannot refresh profile: no user logged in');
       return;
     }
 
     try {
-      // Refreshing profile
+      console.log('[AuthStore] Refreshing profile for user:', user.id);
+      const timestamp = new Date().getTime();
+
       const { data: profile, error } = await supabase
         .from('profiles')
         .select('*')
@@ -321,18 +323,22 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         .maybeSingle();
 
       if (error) {
-        // Error refreshing profile
+        console.error('[AuthStore] Error refreshing profile:', error);
         return;
       }
 
       if (profile) {
-        // Profile refreshed successfully
+        console.log('[AuthStore] Profile refreshed successfully:', {
+          profileId: profile.id,
+          must_change_password: profile.must_change_password,
+          timestamp
+        });
         set({ profile });
       } else {
-        // No profile found
+        console.warn('[AuthStore] No profile found for user');
       }
     } catch (error) {
-      // Exception refreshing profile
+      console.error('[AuthStore] Exception refreshing profile:', error);
     }
   },
 }));

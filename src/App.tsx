@@ -55,11 +55,15 @@ function App() {
   useEffect(() => {
     const checkPasswordChange = async () => {
       if (!user) {
+        console.log('[Password Check] No user, clearing must_change_password flag');
         setMustChangePassword(false);
         return;
       }
 
       try {
+        console.log('[Password Check] Checking must_change_password flag for user:', user.id);
+
+        const timestamp = new Date().getTime();
         const { data: profileData, error: profileError } = await supabase
           .from('profiles')
           .select('must_change_password')
@@ -67,13 +71,27 @@ function App() {
           .maybeSingle();
 
         if (profileError) {
+          console.error('[Password Check] Error fetching profile:', profileError);
+          setMustChangePassword(false);
+          return;
+        }
+
+        if (!profileData) {
+          console.warn('[Password Check] No profile found for user');
           setMustChangePassword(false);
           return;
         }
 
         const mustChange = profileData?.must_change_password === true;
+        console.log('[Password Check] Profile data:', {
+          must_change_password: profileData?.must_change_password,
+          mustChange,
+          timestamp
+        });
+
         setMustChangePassword(mustChange);
       } catch (err) {
+        console.error('[Password Check] Exception:', err);
         setMustChangePassword(false);
       }
     };
