@@ -92,57 +92,80 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       if (error) throw error;
 
       if (data.user) {
-        // Create mock profile immediately
         const mockProfile = { ...createMockProfile(data.user, name, userType), affiliatewp_id: affiliatewpId };
         set({ user: data.user, profile: mockProfile });
 
-        // Try to create real profile in background
-        try {
-          // First check if profile already exists
-          const { data: existingProfile } = await supabase
-            .from('profiles')
-            .select('*')
-            .eq('user_id', data.user.id)
-            .maybeSingle();
+        let profileCreated = false;
+        let retryCount = 0;
+        const maxRetries = 3;
 
-          if (existingProfile) {
-            set({ profile: existingProfile });
-          } else {
-            // Create new profile
-            const { data: profile, error: createError } = await supabase
+        while (!profileCreated && retryCount < maxRetries) {
+          try {
+            const { data: existingProfile } = await supabase
               .from('profiles')
-              .insert({
-                user_id: data.user.id,
-                company_name: name,
-                company_email: email,
-                subscription_plan: userType === 'management' ? 'enterprise' : 'professional',
-                user_role: userType === 'management' ? 'admin' : 'sales_rep',
-                affiliatewp_id: affiliatewpId
-              })
-              .select()
-              .single();
+              .select('*')
+              .eq('user_id', data.user.id)
+              .maybeSingle();
 
-            if (createError) {
-              // Handle duplicate key error by fetching existing profile
-              if (createError.code === '23505') {
-                const { data: retryProfile } = await supabase
-                  .from('profiles')
-                  .select('*')
-                  .eq('user_id', data.user.id)
-                  .maybeSingle();
+            if (existingProfile) {
+              console.log('[AuthStore] Profile already exists for user');
+              set({ profile: existingProfile });
+              profileCreated = true;
+            } else {
+              console.log(`[AuthStore] Creating profile (attempt ${retryCount + 1}/${maxRetries})`);
 
-                if (retryProfile) {
-                  set({ profile: retryProfile });
+              const { data: profile, error: createError } = await supabase
+                .from('profiles')
+                .insert({
+                  user_id: data.user.id,
+                  company_name: name,
+                  company_email: email,
+                  subscription_plan: userType === 'management' ? 'enterprise' : 'professional',
+                  user_role: userType === 'management' ? 'manager' : 'sales_rep',
+                  affiliatewp_id: affiliatewpId
+                })
+                .select()
+                .single();
+
+              if (createError) {
+                console.error('[AuthStore] Profile creation error:', createError);
+
+                if (createError.code === '23505') {
+                  const { data: retryProfile } = await supabase
+                    .from('profiles')
+                    .select('*')
+                    .eq('user_id', data.user.id)
+                    .maybeSingle();
+
+                  if (retryProfile) {
+                    console.log('[AuthStore] Profile exists after duplicate key error');
+                    set({ profile: retryProfile });
+                    profileCreated = true;
+                  }
+                } else {
+                  retryCount++;
+                  if (retryCount < maxRetries) {
+                    console.warn(`[AuthStore] Retrying profile creation in 1 second...`);
+                    await new Promise(resolve => setTimeout(resolve, 1000));
+                  }
                 }
-              } else {
-                // Failed to create profile, using mock
+              } else if (profile) {
+                console.log('[AuthStore] Profile created successfully');
+                set({ profile });
+                profileCreated = true;
               }
-            } else if (profile) {
-              set({ profile });
+            }
+          } catch (profileError) {
+            console.error('[AuthStore] Exception during profile creation:', profileError);
+            retryCount++;
+            if (retryCount < maxRetries) {
+              await new Promise(resolve => setTimeout(resolve, 1000));
             }
           }
-        } catch (profileError) {
-          // Using mock profile as fallback
+        }
+
+        if (!profileCreated) {
+          console.error('[AuthStore] CRITICAL: Failed to create profile after all retries');
         }
       }
     } catch (error) {
