@@ -142,16 +142,16 @@ const AgencyReports: React.FC = () => {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col space-y-4 md:flex-row md:items-center md:justify-between md:space-y-0">
         <div>
-          <h1 className="text-3xl font-bold text-gray-900">Reports & Analytics</h1>
-          <p className="text-gray-600 mt-1">Generate insights and track performance</p>
+          <h1 className="text-2xl md:text-3xl font-bold text-gray-900">Reports & Analytics</h1>
+          <p className="text-sm md:text-base text-gray-600 mt-1">Generate insights and track performance</p>
         </div>
-        <div className="flex items-center space-x-3">
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center space-y-2 sm:space-y-0 sm:space-x-3">
           <select
             value={selectedPeriod}
             onChange={(e) => setSelectedPeriod(e.target.value)}
-            className="border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-academy-blue-500 focus:border-academy-blue-500"
+            className="w-full sm:w-auto border border-gray-300 rounded-lg px-3 py-2.5 focus:ring-2 focus:ring-academy-blue-500 focus:border-academy-blue-500 min-h-[44px]"
           >
             <option value="current_month">Current Month</option>
             <option value="last_month">Last Month</option>
@@ -159,21 +159,21 @@ const AgencyReports: React.FC = () => {
             <option value="last_quarter">Last Quarter</option>
             <option value="ytd">Year to Date</option>
           </select>
-          <button className="bg-gray-100 text-gray-700 px-4 py-2 rounded-lg flex items-center space-x-2 hover:bg-gray-200 transition-colors">
+          <button className="w-full sm:w-auto bg-gray-100 text-gray-700 px-4 py-2.5 rounded-lg flex items-center justify-center space-x-2 hover:bg-gray-200 transition-colors min-h-[44px]">
             <Settings className="w-4 h-4" />
-            <span>Settings</span>
+            <span className="sm:inline">Settings</span>
           </button>
-          <button className="bg-academy-blue-600 text-white px-4 py-2 rounded-lg flex items-center space-x-2 hover:bg-academy-blue-700 transition-colors">
+          <button className="w-full sm:w-auto bg-academy-blue-600 text-white px-4 py-2.5 rounded-lg flex items-center justify-center space-x-2 hover:bg-academy-blue-700 transition-colors min-h-[44px]">
             <Plus className="w-4 h-4" />
-            <span>New Report</span>
+            <span className="sm:inline">New Report</span>
           </button>
         </div>
       </div>
 
       {/* Tabs */}
       <div className="bg-white rounded-xl shadow-sm border border-gray-100">
-        <div className="border-b border-gray-100">
-          <nav className="flex space-x-8 px-6">
+        <div className="border-b border-gray-100 overflow-x-auto">
+          <nav className="flex space-x-4 md:space-x-8 px-4 md:px-6 min-w-max">
             {[
               { id: 'dashboard', label: 'Dashboard' },
               { id: 'reports', label: 'Reports', count: reports.length },
@@ -183,7 +183,7 @@ const AgencyReports: React.FC = () => {
               <button
                 key={tab.id}
                 onClick={() => setActiveTab(tab.id)}
-                className={`py-4 px-1 border-b-2 font-medium text-sm ${
+                className={`py-3 md:py-4 px-1 border-b-2 font-medium text-sm whitespace-nowrap touch-manipulation ${
                   activeTab === tab.id
                     ? 'border-academy-blue-500 text-academy-blue-600'
                     : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
@@ -200,7 +200,7 @@ const AgencyReports: React.FC = () => {
           </nav>
         </div>
 
-        <div className="p-6">
+        <div className="p-4 md:p-6">
           {activeTab === 'dashboard' && (
             <div className="space-y-6">
               {/* Key Metrics */}
@@ -209,7 +209,7 @@ const AgencyReports: React.FC = () => {
                   <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-academy-blue-600"></div>
                 </div>
               ) : analyticsData ? (
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6">
                   {[
                     { title: 'Total Revenue', value: `$${analyticsData.totalRevenue.toLocaleString()}`, change: `${analyticsData.conversionRate}%`, icon: DollarSign, color: 'bg-green-500' },
                     { title: 'Active Deals', value: analyticsData.totalDeals.toString(), change: `${analyticsData.totalLeads} leads`, icon: Target, color: 'bg-blue-500' },
@@ -218,29 +218,29 @@ const AgencyReports: React.FC = () => {
                   ].map((metric, index) => {
                     const Icon = metric.icon;
                     return (
-                      <div key={index} className="bg-white border border-gray-200 rounded-lg p-6">
+                      <div key={index} className="bg-white border border-gray-200 rounded-lg p-4 md:p-6">
                         <div className="flex items-center justify-between mb-4">
-                          <div className={`w-12 h-12 ${metric.color} rounded-lg flex items-center justify-center`}>
-                            <Icon className="w-6 h-6 text-white" />
+                          <div className={`w-10 h-10 md:w-12 md:h-12 ${metric.color} rounded-lg flex items-center justify-center`}>
+                            <Icon className="w-5 h-5 md:w-6 md:h-6 text-white" />
                           </div>
-                          <span className="text-sm font-medium text-gray-600">{metric.change}</span>
+                          <span className="text-xs md:text-sm font-medium text-gray-600">{metric.change}</span>
                         </div>
-                        <h3 className="text-2xl font-bold text-gray-900 mb-1">{metric.value}</h3>
+                        <h3 className="text-xl md:text-2xl font-bold text-gray-900 mb-1">{metric.value}</h3>
                         <p className="text-gray-600 text-sm">{metric.title}</p>
                       </div>
                     );
                   })}
                 </div>
               ) : (
-                <div className="text-center py-12">
-                  <Award className="w-16 h-16 text-gray-300 mx-auto mb-4" />
-                  <h3 className="text-lg font-medium text-gray-900 mb-2">No Data Available</h3>
-                  <p className="text-gray-500">Start generating leads to see analytics.</p>
+                <div className="text-center py-8 md:py-12 px-4">
+                  <Award className="w-12 h-12 md:w-16 md:h-16 text-gray-300 mx-auto mb-4" />
+                  <h3 className="text-base md:text-lg font-medium text-gray-900 mb-2">No Data Available</h3>
+                  <p className="text-sm md:text-base text-gray-500">Start generating leads to see analytics.</p>
                 </div>
               )}
 
               {/* Charts */}
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 md:gap-6">
 
               </div>
             </div>
@@ -248,9 +248,9 @@ const AgencyReports: React.FC = () => {
 
           {activeTab === 'reports' && (
             <div className="space-y-6">
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6">
                 {reports.map((report) => (
-                  <div key={report.id} className="bg-white border border-gray-200 rounded-lg p-6 hover:shadow-sm transition-shadow">
+                  <div key={report.id} className="bg-white border border-gray-200 rounded-lg p-4 md:p-6 hover:shadow-sm transition-shadow">
                     <div className="flex items-start justify-between mb-4">
                       <div className="flex items-center space-x-3">
                         <div className="w-10 h-10 bg-academy-blue-100 rounded-lg flex items-center justify-center">
@@ -301,7 +301,7 @@ const AgencyReports: React.FC = () => {
                     </div>
 
                     <div className="mt-4 pt-4 border-t border-gray-100">
-                      <button className="w-full bg-academy-blue-600 text-white py-2 px-4 rounded-lg hover:bg-academy-blue-700 transition-colors text-sm">
+                      <button className="w-full bg-academy-blue-600 text-white py-2.5 px-4 rounded-lg hover:bg-academy-blue-700 transition-colors text-sm min-h-[44px]">
                         Generate Report
                       </button>
                     </div>
@@ -313,7 +313,8 @@ const AgencyReports: React.FC = () => {
 
           {activeTab === 'scheduled' && (
             <div className="space-y-6">
-              <div className="bg-white border border-gray-200 rounded-lg overflow-hidden">
+              {/* Desktop Table View */}
+              <div className="hidden md:block bg-white border border-gray-200 rounded-lg overflow-hidden">
                 <div className="px-6 py-4 border-b border-gray-200">
                   <h3 className="text-lg font-semibold text-gray-900">Scheduled Reports</h3>
                 </div>
@@ -376,17 +377,70 @@ const AgencyReports: React.FC = () => {
                   </table>
                 </div>
               </div>
+
+              {/* Mobile Card View */}
+              <div className="md:hidden space-y-3">
+                {reports.filter(r => r.status === 'active').map((report) => (
+                  <div key={report.id} className="bg-white border border-gray-200 rounded-lg p-4 space-y-3">
+                    <div className="flex items-start space-x-3">
+                      <FileText className="w-5 h-5 text-academy-blue-600 mt-0.5 flex-shrink-0" />
+                      <div className="flex-1 min-w-0">
+                        <div className="text-sm font-medium text-gray-900">{report.name}</div>
+                        <div className="text-xs text-gray-500 mt-1">{report.category}</div>
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-3 text-sm">
+                      <div>
+                        <div className="text-xs text-gray-500">Frequency</div>
+                        <span className={`inline-flex mt-1 px-2 py-1 text-xs font-semibold rounded-full ${getFrequencyColor(report.frequency)}`}>
+                          {report.frequency}
+                        </span>
+                      </div>
+                      <div>
+                        <div className="text-xs text-gray-500">Status</div>
+                        <span className="inline-flex mt-1 px-2 py-1 text-xs font-semibold rounded-full bg-green-100 text-green-800">
+                          Active
+                        </span>
+                      </div>
+                      <div>
+                        <div className="text-xs text-gray-500">Next Run</div>
+                        <div className="font-medium text-gray-900 text-xs mt-1">{new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toLocaleDateString()}</div>
+                      </div>
+                      <div>
+                        <div className="text-xs text-gray-500">Recipients</div>
+                        <div className="font-medium text-gray-900 text-xs mt-1">{report.recipients.length} recipients</div>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center space-x-2 pt-2 border-t border-gray-100">
+                      <button className="flex-1 text-blue-600 hover:text-blue-900 py-2 px-3 rounded-lg hover:bg-blue-50 transition-colors flex items-center justify-center space-x-2 min-h-[44px]">
+                        <Eye className="w-4 h-4" />
+                        <span className="text-sm">View</span>
+                      </button>
+                      <button className="flex-1 text-green-600 hover:text-green-900 py-2 px-3 rounded-lg hover:bg-green-50 transition-colors flex items-center justify-center space-x-2 min-h-[44px]">
+                        <Download className="w-4 h-4" />
+                        <span className="text-sm">Download</span>
+                      </button>
+                      <button className="flex-1 text-gray-600 hover:text-gray-900 py-2 px-3 rounded-lg hover:bg-gray-50 transition-colors flex items-center justify-center space-x-2 min-h-[44px]">
+                        <Settings className="w-4 h-4" />
+                        <span className="text-sm">Settings</span>
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
             </div>
           )}
 
           {activeTab === 'custom' && (
-            <div className="text-center py-12">
-              <BarChart3 className="w-16 h-16 text-gray-300 mx-auto mb-4" />
-              <h3 className="text-lg font-medium text-gray-900 mb-2">Custom Report Builder</h3>
-              <p className="text-gray-500 mb-4">
+            <div className="text-center py-8 md:py-12 px-4">
+              <BarChart3 className="w-12 h-12 md:w-16 md:h-16 text-gray-300 mx-auto mb-4" />
+              <h3 className="text-base md:text-lg font-medium text-gray-900 mb-2">Custom Report Builder</h3>
+              <p className="text-sm md:text-base text-gray-500 mb-4">
                 Create custom reports with your specific metrics and filters.
               </p>
-              <button className="bg-academy-blue-600 text-white px-4 py-2 rounded-lg hover:bg-academy-blue-700 transition-colors">
+              <button className="bg-academy-blue-600 text-white px-6 py-3 rounded-lg hover:bg-academy-blue-700 transition-colors min-h-[44px]">
                 Build Custom Report
               </button>
             </div>

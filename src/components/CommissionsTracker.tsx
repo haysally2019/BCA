@@ -252,23 +252,23 @@ const CommissionsTracker: React.FC = () => {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col space-y-4 md:flex-row md:items-center md:justify-between md:space-y-0">
         <div>
-          <h1 className="text-3xl font-bold text-gray-900">Commissions</h1>
-          <p className="text-gray-600 mt-1">Track and manage sales commissions</p>
+          <h1 className="text-2xl md:text-3xl font-bold text-gray-900">Commissions</h1>
+          <p className="text-sm md:text-base text-gray-600 mt-1">Track and manage sales commissions</p>
         </div>
-        <div className="flex items-center space-x-3">
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center space-y-2 sm:space-y-0 sm:space-x-3">
           <select
             value={filterPeriod}
             onChange={(e) => setFilterPeriod(e.target.value)}
-            className="border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-academy-blue-500 focus:border-academy-blue-500"
+            className="w-full sm:w-auto border border-gray-300 rounded-lg px-3 py-2.5 focus:ring-2 focus:ring-academy-blue-500 focus:border-academy-blue-500 min-h-[44px]"
           >
             <option value="current_quarter">Current Quarter</option>
             <option value="last_quarter">Last Quarter</option>
             <option value="ytd">Year to Date</option>
             <option value="last_year">Last Year</option>
           </select>
-          <button className="bg-gray-100 text-gray-700 px-4 py-2 rounded-lg flex items-center space-x-2 hover:bg-gray-200 transition-colors">
+          <button className="w-full sm:w-auto bg-gray-100 text-gray-700 px-4 py-2.5 rounded-lg flex items-center justify-center space-x-2 hover:bg-gray-200 transition-colors min-h-[44px]">
             <Download className="w-4 h-4" />
             <span>Export</span>
           </button>
@@ -276,7 +276,7 @@ const CommissionsTracker: React.FC = () => {
       </div>
 
       {/* Commission Summary */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4">
         {[
           { title: 'Total Commissions', value: `$${totals.totalCommissions.toLocaleString()}`, icon: DollarSign, color: 'bg-green-500', change: '+23%' },
           { title: 'Paid', value: `$${totals.paidCommissions.toLocaleString()}`, icon: CheckCircle, color: 'bg-emerald-500', change: '+18%' },
@@ -287,14 +287,14 @@ const CommissionsTracker: React.FC = () => {
         ].map((metric, index) => {
           const Icon = metric.icon;
           return (
-            <div key={index} className="bg-white rounded-lg p-4 shadow-sm border border-gray-100">
-              <div className="flex items-center justify-between mb-2">
-                <div className={`w-8 h-8 ${metric.color} rounded-lg flex items-center justify-center`}>
-                  <Icon className="w-4 h-4 text-white" />
+            <div key={index} className="bg-white rounded-lg p-4 sm:p-5 shadow-sm border border-gray-100">
+              <div className="flex items-center justify-between mb-3">
+                <div className={`w-10 h-10 sm:w-8 sm:h-8 ${metric.color} rounded-lg flex items-center justify-center`}>
+                  <Icon className="w-5 h-5 sm:w-4 sm:h-4 text-white" />
                 </div>
-                <span className="text-xs text-green-600 font-medium">{metric.change}</span>
+                <span className="text-xs sm:text-xs text-green-600 font-medium">{metric.change}</span>
               </div>
-              <div className="text-xl font-bold text-gray-900">{metric.value}</div>
+              <div className="text-2xl sm:text-xl font-bold text-gray-900">{metric.value}</div>
               <div className="text-sm text-gray-600">{metric.title}</div>
             </div>
           );
@@ -303,8 +303,8 @@ const CommissionsTracker: React.FC = () => {
 
       {/* Tabs */}
       <div className="bg-white rounded-xl shadow-sm border border-gray-100">
-        <div className="border-b border-gray-100">
-          <nav className="flex space-x-8 px-6">
+        <div className="border-b border-gray-100 overflow-x-auto">
+          <nav className="flex space-x-4 md:space-x-8 px-4 md:px-6 min-w-max">
             {[
               { id: 'overview', label: 'Overview' },
               { id: 'commissions', label: 'Commission Details', count: commissions.length },
@@ -315,7 +315,7 @@ const CommissionsTracker: React.FC = () => {
               <button
                 key={tab.id}
                 onClick={() => setActiveTab(tab.id)}
-                className={`py-4 px-1 border-b-2 font-medium text-sm ${
+                className={`py-3 md:py-4 px-1 border-b-2 font-medium text-sm whitespace-nowrap touch-manipulation ${
                   activeTab === tab.id
                     ? 'border-academy-blue-500 text-academy-blue-600'
                     : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
@@ -332,14 +332,14 @@ const CommissionsTracker: React.FC = () => {
           </nav>
         </div>
 
-        <div className="p-6">
+        <div className="p-4 md:p-6">
           {activeTab === 'overview' && (
             <div className="space-y-6">
               {/* Charts */}
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                <div className="bg-gray-50 rounded-lg p-6">
-                  <h3 className="text-lg font-semibold text-gray-900 mb-4">Monthly Commission Trends</h3>
-                  <ResponsiveContainer width="100%" height={300}>
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 md:gap-6">
+                <div className="bg-gray-50 rounded-lg p-4 md:p-6">
+                  <h3 className="text-base md:text-lg font-semibold text-gray-900 mb-4">Monthly Commission Trends</h3>
+                  <ResponsiveContainer width="100%" height={250}>
                     <LineChart data={monthlyData}>
                       <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
                       <XAxis dataKey="month" stroke="#6b7280" fontSize={12} />
@@ -350,9 +350,9 @@ const CommissionsTracker: React.FC = () => {
                   </ResponsiveContainer>
                 </div>
 
-                <div className="bg-gray-50 rounded-lg p-6">
-                  <h3 className="text-lg font-semibold text-gray-900 mb-4">Rep Performance</h3>
-                  <ResponsiveContainer width="100%" height={300}>
+                <div className="bg-gray-50 rounded-lg p-4 md:p-6">
+                  <h3 className="text-base md:text-lg font-semibold text-gray-900 mb-4">Rep Performance</h3>
+                  <ResponsiveContainer width="100%" height={250}>
                     <BarChart data={salesReps}>
                       <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
                       <XAxis dataKey="name" stroke="#6b7280" fontSize={12} />
@@ -365,9 +365,9 @@ const CommissionsTracker: React.FC = () => {
               </div>
 
               {/* Top Performers */}
-              <div className="bg-gray-50 rounded-lg p-6">
-                <h3 className="text-lg font-semibold text-gray-900 mb-4">Top Performers This Quarter</h3>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div className="bg-gray-50 rounded-lg p-4 md:p-6">
+                <h3 className="text-base md:text-lg font-semibold text-gray-900 mb-4">Top Performers This Quarter</h3>
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                   {salesReps.sort((a, b) => b.ytd_commission - a.ytd_commission).slice(0, 3).map((rep, index) => (
                     <div key={rep.id} className="bg-white p-4 rounded-lg border border-gray-200">
                       <div className="flex items-center space-x-3 mb-3">
@@ -421,7 +421,7 @@ const CommissionsTracker: React.FC = () => {
               </div>
 
               {/* Commissions Table */}
-              <div className="overflow-x-auto">
+              <div className="hidden md:block overflow-x-auto">
                 <table className="w-full">
                   <thead className="bg-gray-50">
                     <tr>
@@ -479,6 +479,59 @@ const CommissionsTracker: React.FC = () => {
                 </table>
               </div>
 
+              {/* Mobile Commission Cards */}
+              <div className="md:hidden space-y-3">
+                {filteredCommissions.map(commission => (
+                  <div key={commission.id} className="bg-white border border-gray-200 rounded-lg p-4 space-y-3">
+                    <div className="flex items-start justify-between">
+                      <div className="flex-1">
+                        <div className="text-sm font-medium text-gray-900">
+                          {commission.deal?.title || `Deal #${commission.deal_id.slice(0, 8)}`}
+                        </div>
+                        <div className="text-xs text-gray-500 mt-1">{commission.quarter}</div>
+                      </div>
+                      <div className="flex items-center space-x-2">
+                        {getStatusIcon(commission.status)}
+                        <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full border ${getStatusColor(commission.status)}`}>
+                          {commission.status}
+                        </span>
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-3 text-sm">
+                      <div>
+                        <div className="text-xs text-gray-500">Deal Value</div>
+                        <div className="font-medium text-gray-900">${commission.deal_value.toLocaleString()}</div>
+                      </div>
+                      <div>
+                        <div className="text-xs text-gray-500">Rate</div>
+                        <div className="font-medium text-gray-900">{commission.commission_rate}%</div>
+                      </div>
+                      <div className="col-span-2">
+                        <div className="text-xs text-gray-500">Commission</div>
+                        <div className="text-lg font-bold text-green-600">${commission.commission_amount.toFixed(2)}</div>
+                      </div>
+                    </div>
+
+                    <div>
+                      <label className="text-xs text-gray-500 block mb-1">Update Status</label>
+                      <select
+                        value={commission.status}
+                        onChange={(e) => {
+                          const newStatus = e.target.value as Commission['status'];
+                          handleUpdateCommissionStatus(commission.id, newStatus);
+                        }}
+                        className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-academy-blue-500 focus:border-academy-blue-500 min-h-[44px]"
+                      >
+                        <option value="pending">Pending</option>
+                        <option value="approved">Approved</option>
+                        <option value="paid">Paid</option>
+                      </select>
+                    </div>
+                  </div>
+                ))}
+              </div>
+
               {filteredCommissions.length === 0 && (
                 <div className="text-center py-12">
                   <DollarSign className="w-16 h-16 text-gray-300 mx-auto mb-4" />
@@ -491,9 +544,9 @@ const CommissionsTracker: React.FC = () => {
 
           {activeTab === 'reps' && (
             <div className="space-y-6">
-              <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 md:gap-6">
                 {salesReps.map(rep => (
-                  <div key={rep.id} className="bg-white border border-gray-200 rounded-lg p-6">
+                  <div key={rep.id} className="bg-white border border-gray-200 rounded-lg p-4 md:p-6">
                     <div className="flex items-center space-x-3 mb-4">
                       <div className="w-12 h-12 bg-academy-blue-100 rounded-full flex items-center justify-center">
                         <span className="text-academy-blue-600 font-semibold text-lg">
@@ -552,13 +605,13 @@ const CommissionsTracker: React.FC = () => {
           )}
 
           {activeTab === 'payouts' && (
-            <div className="text-center py-12">
-              <DollarSign className="w-16 h-16 text-gray-300 mx-auto mb-4" />
-              <h3 className="text-lg font-medium text-gray-900 mb-2">Commission Payouts</h3>
-              <p className="text-gray-500 mb-4">
+            <div className="text-center py-8 md:py-12 px-4">
+              <DollarSign className="w-12 h-12 md:w-16 md:h-16 text-gray-300 mx-auto mb-4" />
+              <h3 className="text-base md:text-lg font-medium text-gray-900 mb-2">Commission Payouts</h3>
+              <p className="text-sm md:text-base text-gray-500 mb-4">
                 Manage commission payments and payout schedules.
               </p>
-              <button className="bg-academy-blue-600 text-white px-4 py-2 rounded-lg hover:bg-academy-blue-700 transition-colors">
+              <button className="bg-academy-blue-600 text-white px-6 py-3 rounded-lg hover:bg-academy-blue-700 transition-colors min-h-[44px]">
                 Process Payouts
               </button>
             </div>
@@ -581,7 +634,7 @@ const CommissionsTracker: React.FC = () => {
                 </button>
               </div>
 
-              <div className="bg-academy-blue-50 border border-academy-blue-200 rounded-lg p-6">
+              <div className="bg-academy-blue-50 border border-academy-blue-200 rounded-lg p-4 md:p-6">
                 <div className="flex items-center space-x-3 mb-4">
                   <Users className="w-6 h-6 text-academy-blue-600" />
                   <h4 className="text-lg font-semibold text-academy-blue-900">AffiliateWP Integration</h4>
@@ -589,7 +642,7 @@ const CommissionsTracker: React.FC = () => {
                 <p className="text-academy-blue-800 mb-4">
                   Automatically track and manage affiliate commissions from your AffiliateWP system.
                 </p>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                   <div className="bg-white p-4 rounded-lg">
                     <h5 className="font-medium text-gray-900 mb-2">Webhook Endpoint</h5>
                     <code className="text-sm bg-gray-100 p-2 rounded block">
@@ -630,10 +683,10 @@ const CommissionsTracker: React.FC = () => {
               </div>
             </div>
             ) : (
-              <div className="text-center py-12">
-                <Users className="w-16 h-16 text-gray-300 mx-auto mb-4" />
-                <h3 className="text-lg font-medium text-gray-900 mb-2">Access Restricted</h3>
-                <p className="text-gray-500">
+              <div className="text-center py-8 md:py-12 px-4">
+                <Users className="w-12 h-12 md:w-16 md:h-16 text-gray-300 mx-auto mb-4" />
+                <h3 className="text-base md:text-lg font-medium text-gray-900 mb-2">Access Restricted</h3>
+                <p className="text-sm md:text-base text-gray-500">
                   Affiliate program management is only available for enterprise accounts.
                 </p>
               </div>
@@ -644,9 +697,9 @@ const CommissionsTracker: React.FC = () => {
 
       {/* Affiliate Management Modal */}
       {showAffiliateManagement && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-xl max-w-6xl w-full mx-4 max-h-[90vh] overflow-y-auto">
-            <div className="p-6 border-b border-gray-100 flex items-center justify-between">
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-xl max-w-6xl w-full max-h-[90vh] overflow-y-auto">
+            <div className="p-4 md:p-6 border-b border-gray-100 flex items-center justify-between">
               <h3 className="text-lg font-semibold text-gray-900">Affiliate Management</h3>
               <button
                 onClick={() => setShowAffiliateManagement(false)}
@@ -655,7 +708,7 @@ const CommissionsTracker: React.FC = () => {
                 ✕
               </button>
             </div>
-            <div className="p-6">
+            <div className="p-4 md:p-6">
               <AffiliateManagement />
             </div>
           </div>
