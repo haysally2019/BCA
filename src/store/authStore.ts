@@ -286,6 +286,33 @@ export const useAuthStore = create<AuthState>((set, get) => ({
             return;
           }
 
+          if (event === 'TOKEN_REFRESHED') {
+            if (session?.user) {
+              const currentProfile = get().profile;
+
+              if (currentProfile?.user_id === session.user.id) {
+                set({ user: session.user });
+              } else {
+                set({ user: session.user, profile: createMockProfile(session.user) });
+
+                try {
+                  const { data: profile, error: profileError } = await supabase
+                    .from('profiles')
+                    .select('*')
+                    .eq('user_id', session.user.id)
+                    .maybeSingle();
+
+                  if (!profileError && profile) {
+                    set({ profile });
+                  }
+                } catch (error) {
+                  console.log('[AuthStore] Error fetching profile after token refresh');
+                }
+              }
+            }
+            return;
+          }
+
           if (event === 'USER_UPDATED') {
             if (session?.user) {
               set({ user: session.user });
