@@ -1,4 +1,5 @@
 import React from 'react';
+import { NavLink } from 'react-router-dom';
 import {
   Home,
   Users,
@@ -13,12 +14,7 @@ import {
 } from 'lucide-react';
 import { useAuthStore } from '../store/authStore';
 
-interface SidebarProps {
-  activeView: string;
-  onViewChange: (view: string) => void;
-}
-
-const Sidebar: React.FC<SidebarProps> = ({ activeView, onViewChange }) => {
+const Sidebar: React.FC = () => {
   const { profile } = useAuthStore();
 
   // Different menu items based on user type
@@ -37,36 +33,36 @@ const Sidebar: React.FC<SidebarProps> = ({ activeView, onViewChange }) => {
       // Management Menu - Full access including team management
       if (isManager) {
         return [
-          { id: 'agency-dashboard', label: 'Dashboard', icon: Home },
-          { id: 'prospects', label: 'Leads', icon: Users },
-          { id: 'sales-pipeline', label: 'Pipeline', icon: Target },
-          { id: 'team', label: 'Team Management', icon: Building2 },
-          { id: 'commissions', label: 'Commissions', icon: DollarSign },
-          { id: 'reports', label: 'Reports & Analytics', icon: FileText },
-          { id: 'sales-tools', label: 'Sales Tools', icon: Briefcase },
-          { id: 'settings', label: 'Settings', icon: Settings },
+          { path: '/agency-dashboard', label: 'Dashboard', icon: Home },
+          { path: '/prospects', label: 'Leads', icon: Users },
+          { path: '/sales-pipeline', label: 'Pipeline', icon: Target },
+          { path: '/team', label: 'Team Management', icon: Building2 },
+          { path: '/commissions', label: 'Commissions', icon: DollarSign },
+          { path: '/reports', label: 'Reports & Analytics', icon: FileText },
+          { path: '/sales-tools', label: 'Sales Tools', icon: Briefcase },
+          { path: '/settings', label: 'Settings', icon: Settings },
         ];
       }
 
       // Sales Rep Menu - No team management features
       return [
-        { id: 'agency-dashboard', label: 'Dashboard', icon: Home },
-        { id: 'prospects', label: 'Leads', icon: Users },
-        { id: 'sales-pipeline', label: 'Pipeline', icon: Target },
-        { id: 'commissions', label: 'Commissions', icon: DollarSign },
-        { id: 'sales-tools', label: 'Tools', icon: Briefcase },
-        { id: 'reports', label: 'My Reports', icon: FileText },
-        { id: 'settings', label: 'Settings', icon: Settings },
+        { path: '/agency-dashboard', label: 'Dashboard', icon: Home },
+        { path: '/prospects', label: 'Leads', icon: Users },
+        { path: '/sales-pipeline', label: 'Pipeline', icon: Target },
+        { path: '/commissions', label: 'Commissions', icon: DollarSign },
+        { path: '/sales-tools', label: 'Tools', icon: Briefcase },
+        { path: '/reports', label: 'My Reports', icon: FileText },
+        { path: '/settings', label: 'Settings', icon: Settings },
       ];
     } else {
       // Default Menu
       return [
-        { id: 'dashboard', label: 'Dashboard', icon: Home },
-        { id: 'leads', label: 'Leads', icon: Users },
-        { id: 'pipeline', label: 'Pipeline', icon: Target },
-        { id: 'calendar', label: 'Calendar', icon: Calendar },
-        { id: 'analytics', label: 'Analytics', icon: BarChart3 },
-        { id: 'settings', label: 'Settings', icon: Settings },
+        { path: '/dashboard', label: 'Dashboard', icon: Home },
+        { path: '/leads', label: 'Leads', icon: Users },
+        { path: '/pipeline', label: 'Pipeline', icon: Target },
+        { path: '/calendar', label: 'Calendar', icon: Calendar },
+        { path: '/analytics', label: 'Analytics', icon: BarChart3 },
+        { path: '/settings', label: 'Settings', icon: Settings },
       ];
     }
   };
@@ -125,18 +121,20 @@ const Sidebar: React.FC<SidebarProps> = ({ activeView, onViewChange }) => {
           {menuItems.map((item) => {
             const Icon = item.icon;
             return (
-              <li key={item.id}>
-                <button
-                  onClick={() => onViewChange(item.id)}
-                  className={`w-full flex items-center space-x-2 px-2.5 py-2 rounded-lg transition-all duration-200 text-sm font-medium ${
-                    activeView === item.id
-                      ? 'bg-academy-blue-50 text-academy-blue-700 border border-academy-blue-200'
-                      : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
-                  }`}
+              <li key={item.path}>
+                <NavLink
+                  to={item.path}
+                  className={({ isActive }) =>
+                    `w-full flex items-center space-x-2 px-2.5 py-2 rounded-lg transition-all duration-200 text-sm font-medium ${
+                      isActive
+                        ? 'bg-academy-blue-50 text-academy-blue-700 border border-academy-blue-200'
+                        : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
+                    }`
+                  }
                 >
                   <Icon className="w-4 h-4 flex-shrink-0" />
                   <span>{item.label}</span>
-                </button>
+                </NavLink>
               </li>
             );
           })}

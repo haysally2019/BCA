@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { BrowserRouter, Routes, Route, Navigate, useLocation, useNavigate } from 'react-router-dom';
 import { Toaster } from 'react-hot-toast';
 import Sidebar from './components/Sidebar';
 import MobileNav from './components/MobileNav';
@@ -22,13 +23,24 @@ import { useAuthStore } from './store/authStore';
 import { supabase } from './lib/supabaseClient';
 import { logError } from './lib/errorUtils';
 
-function App() {
-  const [activeView, setActiveView] = useState('dashboard');
+function ScrollToTop() {
+  const { pathname } = useLocation();
+
+  useEffect(() => {
+    window.scrollTo(0, 0);
+  }, [pathname]);
+
+  return null;
+}
+
+function AppContent() {
   const [mustChangePassword, setMustChangePassword] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [showRecoveryUI, setShowRecoveryUI] = useState(false);
   const [recoveryAttempts, setRecoveryAttempts] = useState(0);
   const { user, profile, loading, initialize, refreshProfile } = useAuthStore();
+  const navigate = useNavigate();
+  const location = useLocation();
 
   useEffect(() => {
     let mounted = true;
@@ -106,12 +118,6 @@ function App() {
         if (loading) {
           console.warn('[App] Detected stuck loading state on tab visibility change');
           setShowRecoveryUI(true);
-        } else if (user) {
-          try {
-            await refreshProfile();
-          } catch (error) {
-            console.error('[App] Error refreshing profile on visibility change:', error);
-          }
         }
       }
     };
@@ -121,7 +127,7 @@ function App() {
     return () => {
       document.removeEventListener('visibilitychange', handleVisibilityChange);
     };
-  }, [loading, user, refreshProfile]);
+  }, [loading]);
 
   useEffect(() => {
     const checkPasswordChange = async () => {
@@ -171,69 +177,26 @@ function App() {
   }, [user, profile]);
 
   useEffect(() => {
-    // Set default view based on user type
-    const isAgencyUser = profile?.company_name === 'Blue Collar Academy' || 
-                        profile?.subscription_plan === 'enterprise' ||
-                        profile?.subscription_plan === 'professional';
-    
-    if (isAgencyUser) {
-      setActiveView('agency-dashboard');
-    } else {
-      setActiveView('dashboard');
-    }
-  }, [profile]);
+    if (profile && location.pathname === '/') {
+      const isAgencyUser = profile?.company_name === 'Blue Collar Academy' ||
+                          profile?.subscription_plan === 'enterprise' ||
+                          profile?.subscription_plan === 'professional';
 
-  const renderActiveView = () => {
-    // Management and Sales Rep Views
-    const isAgencyUser = profile?.company_name === 'Blue Collar Academy' ||
-                        profile?.subscription_plan === 'enterprise' ||
-                        profile?.subscription_plan === 'professional';
-
-    const isManager = profile?.user_role === 'admin' ||
-                     profile?.user_role === 'manager' ||
-                     profile?.subscription_plan === 'enterprise';
-
-    if (isAgencyUser) {
-      switch (activeView) {
-        case 'agency-dashboard':
-          return <AgencyDashboard />;
-        case 'prospects':
-          return <ProspectsManager />;
-        case 'sales-pipeline':
-          return <SalesPipeline />;
-        case 'commissions':
-          return <CommissionsTracker />;
-        case 'sales-tools':
-          return <SalesTools />;
-        case 'reports':
-          return <AgencyReports />;
-        case 'team':
-          return isManager ? <SalesTeam /> : <AgencyReports />;
-        case 'settings':
-          return <Settings />;
-        default:
-          return <AgencyDashboard />;
+      if (isAgencyUser) {
+        navigate('/agency-dashboard', { replace: true });
+      } else {
+        navigate('/dashboard', { replace: true });
       }
     }
+  }, [profile, location.pathname, navigate]);
 
-    // Client Views (Roofing Company)
-    switch (activeView) {
-      case 'dashboard':
-        return <Dashboard />;
-      case 'leads':
-        return <LeadManagement />;
-      case 'pipeline':
-        return <SalesPipeline />;
-      case 'calendar':
-        return <Calendar />;
-      case 'analytics':
-        return <Analytics />;
-      case 'settings':
-        return <Settings />;
-      default:
-        return <Dashboard />;
-    }
-  };
+  const isAgencyUser = profile?.company_name === 'Blue Collar Academy' ||
+                      profile?.subscription_plan === 'enterprise' ||
+                      profile?.subscription_plan === 'professional';
+
+  const isManager = profile?.user_role === 'admin' ||
+                   profile?.user_role === 'manager' ||
+                   profile?.subscription_plan === 'enterprise';
 
   const handleRecoveryRetry = async () => {
     setRecoveryAttempts(prev => prev + 1);
@@ -311,14 +274,13 @@ function App() {
 
   return (
     <ErrorBoundary>
+      <ScrollToTop />
       <div className="flex h-screen bg-gray-50">
         <ErrorBoundary>
-          <Sidebar activeView={activeView} onViewChange={setActiveView} />
+          <Sidebar />
         </ErrorBoundary>
         <ErrorBoundary>
           <MobileNav
-            activeView={activeView}
-            onViewChange={setActiveView}
             isOpen={mobileMenuOpen}
             onClose={() => setMobileMenuOpen(false)}
           />
@@ -328,7 +290,29 @@ function App() {
           <div className="flex-1 overflow-auto pt-14 md:pt-0">
             <main className="p-3 sm:p-4 lg:p-6">
               <ErrorBoundary>
-                {renderActiveView()}
+                <Routes>
+                  {/* Agency/Sales Routes */}
+                  <Route path="/agency-dashboard" element={<AgencyDashboard />} />
+                  <Route path="/prospects" element={<ProspectsManager />} />
+                  <Route path="/sales-pipeline" element={<SalesPipeline />} />
+                  <Route path="/commissions" element={<CommissionsTracker />} />
+                  <Route path="/sales-tools" element={<SalesTools />} />
+                  <Route path="/reports" element={<AgencyReports />} />
+                  <Route path="/team" element={isManager ? <SalesTeam /> : <AgencyReports />} />
+
+                  {/* Client Routes */}
+                  <Route path="/dashboard" element={<Dashboard />} />
+                  <Route path="/leads" element={<LeadManagement />} />
+                  <Route path="/pipeline" element={<SalesPipeline />} />
+                  <Route path="/calendar" element={<Calendar />} />
+                  <Route path="/analytics" element={<Analytics />} />
+
+                  {/* Shared Routes */}
+                  <Route path="/settings" element={<Settings />} />
+
+                  {/* Default Route */}
+                  <Route path="/" element={<Navigate to={isAgencyUser ? '/agency-dashboard' : '/dashboard'} replace />} />
+                </Routes>
               </ErrorBoundary>
             </main>
           </div>
@@ -336,6 +320,14 @@ function App() {
         <Toaster position="top-right" />
       </div>
     </ErrorBoundary>
+  );
+}
+
+function App() {
+  return (
+    <BrowserRouter>
+      <AppContent />
+    </BrowserRouter>
   );
 }
 
