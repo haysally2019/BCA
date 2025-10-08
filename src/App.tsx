@@ -26,18 +26,39 @@ function App() {
   const [activeView, setActiveView] = useState('dashboard');
   const [mustChangePassword, setMustChangePassword] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [showRecoveryUI, setShowRecoveryUI] = useState(false);
+  const [recoveryAttempts, setRecoveryAttempts] = useState(0);
   const { user, profile, loading, initialize, refreshProfile } = useAuthStore();
 
   useEffect(() => {
     let mounted = true;
     let authSubscription: { unsubscribe: () => void } | null = null;
+    let initTimeout: NodeJS.Timeout | null = null;
 
     const initializeAuth = async () => {
-      if (mounted) {
-        try {
-          authSubscription = await initialize();
-        } catch (error) {
-          logError(error, 'Failed to initialize auth');
+      if (!mounted) return;
+
+      try {
+        const initPromise = initialize();
+
+        initTimeout = setTimeout(() => {
+          if (mounted && loading) {
+            console.warn('[App] Auth initialization timeout - forcing completion');
+            setShowRecoveryUI(true);
+          }
+        }, 10000);
+
+        authSubscription = await initPromise;
+
+        if (initTimeout) {
+          clearTimeout(initTimeout);
+          initTimeout = null;
+        }
+      } catch (error) {
+        logError(error, 'Failed to initialize auth');
+        if (initTimeout) {
+          clearTimeout(initTimeout);
+          initTimeout = null;
         }
       }
     };
@@ -46,11 +67,61 @@ function App() {
 
     return () => {
       mounted = false;
+      if (initTimeout) {
+        clearTimeout(initTimeout);
+      }
       if (authSubscription?.unsubscribe) {
         authSubscription.unsubscribe();
       }
     };
   }, [initialize]);
+
+  useEffect(() => {
+    let recoveryTimeout: NodeJS.Timeout | null = null;
+
+    if (loading) {
+      recoveryTimeout = setTimeout(() => {
+        if (loading) {
+          console.warn('[App] Still loading after 5 seconds - showing recovery UI');
+          setShowRecoveryUI(true);
+        }
+      }, 5000);
+    } else {
+      setShowRecoveryUI(false);
+      setRecoveryAttempts(0);
+    }
+
+    return () => {
+      if (recoveryTimeout) {
+        clearTimeout(recoveryTimeout);
+      }
+    };
+  }, [loading]);
+
+  useEffect(() => {
+    const handleVisibilityChange = async () => {
+      if (document.visibilityState === 'visible') {
+        console.log('[App] Tab became visible - checking auth state');
+
+        if (loading) {
+          console.warn('[App] Detected stuck loading state on tab visibility change');
+          setShowRecoveryUI(true);
+        } else if (user) {
+          try {
+            await refreshProfile();
+          } catch (error) {
+            console.error('[App] Error refreshing profile on visibility change:', error);
+          }
+        }
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
+  }, [loading, user, refreshProfile]);
 
   useEffect(() => {
     const checkPasswordChange = async () => {
@@ -164,10 +235,53 @@ function App() {
     }
   };
 
+  const handleRecoveryRetry = async () => {
+    setRecoveryAttempts(prev => prev + 1);
+    setShowRecoveryUI(false);
+
+    try {
+      console.log('[App] Recovery retry attempt:', recoveryAttempts + 1);
+      await initialize();
+    } catch (error) {
+      logError(error, 'Recovery retry failed');
+      setShowRecoveryUI(true);
+    }
+  };
+
+  const handleForceReload = () => {
+    console.log('[App] Force reload triggered by user');
+    window.location.reload();
+  };
+
   if (loading) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-academy-blue-600"></div>
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-academy-blue-600 mx-auto mb-4"></div>
+          {showRecoveryUI && (
+            <div className="mt-6 max-w-md mx-auto bg-white p-6 rounded-lg shadow-md">
+              <p className="text-gray-700 mb-4">
+                Taking longer than expected...
+              </p>
+              <div className="space-y-2">
+                <button
+                  onClick={handleRecoveryRetry}
+                  className="w-full px-4 py-2 bg-academy-blue-600 text-white rounded-lg hover:bg-academy-blue-700 transition-colors"
+                >
+                  Retry Connection
+                </button>
+                {recoveryAttempts > 1 && (
+                  <button
+                    onClick={handleForceReload}
+                    className="w-full px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors"
+                  >
+                    Reload Page
+                  </button>
+                )}
+              </div>
+            </div>
+          )}
+        </div>
       </div>
     );
   }

@@ -170,59 +170,80 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     // Don't initialize if user was just signed out
     const { user: currentUser } = get();
     if (currentUser === null && get().loading === false) {
-      return null; // User was explicitly signed out, don't re-initialize
+      return null;
     }
+
+    const initTimeout = new Promise<null>((resolve) => {
+      setTimeout(() => {
+        console.warn('[AuthStore] Initialize timeout - forcing completion');
+        set({ loading: false });
+        resolve(null);
+      }, 8000);
+    });
 
     try {
       set({ loading: true });
-      const { data: { session }, error: getSessionError } = await supabase.auth.getSession();
 
-      // Handle invalid refresh token error
-      if (getSessionError && getSessionError.message.includes('Invalid Refresh Token')) {
-        await supabase.auth.signOut();
-        set({ user: null, profile: null, loading: false });
-        return null;
-      }
+      const initPromise = (async () => {
+        const { data: { session }, error: getSessionError } = await supabase.auth.getSession();
 
-      if (session?.user) {
-        // Create mock profile immediately
-        const mockProfile = createMockProfile(session.user);
-        set({ user: session.user, profile: mockProfile });
-
-        // Try to fetch real profile in background
-        try {
-          const { data: profile, error: profileError } = await supabase
-            .from('profiles')
-            .select('*')
-            .eq('user_id', session.user.id)
-            .maybeSingle();
-
-          if (profileError) {
-            throw profileError;
-          }
-
-          if (profile) {
-            set({ profile });
-          }
-        } catch (profileError) {
-          // Using mock profile as fallback
-        }
-      } else {
-        set({ user: null, profile: null });
-      }
-
-      // Listen for auth changes
-      const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
-        // Don't process auth changes if user was explicitly signed out
-        if (event === 'SIGNED_OUT') {
+        if (getSessionError && getSessionError.message.includes('Invalid Refresh Token')) {
+          await supabase.auth.signOut();
           set({ user: null, profile: null, loading: false });
-          return;
+          return null;
         }
 
-        if (event === 'USER_UPDATED') {
-          // User updated event detected, refreshing profile
+        if (session?.user) {
+          const mockProfile = createMockProfile(session.user);
+          set({ user: session.user, profile: mockProfile, loading: false });
+
+          try {
+            const { data: profile, error: profileError } = await supabase
+              .from('profiles')
+              .select('*')
+              .eq('user_id', session.user.id)
+              .maybeSingle();
+
+            if (!profileError && profile) {
+              set({ profile });
+            }
+          } catch (profileError) {
+            console.log('[AuthStore] Using mock profile as fallback');
+          }
+        } else {
+          set({ user: null, profile: null, loading: false });
+        }
+
+        const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+          if (event === 'SIGNED_OUT') {
+            set({ user: null, profile: null, loading: false });
+            return;
+          }
+
+          if (event === 'USER_UPDATED') {
+            if (session?.user) {
+              set({ user: session.user });
+
+              try {
+                const { data: profile, error: profileError } = await supabase
+                  .from('profiles')
+                  .select('*')
+                  .eq('user_id', session.user.id)
+                  .maybeSingle();
+
+                if (!profileError && profile) {
+                  set({ profile });
+                }
+              } catch (error) {
+                console.log('[AuthStore] Error refreshing profile after USER_UPDATED');
+              }
+            }
+            return;
+          }
+
           if (session?.user) {
-            set({ user: session.user });
+            const mockProfile = createMockProfile(session.user);
+            set({ user: session.user, profile: mockProfile });
 
             try {
               const { data: profile, error: profileError } = await supabase
@@ -232,50 +253,29 @@ export const useAuthStore = create<AuthState>((set, get) => ({
                 .maybeSingle();
 
               if (!profileError && profile) {
-                // Profile refreshed after USER_UPDATED
                 set({ profile });
               }
             } catch (error) {
-              // Error refreshing profile after USER_UPDATED
+              console.log('[AuthStore] Using mock profile due to database error');
             }
+          } else {
+            set({ user: null, profile: null });
           }
-          return;
-        }
+        });
 
-        if (session?.user) {
-          const mockProfile = createMockProfile(session.user);
-          set({ user: session.user, profile: mockProfile });
+        return subscription;
+      })();
 
-          // Try to fetch real profile
-          try {
-            const { data: profile, error: profileError } = await supabase
-              .from('profiles')
-              .select('*')
-              .eq('user_id', session.user.id)
-              .maybeSingle();
-
-            if (profileError) {
-              throw profileError;
-            }
-
-            if (profile) {
-              set({ profile });
-            }
-          } catch (error) {
-            console.log('Using mock profile due to database error:', error);
-          }
-        } else {
-          set({ user: null, profile: null });
-        }
-      });
-
-      return subscription;
+      return await Promise.race([initPromise, initTimeout]);
     } catch (error) {
-      // Auth initialization error
-      set({ user: null, profile: null });
+      console.error('[AuthStore] Auth initialization error:', error);
+      set({ user: null, profile: null, loading: false });
       return null;
     } finally {
-      set({ loading: false });
+      const currentState = get();
+      if (currentState.loading) {
+        set({ loading: false });
+      }
     }
   },
 
