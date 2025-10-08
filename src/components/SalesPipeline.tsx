@@ -1,0 +1,336 @@
+import React, { useState, useEffect, useCallback } from 'react';
+import { Target, DollarSign, TrendingUp, Users, BarChart3, Clock, CheckCircle, ArrowRight } from 'lucide-react';
+import { supabaseService, Lead } from '../lib/supabaseService';
+import { useAuthStore } from '../store/authStore';
+import LoadingSpinner from './LoadingSpinner';
+import toast from 'react-hot-toast';
+
+interface PipelineMetrics {
+  totalDeals: number;
+  totalValue: number;
+  weightedValue: number;
+  avgDealSize: number;
+  conversionRate: number;
+  avgSalesCycle: number;
+}
+
+const SalesPipeline: React.FC = () => {
+  const [viewMode, setViewMode] = useState<'pipeline' | 'kanban' | 'list'>('pipeline');
+  const [timeRange, setTimeRange] = useState('current_quarter');
+  const [leads, setLeads] = useState<Lead[]>([]);
+  const [loading, setLoading] = useState(true);
+  const { profile } = useAuthStore();
+
+  const loadPipelineDataLocal = useCallback(async () => {
+    if (!profile) return;
+
+    try {
+      setLoading(true);
+      const leadsData = await supabaseService.getLeads(profile.id);
+      setLeads(leadsData);
+    } catch (error) {
+      console.error('Error loading pipeline data:', error);
+      toast.error('Error loading pipeline data');
+    } finally {
+      setLoading(false);
+    }
+  }, [profile]);
+
+  useEffect(() => {
+    loadPipelineDataLocal();
+  }, [loadPipelineDataLocal]);
+
+
+  // Calculate pipeline metrics based on leads
+  const pipelineMetrics: PipelineMetrics = {
+    totalDeals: leads.length,
+    totalValue: leads.reduce((sum, lead) => sum + (lead.estimated_value || 0), 0),
+    weightedValue: leads.reduce((sum, lead) => sum + (lead.estimated_value || 0) * (lead.score / 100), 0),
+    avgDealSize: leads.length > 0 ? Math.round(leads.reduce((sum, lead) => sum + (lead.estimated_value || 0), 0) / leads.length) : 0,
+    conversionRate: leads.length > 0 ? Math.round((leads.filter(l => l.status === 'won').length / leads.length) * 100) : 0,
+    avgSalesCycle: 45
+  };
+
+  // Define lead stages (statuses)
+  const leadStages = [
+    { name: 'New', status: 'new', color: 'bg-red-500' },
+    { name: 'Contacted', status: 'contacted', color: 'bg-yellow-500' },
+    { name: 'Qualified', status: 'qualified', color: 'bg-green-500' },
+    { name: 'Proposal Sent', status: 'proposal_sent', color: 'bg-purple-500' },
+    { name: 'Won', status: 'won', color: 'bg-emerald-500' },
+    { name: 'Lost', status: 'lost', color: 'bg-gray-500' }
+  ];
+
+  // Stage metrics based on leads
+  const stageMetrics = leadStages.map(stage => {
+    const stageLeads = leads.filter(lead => lead.status === stage.status);
+    return {
+      name: stage.name,
+      status: stage.status,
+      count: stageLeads.length,
+      value: stageLeads.reduce((sum, lead) => sum + (lead.estimated_value || 0), 0),
+      weightedValue: stageLeads.reduce((sum, lead) => sum + (lead.estimated_value || 0) * (lead.score / 100), 0),
+      color: stage.color
+    };
+  });
+
+  // Chart data
+  const stageChartData = stageMetrics.map(stage => ({
+    name: stage.name,
+    count: stage.count,
+    value: stage.value,
+  }));
+
+  // Get leads by status
+  const getLeadsByStatus = (status: string) => {
+    return leads.filter(lead => lead.status === status);
+  };
+
+  if (loading) {
+    return (
+      <LoadingSpinner size="lg" text="Loading pipeline data..." className="h-64" />
+    );
+  }
+
+  return (
+    <div className="space-y-6">
+      {/* Header */}
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-3xl font-bold text-gray-900">Training Pipeline</h1>
+          <p className="text-gray-600 mt-1">Track prospects through your training enrollment process</p>
+        </div>
+        <select
+          value={timeRange}
+          onChange={(e) => setTimeRange(e.target.value)}
+          className="border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-academy-blue-500 focus:border-academy-blue-500"
+        >
+          <option value="current_quarter">Current Quarter</option>
+          <option value="next_quarter">Next Quarter</option>
+          <option value="current_year">Current Year</option>
+        </select>
+      </div>
+
+      {/* Pipeline Metrics */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-4">
+        {[
+          { title: 'Total Prospects', value: pipelineMetrics.totalDeals, icon: Target, color: 'bg-blue-500' },
+          { title: 'Pipeline Value', value: `$${pipelineMetrics.totalValue.toLocaleString()}`, icon: DollarSign, color: 'bg-green-500' },
+          { title: 'Weighted Value', value: `$${Math.round(pipelineMetrics.weightedValue).toLocaleString()}`, icon: TrendingUp, color: 'bg-purple-500' },
+          { title: 'Avg Program Value', value: `$${pipelineMetrics.avgDealSize}`, icon: BarChart3, color: 'bg-orange-500' },
+          { title: 'Conversion Rate', value: `${pipelineMetrics.conversionRate}%`, icon: CheckCircle, color: 'bg-emerald-500' },
+          { title: 'Avg Cycle', value: `${pipelineMetrics.avgSalesCycle}d`, icon: Clock, color: 'bg-red-500' }
+        ].map((metric, index) => {
+          const Icon = metric.icon;
+          return (
+            <div key={index} className="bg-white rounded-lg p-4 shadow-sm border border-gray-100">
+              <div className="flex items-center justify-between mb-2">
+                <div className={`w-8 h-8 ${metric.color} rounded-lg flex items-center justify-center`}>
+                  <Icon className="w-4 h-4 text-white" />
+                </div>
+              </div>
+              <div className="text-xl font-bold text-gray-900">{metric.value}</div>
+              <div className="text-sm text-gray-600">{metric.title}</div>
+            </div>
+          );
+        })}
+      </div>
+
+      {/* View Mode Selector */}
+      <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-100">
+        <div className="flex items-center justify-between mb-6">
+          <h3 className="text-lg font-semibold text-gray-900">Pipeline View</h3>
+          <div className="flex items-center bg-gray-100 rounded-lg p-1">
+            <button
+              onClick={() => setViewMode('pipeline')}
+              className={`px-3 py-2 rounded text-sm font-medium transition-colors ${
+                viewMode === 'pipeline' ? 'bg-white shadow-sm text-gray-900' : 'text-gray-600'
+              }`}
+            >
+              Pipeline
+            </button>
+            <button
+              onClick={() => setViewMode('kanban')}
+              className={`px-3 py-2 rounded text-sm font-medium transition-colors ${
+                viewMode === 'kanban' ? 'bg-white shadow-sm text-gray-900' : 'text-gray-600'
+              }`}
+            >
+              Kanban
+            </button>
+            <button
+              onClick={() => setViewMode('list')}
+              className={`px-3 py-2 rounded text-sm font-medium transition-colors ${
+                viewMode === 'list' ? 'bg-white shadow-sm text-gray-900' : 'text-gray-600'
+              }`}
+            >
+              List
+            </button>
+          </div>
+        </div>
+
+        {viewMode === 'pipeline' && (
+          <div className="space-y-6">
+            {/* Pipeline Visualization */}
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4">
+              {stageMetrics.map((stage, index) => (
+                <div key={stage.status} className="text-center">
+                  <div className={`${stage.color} text-white p-3 rounded-lg mb-2`}>
+                    <div className="font-semibold text-sm">{stage.name}</div>
+                    <div className="text-xs opacity-90">{stage.count} leads</div>
+                  </div>
+                  <div className="text-sm font-medium text-gray-900">${stage.value.toLocaleString()}</div>
+                  <div className="text-xs text-gray-500">${Math.round(stage.weightedValue).toLocaleString()} weighted</div>
+                  {index < stageMetrics.length - 1 && (
+                    <div className="flex justify-center mt-2">
+                      <ArrowRight className="w-4 h-4 text-gray-400" />
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+
+            {/* Stage Details */}
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4">
+              {leadStages.map(stage => {
+                const stageLeads = getLeadsByStatus(stage.status);
+                return (
+                  <div key={stage.status} className="bg-gray-50 rounded-lg p-4">
+                    <h4 className="font-medium text-gray-900 mb-3">{stage.name}</h4>
+                    <div className="space-y-2">
+                      {stageLeads.slice(0, 3).map(lead => (
+                        <div key={lead.id} className="bg-white p-3 rounded border border-gray-200 hover:shadow-sm transition-shadow cursor-pointer">
+                          <div className="font-medium text-sm text-gray-900 mb-1">{lead.name}</div>
+                          <div className="text-xs text-gray-600 mb-2">{lead.phone}</div>
+                          <div className="flex items-center justify-between">
+                            <span className="text-sm font-medium text-green-600">${lead.estimated_value?.toLocaleString() || 0}</span>
+                            <span className="text-xs text-gray-500">Score: {lead.score}</span>
+                          </div>
+                        </div>
+                      ))}
+                      {stageLeads.length > 3 && (
+                        <div className="text-xs text-gray-500 text-center py-2">
+                          +{stageLeads.length - 3} more leads
+                        </div>
+                      )}
+                      {stageLeads.length === 0 && (
+                        <div className="text-xs text-gray-400 text-center py-4">
+                          No leads in this stage
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
+        {viewMode === 'kanban' && (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4 h-96 overflow-y-auto">
+            {leadStages.map(stage => {
+              const stageLeads = getLeadsByStatus(stage.status);
+              return (
+                <div key={stage.status} className="bg-gray-50 rounded-lg p-4">
+                  <div className="flex items-center justify-between mb-4">
+                    <h4 className="font-medium text-gray-900">{stage.name}</h4>
+                    <span className="text-xs bg-gray-200 text-gray-600 px-2 py-1 rounded-full">
+                      {stageLeads.length}
+                    </span>
+                  </div>
+                  <div className="space-y-3">
+                    {stageLeads.map(lead => (
+                      <div key={lead.id} className="bg-white p-4 rounded-lg border border-gray-200 hover:shadow-sm transition-shadow cursor-pointer">
+                        <div className="flex items-start justify-between mb-2">
+                          <div className="w-8 h-8 bg-red-100 rounded-full flex items-center justify-center">
+                            <Users className="w-4 h-4 text-red-600" />
+                          </div>
+                          <span className="text-xs text-gray-500">Score: {lead.score}</span>
+                        </div>
+                        <h5 className="font-medium text-gray-900 mb-1">{lead.name}</h5>
+                        <p className="text-sm text-gray-600 mb-2">{lead.phone}</p>
+                        <div className="flex items-center justify-between">
+                          <span className="text-sm font-medium text-green-600">${lead.estimated_value?.toLocaleString() || 0}</span>
+                          <span className="text-xs text-gray-500 capitalize">{lead.source.replace('_', ' ')}</span>
+                        </div>
+                        {lead.email && (
+                          <div className="mt-2 text-xs text-gray-500 truncate">
+                            {lead.email}
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
+
+        {viewMode === 'list' && (
+          <div className="overflow-x-auto">
+            <table className="w-full">
+              <thead className="bg-gray-50">
+                <tr>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Lead</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Stage</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Value</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Score</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Source</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Contact</th>
+                </tr>
+              </thead>
+              <tbody className="bg-white divide-y divide-gray-200">
+                {leads.map(lead => (
+                  <tr key={lead.id} className="hover:bg-gray-50">
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <div className="flex items-center">
+                        <div className="w-10 h-10 bg-red-100 rounded-full flex items-center justify-center">
+                          <Users className="w-4 h-4 text-red-600" />
+                        </div>
+                        <div className="ml-3">
+                          <div className="text-sm font-medium text-gray-900">{lead.name}</div>
+                          <div className="text-sm text-gray-500">{lead.roof_type || 'No type'}</div>
+                        </div>
+                      </div>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <span className="inline-flex px-2 py-1 text-xs font-semibold rounded-full bg-blue-100 text-blue-800 capitalize">
+                        {lead.status.replace('_', ' ')}
+                      </span>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                      ${lead.estimated_value?.toLocaleString() || 0}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <div className="flex items-center">
+                        <div className="w-16 bg-gray-200 rounded-full h-2 mr-2">
+                          <div
+                            className="bg-green-600 h-2 rounded-full"
+                            style={{ width: `${lead.score}%` }}
+                          />
+                        </div>
+                        <span className="text-sm text-gray-900">{lead.score}</span>
+                      </div>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 capitalize">
+                      {lead.source.replace('_', ' ')}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                      <div className="flex flex-col space-y-1">
+                        <span className="text-gray-900">{lead.phone}</span>
+                        {lead.email && <span className="text-gray-500 text-xs">{lead.email}</span>}
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+
+    </div>
+  );
+};
+
+export default SalesPipeline;

@@ -1,0 +1,9 @@
+# Blue Collar Academy Sales Portal - Robots.txt
+# This is an internal sales management tool - restricted access
+
+User-agent: *
+Disallow: /
+
+# Block all search engine crawlers
+# This portal contains proprietary business information
+# and requires authentication to access

@@ -1,0 +1,42 @@
+{
+  "name": "Blue Collar Academy Sales Portal",
+  "short_name": "BCA Sales",
+  "description": "Sales management system for Blue Collar Academy's roofing education programs",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#2563eb",
+  "orientation": "portrait-primary",
+  "icons": [
+    {
+      "src": "/bca.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/bca.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ],
+  "categories": ["business", "productivity"],
+  "shortcuts": [
+    {
+      "name": "Dashboard",
+      "url": "/",
+      "description": "View sales dashboard"
+    },
+    {
+      "name": "Leads",
+      "url": "/?view=leads",
+      "description": "Manage leads"
+    },
+    {
+      "name": "Pipeline",
+      "url": "/?view=pipeline",
+      "description": "View sales pipeline"
+    }
+  ]
+}

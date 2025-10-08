@@ -1,0 +1,183 @@
+import React from 'react';
+import { X, Menu } from 'lucide-react';
+import {
+  Home,
+  Users,
+  Calendar,
+  Settings,
+  BarChart3,
+  Building2,
+  Target,
+  DollarSign,
+  FileText,
+  Briefcase
+} from 'lucide-react';
+import { useAuthStore } from '../store/authStore';
+
+interface MobileNavProps {
+  activeView: string;
+  onViewChange: (view: string) => void;
+  isOpen: boolean;
+  onClose: () => void;
+}
+
+const MobileNav: React.FC<MobileNavProps> = ({ activeView, onViewChange, isOpen, onClose }) => {
+  const { profile } = useAuthStore();
+
+  const getMenuItems = () => {
+    const isAgencyUser = profile?.company_name === 'Blue Collar Academy' ||
+                        profile?.subscription_plan === 'enterprise' ||
+                        profile?.subscription_plan === 'professional';
+
+    const isManager = profile?.user_role === 'admin' ||
+                     profile?.user_role === 'manager' ||
+                     profile?.subscription_plan === 'enterprise';
+
+    if (isAgencyUser) {
+      if (isManager) {
+        return [
+          { id: 'agency-dashboard', label: 'Dashboard', icon: Home },
+          { id: 'prospects', label: 'Leads', icon: Users },
+          { id: 'sales-pipeline', label: 'Pipeline', icon: Target },
+          { id: 'team', label: 'Team Management', icon: Building2 },
+          { id: 'commissions', label: 'Commissions', icon: DollarSign },
+          { id: 'reports', label: 'Reports & Analytics', icon: FileText },
+          { id: 'sales-tools', label: 'Sales Tools', icon: Briefcase },
+          { id: 'settings', label: 'Settings', icon: Settings },
+        ];
+      }
+
+      return [
+        { id: 'agency-dashboard', label: 'Dashboard', icon: Home },
+        { id: 'prospects', label: 'Leads', icon: Users },
+        { id: 'sales-pipeline', label: 'Pipeline', icon: Target },
+        { id: 'commissions', label: 'Commissions', icon: DollarSign },
+        { id: 'sales-tools', label: 'Tools', icon: Briefcase },
+        { id: 'reports', label: 'My Reports', icon: FileText },
+        { id: 'settings', label: 'Settings', icon: Settings },
+      ];
+    } else {
+      return [
+        { id: 'dashboard', label: 'Dashboard', icon: Home },
+        { id: 'leads', label: 'Leads', icon: Users },
+        { id: 'pipeline', label: 'Pipeline', icon: Target },
+        { id: 'calendar', label: 'Calendar', icon: Calendar },
+        { id: 'analytics', label: 'Analytics', icon: BarChart3 },
+        { id: 'settings', label: 'Settings', icon: Settings },
+      ];
+    }
+  };
+
+  const menuItems = getMenuItems();
+
+  const getCompanyDisplay = () => {
+    const isAgencyUser = profile?.company_name === 'Blue Collar Academy' ||
+                        profile?.subscription_plan === 'enterprise' ||
+                        profile?.subscription_plan === 'professional';
+
+    const isManager = profile?.user_role === 'admin' ||
+                     profile?.user_role === 'manager' ||
+                     profile?.subscription_plan === 'enterprise';
+
+    if (isAgencyUser && isManager) {
+      return {
+        name: 'Blue Collar Academy',
+        plan: 'Manager/Admin',
+        initials: 'BCA'
+      };
+    } else if (isAgencyUser) {
+      return {
+        name: profile.company_name || 'Blue Collar Academy',
+        plan: 'Sales Rep',
+        initials: 'BCA'
+      };
+    } else {
+      return {
+        name: profile?.company_name || 'Blue Collar Academy',
+        plan: 'Premium Plan',
+        initials: 'BCA'
+      };
+    }
+  };
+
+  const companyDisplay = getCompanyDisplay();
+
+  const handleViewChange = (viewId: string) => {
+    onViewChange(viewId);
+    onClose();
+  };
+
+  return (
+    <>
+      {isOpen && (
+        <div
+          className="fixed inset-0 bg-black/40 z-40 md:hidden backdrop-blur-sm transition-opacity duration-300"
+          onClick={onClose}
+        />
+      )}
+
+      <div className={`fixed inset-y-0 left-0 w-72 bg-white shadow-xl transform transition-transform duration-300 ease-out z-50 md:hidden ${
+        isOpen ? 'translate-x-0' : '-translate-x-full'
+      }`}>
+        <div className="h-full flex flex-col">
+          <div className="py-3.5 px-4 border-b border-gray-100 flex items-center justify-between">
+            <div className="flex items-center space-x-3">
+              <img
+                src="/bca.png"
+                alt="Blue Collar Academy Logo"
+                className="w-10 h-10 object-contain"
+              />
+              <div>
+                <div className="text-sm font-semibold text-gray-900">BCA Sales Portal</div>
+                <div className="text-xs text-gray-500">Blue Collar Academy</div>
+              </div>
+            </div>
+            <button
+              onClick={onClose}
+              className="p-2.5 hover:bg-gray-100 rounded-lg transition-colors touch-manipulation"
+            >
+              <X className="w-5 h-5 text-gray-600" />
+            </button>
+          </div>
+
+          <nav className="flex-1 px-3 py-3 overflow-y-auto">
+            <ul className="space-y-0.5">
+              {menuItems.map((item) => {
+                const Icon = item.icon;
+                return (
+                  <li key={item.id}>
+                    <button
+                      onClick={() => handleViewChange(item.id)}
+                      className={`w-full flex items-center space-x-2.5 px-3 py-2.5 rounded-lg transition-all duration-200 text-sm font-medium touch-manipulation ${
+                        activeView === item.id
+                          ? 'bg-academy-blue-50 text-academy-blue-700 border border-academy-blue-200 shadow-sm'
+                          : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
+                      }`}
+                    >
+                      <Icon className="w-4.5 h-4.5 flex-shrink-0" />
+                      <span>{item.label}</span>
+                    </button>
+                  </li>
+                );
+              })}
+            </ul>
+          </nav>
+
+          <div className="p-3 border-t border-gray-100">
+            <div className="flex items-center space-x-3 p-3 bg-gray-50 rounded-lg">
+              <div className="w-9 h-9 bg-academy-blue-600 rounded-full flex items-center justify-center flex-shrink-0">
+                <span className="text-xs font-semibold text-white">{companyDisplay.initials}</span>
+              </div>
+              <div className="text-sm min-w-0 flex-1">
+                <p className="font-medium text-gray-900 truncate">{companyDisplay.name}</p>
+                <p className="text-gray-500 text-xs">{companyDisplay.plan}</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </>
+  );
+};
+
+export default MobileNav;
