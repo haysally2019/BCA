@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Search, Filter, Plus, MapPin, Star, Users, DollarSign, Tag, Download, Upload, MoreVertical, CheckCircle, AlertCircle, TrendingUp, Calendar, CreditCard as Edit3, Trash2, Eye, Phone, Mail } from 'lucide-react';
+import { Search, Filter, Plus, MapPin, Star, Users, DollarSign, Tag, Download, Upload, MoreVertical, CheckCircle, AlertCircle, TrendingUp, Calendar, CreditCard as Edit3, Trash2, Eye, Phone, Mail, ArrowRight, ThumbsUp, FileText, Trophy, X } from 'lucide-react';
 import { supabaseService } from '../lib/supabaseService';
 import { useAuthStore } from '../store/authStore';
 import BaseModal from './modals/BaseModal';
@@ -101,6 +101,39 @@ const LeadManagement: React.FC = () => {
     if (score >= 80) return 'text-green-600 bg-green-100';
     if (score >= 60) return 'text-yellow-600 bg-yellow-100';
     return 'text-red-600 bg-red-100';
+  };
+
+  const getQuickActions = (status: string) => {
+    switch (status) {
+      case 'new':
+        return [
+          { label: 'Mark Contacted', status: 'contacted', icon: Phone, color: 'bg-blue-600 hover:bg-blue-700' },
+          { label: 'Qualify Lead', status: 'qualified', icon: ThumbsUp, color: 'bg-green-600 hover:bg-green-700' }
+        ];
+      case 'contacted':
+        return [
+          { label: 'Qualify Lead', status: 'qualified', icon: ThumbsUp, color: 'bg-green-600 hover:bg-green-700' },
+          { label: 'Send Proposal', status: 'proposal_sent', icon: FileText, color: 'bg-purple-600 hover:bg-purple-700' }
+        ];
+      case 'qualified':
+        return [
+          { label: 'Send Proposal', status: 'proposal_sent', icon: FileText, color: 'bg-purple-600 hover:bg-purple-700' },
+          { label: 'Mark Won', status: 'won', icon: Trophy, color: 'bg-emerald-600 hover:bg-emerald-700' }
+        ];
+      case 'proposal_sent':
+        return [
+          { label: 'Mark Won', status: 'won', icon: Trophy, color: 'bg-emerald-600 hover:bg-emerald-700' },
+          { label: 'Mark Lost', status: 'lost', icon: X, color: 'bg-gray-600 hover:bg-gray-700' }
+        ];
+      case 'won':
+        return [];
+      case 'lost':
+        return [
+          { label: 'Reopen Lead', status: 'new', icon: ArrowRight, color: 'bg-blue-600 hover:bg-blue-700' }
+        ];
+      default:
+        return [];
+    }
   };
 
   const filteredLeads = leads.filter(lead => {
@@ -601,18 +634,9 @@ const LeadManagement: React.FC = () => {
 
               <div className="border-t pt-3 sm:pt-4">
                 <div className="flex items-center justify-between mb-2.5 sm:mb-3">
-                  <select
-                    value={lead.status}
-                    onChange={(e) => handleUpdateLeadStatus(lead.id, e.target.value)}
-                    className={`px-2 sm:px-2.5 py-0.5 sm:py-1 rounded-full text-xs font-medium border ${getStatusColor(lead.status)} focus:ring-2 focus:ring-red-500 touch-manipulation`}
-                  >
-                    <option value="new">New</option>
-                    <option value="contacted">Contacted</option>
-                    <option value="qualified">Qualified</option>
-                    <option value="proposal_sent">Proposal Sent</option>
-                    <option value="won">Won</option>
-                    <option value="lost">Lost</option>
-                  </select>
+                  <span className={`px-2 sm:px-2.5 py-0.5 sm:py-1 rounded-full text-xs font-medium border ${getStatusColor(lead.status)}`}>
+                    {lead.status.replace('_', ' ').charAt(0).toUpperCase() + lead.status.replace('_', ' ').slice(1)}
+                  </span>
                   <div className="flex items-center space-x-0.5 sm:space-x-1 text-xs sm:text-sm text-gray-600">
                     <DollarSign className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
                     <span className="font-medium">
@@ -623,6 +647,29 @@ const LeadManagement: React.FC = () => {
 
                 {lead.notes && (
                   <p className="text-xs sm:text-sm text-gray-600 mb-3 sm:mb-4 bg-gray-50 p-2 rounded leading-relaxed">{lead.notes}</p>
+                )}
+
+                {/* Quick Status Action Buttons */}
+                {getQuickActions(lead.status).length > 0 && (
+                  <div className="mb-3 sm:mb-4">
+                    <p className="text-xs font-medium text-gray-500 mb-2">Quick Actions</p>
+                    <div className="flex space-x-1.5 sm:space-x-2">
+                      {getQuickActions(lead.status).map((action) => {
+                        const Icon = action.icon;
+                        return (
+                          <button
+                            key={action.status}
+                            onClick={() => handleUpdateLeadStatus(lead.id, action.status)}
+                            className={`flex-1 ${action.color} text-white py-1.5 sm:py-2 px-2 sm:px-3 rounded-lg text-xs sm:text-sm transition-all duration-200 flex items-center justify-center space-x-1 shadow-sm touch-manipulation`}
+                          >
+                            <Icon className="w-3 h-3" />
+                            <span className="hidden sm:inline">{action.label}</span>
+                            <span className="sm:hidden">{action.label.split(' ')[0]}</span>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
                 )}
 
                 <div className="space-y-1.5 sm:space-y-2">
@@ -734,18 +781,28 @@ const LeadManagement: React.FC = () => {
                       <div className="text-sm text-gray-500">{lead.email}</div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
-                      <select
-                        value={lead.status}
-                        onChange={(e) => handleUpdateLeadStatus(lead.id, e.target.value)}
-                        className={`px-2 py-1 text-xs font-semibold rounded-full border ${getStatusColor(lead.status)} cursor-pointer focus:ring-2 focus:ring-red-500 focus:outline-none transition-all`}
-                      >
-                        <option value="new">New</option>
-                        <option value="contacted">Contacted</option>
-                        <option value="qualified">Qualified</option>
-                        <option value="proposal_sent">Proposal Sent</option>
-                        <option value="won">Won</option>
-                        <option value="lost">Lost</option>
-                      </select>
+                      <div className="flex flex-col space-y-2">
+                        <span className={`px-2 py-1 text-xs font-semibold rounded-full border ${getStatusColor(lead.status)} inline-block text-center`}>
+                          {lead.status.replace('_', ' ').charAt(0).toUpperCase() + lead.status.replace('_', ' ').slice(1)}
+                        </span>
+                        {getQuickActions(lead.status).length > 0 && (
+                          <div className="flex space-x-1">
+                            {getQuickActions(lead.status).map((action) => {
+                              const Icon = action.icon;
+                              return (
+                                <button
+                                  key={action.status}
+                                  onClick={() => handleUpdateLeadStatus(lead.id, action.status)}
+                                  className={`${action.color} text-white px-2 py-1 rounded text-xs transition-all duration-200 flex items-center space-x-1`}
+                                  title={action.label}
+                                >
+                                  <Icon className="w-3 h-3" />
+                                </button>
+                              );
+                            })}
+                          </div>
+                        )}
+                      </div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className={`inline-flex items-center px-2 py-1 rounded-full ${getScoreColor(lead.score)}`}>

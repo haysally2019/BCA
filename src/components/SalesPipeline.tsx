@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { Target, DollarSign, TrendingUp, Users, BarChart3, Clock, CheckCircle, ArrowRight } from 'lucide-react';
+import { Target, DollarSign, TrendingUp, Users, BarChart3, Clock, CheckCircle, ArrowRight, Phone, ThumbsUp, FileText, Trophy, X } from 'lucide-react';
 import { supabaseService, Lead } from '../lib/supabaseService';
 import { useAuthStore } from '../store/authStore';
 import LoadingSpinner from './LoadingSpinner';
@@ -84,6 +84,41 @@ const SalesPipeline: React.FC = () => {
   // Get leads by status
   const getLeadsByStatus = (status: string) => {
     return leads.filter(lead => lead.status === status);
+  };
+
+  const handleUpdateLeadStatus = async (leadId: string, newStatus: string) => {
+    try {
+      await supabaseService.updateLead(leadId, { status: newStatus });
+      toast.success('Lead status updated!');
+      loadPipelineDataLocal();
+    } catch (error) {
+      console.error('Error updating lead:', error);
+      toast.error('Failed to update lead status');
+    }
+  };
+
+  const getQuickActions = (status: string) => {
+    switch (status) {
+      case 'new':
+        return [
+          { label: 'Contact', status: 'contacted', icon: Phone, color: 'bg-blue-600 hover:bg-blue-700' }
+        ];
+      case 'contacted':
+        return [
+          { label: 'Qualify', status: 'qualified', icon: ThumbsUp, color: 'bg-green-600 hover:bg-green-700' }
+        ];
+      case 'qualified':
+        return [
+          { label: 'Proposal', status: 'proposal_sent', icon: FileText, color: 'bg-purple-600 hover:bg-purple-700' }
+        ];
+      case 'proposal_sent':
+        return [
+          { label: 'Won', status: 'won', icon: Trophy, color: 'bg-emerald-600 hover:bg-emerald-700' },
+          { label: 'Lost', status: 'lost', icon: X, color: 'bg-gray-600 hover:bg-gray-700' }
+        ];
+      default:
+        return [];
+    }
   };
 
   if (loading) {
@@ -198,13 +233,31 @@ const SalesPipeline: React.FC = () => {
                     <h4 className="font-medium text-gray-900 mb-3">{stage.name}</h4>
                     <div className="space-y-2">
                       {stageLeads.slice(0, 3).map(lead => (
-                        <div key={lead.id} className="bg-white p-3 rounded border border-gray-200 hover:shadow-sm transition-shadow cursor-pointer">
+                        <div key={lead.id} className="bg-white p-3 rounded border border-gray-200 hover:shadow-md transition-all group">
                           <div className="font-medium text-sm text-gray-900 mb-1">{lead.name}</div>
                           <div className="text-xs text-gray-600 mb-2">{lead.phone}</div>
-                          <div className="flex items-center justify-between">
+                          <div className="flex items-center justify-between mb-2">
                             <span className="text-sm font-medium text-green-600">${lead.estimated_value?.toLocaleString() || 0}</span>
                             <span className="text-xs text-gray-500">Score: {lead.score}</span>
                           </div>
+                          {getQuickActions(lead.status).length > 0 && (
+                            <div className="flex gap-1 mt-2">
+                              {getQuickActions(lead.status).map((action) => {
+                                const Icon = action.icon;
+                                return (
+                                  <button
+                                    key={action.status}
+                                    onClick={() => handleUpdateLeadStatus(lead.id, action.status)}
+                                    className={`flex-1 ${action.color} text-white px-2 py-1 rounded text-xs transition-all duration-200 flex items-center justify-center space-x-1`}
+                                    title={action.label}
+                                  >
+                                    <Icon className="w-3 h-3" />
+                                    <span className="hidden lg:inline">{action.label}</span>
+                                  </button>
+                                );
+                              })}
+                            </div>
+                          )}
                         </div>
                       ))}
                       {stageLeads.length > 3 && (
@@ -239,7 +292,7 @@ const SalesPipeline: React.FC = () => {
                   </div>
                   <div className="space-y-3">
                     {stageLeads.map(lead => (
-                      <div key={lead.id} className="bg-white p-4 rounded-lg border border-gray-200 hover:shadow-sm transition-shadow cursor-pointer">
+                      <div key={lead.id} className="bg-white p-4 rounded-lg border border-gray-200 hover:shadow-md transition-all">
                         <div className="flex items-start justify-between mb-2">
                           <div className="w-8 h-8 bg-red-100 rounded-full flex items-center justify-center">
                             <Users className="w-4 h-4 text-red-600" />
@@ -248,13 +301,31 @@ const SalesPipeline: React.FC = () => {
                         </div>
                         <h5 className="font-medium text-gray-900 mb-1">{lead.name}</h5>
                         <p className="text-sm text-gray-600 mb-2">{lead.phone}</p>
-                        <div className="flex items-center justify-between">
+                        <div className="flex items-center justify-between mb-2">
                           <span className="text-sm font-medium text-green-600">${lead.estimated_value?.toLocaleString() || 0}</span>
                           <span className="text-xs text-gray-500 capitalize">{lead.source.replace('_', ' ')}</span>
                         </div>
                         {lead.email && (
-                          <div className="mt-2 text-xs text-gray-500 truncate">
+                          <div className="mb-2 text-xs text-gray-500 truncate">
                             {lead.email}
+                          </div>
+                        )}
+                        {getQuickActions(lead.status).length > 0 && (
+                          <div className="flex gap-1 mt-3 pt-3 border-t border-gray-100">
+                            {getQuickActions(lead.status).map((action) => {
+                              const Icon = action.icon;
+                              return (
+                                <button
+                                  key={action.status}
+                                  onClick={() => handleUpdateLeadStatus(lead.id, action.status)}
+                                  className={`flex-1 ${action.color} text-white px-2 py-1.5 rounded text-xs transition-all duration-200 flex items-center justify-center space-x-1`}
+                                  title={action.label}
+                                >
+                                  <Icon className="w-3 h-3" />
+                                  <span>{action.label}</span>
+                                </button>
+                              );
+                            })}
                           </div>
                         )}
                       </div>

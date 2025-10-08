@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { User, Phone, Mail, MapPin, Calendar, Star, DollarSign, Tag, Clock, Activity, MessageSquare, PhoneCall } from 'lucide-react';
+import { User, Phone, Mail, MapPin, Calendar, Star, DollarSign, Tag, Clock, Activity, MessageSquare, PhoneCall, ArrowRight, ThumbsUp, FileText, Trophy, X } from 'lucide-react';
 import BaseModal from './BaseModal';
 import { supabaseService, type Lead, type LeadActivity } from '../../lib/supabaseService';
 import { useAuthStore } from '../../store/authStore';
@@ -115,6 +115,39 @@ const LeadDetailsModal: React.FC<LeadDetailsModalProps> = ({
     }
   };
 
+  const getQuickActions = (status: string) => {
+    switch (status) {
+      case 'new':
+        return [
+          { label: 'Mark Contacted', status: 'contacted', icon: Phone, color: 'bg-blue-600 hover:bg-blue-700' },
+          { label: 'Qualify Lead', status: 'qualified', icon: ThumbsUp, color: 'bg-green-600 hover:bg-green-700' }
+        ];
+      case 'contacted':
+        return [
+          { label: 'Qualify Lead', status: 'qualified', icon: ThumbsUp, color: 'bg-green-600 hover:bg-green-700' },
+          { label: 'Send Proposal', status: 'proposal_sent', icon: FileText, color: 'bg-purple-600 hover:bg-purple-700' }
+        ];
+      case 'qualified':
+        return [
+          { label: 'Send Proposal', status: 'proposal_sent', icon: FileText, color: 'bg-purple-600 hover:bg-purple-700' },
+          { label: 'Mark Won', status: 'won', icon: Trophy, color: 'bg-emerald-600 hover:bg-emerald-700' }
+        ];
+      case 'proposal_sent':
+        return [
+          { label: 'Mark Won', status: 'won', icon: Trophy, color: 'bg-emerald-600 hover:bg-emerald-700' },
+          { label: 'Mark Lost', status: 'lost', icon: X, color: 'bg-gray-600 hover:bg-gray-700' }
+        ];
+      case 'won':
+        return [];
+      case 'lost':
+        return [
+          { label: 'Reopen Lead', status: 'new', icon: ArrowRight, color: 'bg-blue-600 hover:bg-blue-700' }
+        ];
+      default:
+        return [];
+    }
+  };
+
   return (
     <BaseModal
       isOpen={isOpen}
@@ -176,7 +209,34 @@ const LeadDetailsModal: React.FC<LeadDetailsModalProps> = ({
 
           <div className="space-y-4">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Update Status</label>
+              <label className="block text-sm font-medium text-gray-700 mb-3">Quick Status Actions</label>
+              {getQuickActions(lead.status).length > 0 ? (
+                <div className="space-y-2">
+                  {getQuickActions(lead.status).map((action) => {
+                    const Icon = action.icon;
+                    return (
+                      <button
+                        key={action.status}
+                        onClick={() => handleStatusChange(action.status)}
+                        className={`w-full ${action.color} text-white py-2.5 px-4 rounded-lg transition-all duration-200 flex items-center justify-center space-x-2 shadow-sm font-medium`}
+                      >
+                        <Icon className="w-4 h-4" />
+                        <span>{action.label}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+              ) : (
+                <div className="bg-gray-50 border border-gray-200 rounded-lg p-4 text-center">
+                  <p className="text-sm text-gray-600">
+                    {lead.status === 'won' ? 'Lead Won! No further actions needed.' : 'No quick actions available'}
+                  </p>
+                </div>
+              )}
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">All Status Options</label>
               <select
                 value={lead.status}
                 onChange={(e) => handleStatusChange(e.target.value)}
