@@ -21,6 +21,7 @@ const Sidebar: React.FC = () => {
   const getMenuItems = () => {
     // Check if this is an agency/sales user based on company name or other indicators
     const isAgencyUser = profile?.company_name === 'Blue Collar Academy' ||
+                        profile?.company_name === 'Tartan Builders Inc' ||
                         profile?.subscription_plan === 'enterprise' ||
                         profile?.subscription_plan === 'professional';
 
@@ -71,6 +72,7 @@ const Sidebar: React.FC = () => {
 
   const getCompanyDisplay = () => {
     const isAgencyUser = profile?.company_name === 'Blue Collar Academy' ||
+                        profile?.company_name === 'Tartan Builders Inc' ||
                         profile?.subscription_plan === 'enterprise' ||
                         profile?.subscription_plan === 'professional';
 
@@ -78,23 +80,27 @@ const Sidebar: React.FC = () => {
                      profile?.user_role === 'manager' ||
                      profile?.subscription_plan === 'enterprise';
 
+    const getInitials = (name: string) => {
+      return name.split(' ').map(word => word[0]).join('').toUpperCase().slice(0, 3);
+    };
+
     if (isAgencyUser && isManager) {
       return {
-        name: 'Blue Collar Academy',
+        name: profile?.company_name || 'Blue Collar Academy',
         plan: 'Manager/Admin',
-        initials: 'BCA'
+        initials: getInitials(profile?.company_name || 'BCA')
       };
     } else if (isAgencyUser) {
       return {
-        name: profile.company_name || 'Blue Collar Academy',
+        name: profile?.company_name || 'Blue Collar Academy',
         plan: 'Sales Rep',
-        initials: 'BCA'
+        initials: getInitials(profile?.company_name || 'BCA')
       };
     } else {
       return {
         name: profile?.company_name || 'Blue Collar Academy',
         plan: 'Premium Plan',
-        initials: 'BCA'
+        initials: getInitials(profile?.company_name || 'BCA')
       };
     }
   };

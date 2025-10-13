@@ -179,6 +179,7 @@ function AppContent() {
   useEffect(() => {
     if (profile && location.pathname === '/') {
       const isAgencyUser = profile?.company_name === 'Blue Collar Academy' ||
+                          profile?.company_name === 'Tartan Builders Inc' ||
                           profile?.subscription_plan === 'enterprise' ||
                           profile?.subscription_plan === 'professional';
 
@@ -191,6 +192,7 @@ function AppContent() {
   }, [profile, location.pathname, navigate]);
 
   const isAgencyUser = profile?.company_name === 'Blue Collar Academy' ||
+                      profile?.company_name === 'Tartan Builders Inc' ||
                       profile?.subscription_plan === 'enterprise' ||
                       profile?.subscription_plan === 'professional';
 
