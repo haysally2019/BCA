@@ -16,13 +16,13 @@ import { useAuthStore } from '../store/authStore';
 import toast from 'react-hot-toast';
 
 const Settings: React.FC = () => {
-  const [activeTab, setActiveTab] = useState('company');
+  const [activeTab, setActiveTab] = useState('profile');
   const [loading, setLoading] = useState(false);
-  const [companyData, setCompanyData] = useState({
-    company_name: '',
-    company_phone: '',
+  const [profileData, setProfileData] = useState({
+    full_name: '',
+    personal_phone: '',
     company_email: '',
-    company_address: '',
+    personal_address: '',
     affiliatewp_id: ''
   });
 
@@ -31,30 +31,36 @@ const Settings: React.FC = () => {
 
   useEffect(() => {
     if (profile) {
-      setCompanyData({
-        company_name: profile.company_name || '',
-        company_phone: profile.company_phone || '',
+      setProfileData({
+        full_name: profile.full_name || profile.company_name || '',
+        personal_phone: profile.personal_phone || profile.company_phone || '',
         company_email: profile.company_email || '',
-        company_address: profile.company_address || '',
+        personal_address: profile.personal_address || profile.company_address || '',
         affiliatewp_id: profile.affiliatewp_id?.toString() || ''
       });
     }
   }, [profile]);
 
-  const handleSaveCompany = async (e: React.FormEvent) => {
+  const handleSaveProfile = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
 
     try {
       const updates = {
-        ...companyData,
-        affiliatewp_id: companyData.affiliatewp_id ? parseInt(companyData.affiliatewp_id) : undefined
+        full_name: profileData.full_name,
+        personal_phone: profileData.personal_phone,
+        company_email: profileData.company_email,
+        personal_address: profileData.personal_address,
+        company_name: profileData.full_name,
+        company_phone: profileData.personal_phone,
+        company_address: profileData.personal_address,
+        affiliatewp_id: profileData.affiliatewp_id ? parseInt(profileData.affiliatewp_id) : undefined
       };
       await updateProfile(updates);
-      toast.success('Company settings updated successfully');
+      toast.success('Profile updated successfully');
     } catch (error) {
-      console.error('Error updating company settings:', error);
-      toast.error('Failed to update company settings');
+      console.error('Error updating profile:', error);
+      toast.error('Failed to update profile');
     } finally {
       setLoading(false);
     }
@@ -76,7 +82,7 @@ const Settings: React.FC = () => {
   };
 
   const tabs = [
-    { id: 'company', label: 'Company', icon: Building2 },
+    { id: 'profile', label: 'Profile', icon: User },
     { id: 'notifications', label: 'Notifications', icon: Bell },
     { id: 'security', label: 'Security', icon: Shield },
   ];
@@ -118,22 +124,22 @@ const Settings: React.FC = () => {
         </div>
 
         <div className="p-6">
-          {activeTab === 'company' && (
+          {activeTab === 'profile' && (
             <div className="max-w-2xl">
-              <h3 className="text-lg font-semibold text-gray-900 mb-4">Company Information</h3>
-              <form onSubmit={handleSaveCompany} className="space-y-4">
+              <h3 className="text-lg font-semibold text-gray-900 mb-4">Personal Information</h3>
+              <form onSubmit={handleSaveProfile} className="space-y-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Company Name
+                    Full Name
                   </label>
                   <div className="relative">
-                    <Building2 className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
+                    <User className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
                     <input
                       type="text"
-                      value={companyData.company_name}
-                      onChange={(e) => setCompanyData(prev => ({ ...prev, company_name: e.target.value }))}
+                      value={profileData.full_name}
+                      onChange={(e) => setProfileData(prev => ({ ...prev, full_name: e.target.value }))}
                       className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                      placeholder="Your Roofing Company"
+                      placeholder="John Smith"
                     />
                   </div>
                 </div>
@@ -146,8 +152,8 @@ const Settings: React.FC = () => {
                     <Phone className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
                     <input
                       type="tel"
-                      value={companyData.company_phone}
-                      onChange={(e) => setCompanyData(prev => ({ ...prev, company_phone: e.target.value }))}
+                      value={profileData.personal_phone}
+                      onChange={(e) => setProfileData(prev => ({ ...prev, personal_phone: e.target.value }))}
                       className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                       placeholder="(555) 123-4567"
                     />
@@ -162,23 +168,23 @@ const Settings: React.FC = () => {
                     <Mail className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
                     <input
                       type="email"
-                      value={companyData.company_email}
-                      onChange={(e) => setCompanyData(prev => ({ ...prev, company_email: e.target.value }))}
+                      value={profileData.company_email}
+                      onChange={(e) => setProfileData(prev => ({ ...prev, company_email: e.target.value }))}
                       className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                      placeholder="contact@company.com"
+                      placeholder="john.smith@email.com"
                     />
                   </div>
                 </div>
 
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Business Address
+                    Address
                   </label>
                   <div className="relative">
                     <MapPin className="absolute left-3 top-3 text-gray-400 w-5 h-5" />
                     <textarea
-                      value={companyData.company_address}
-                      onChange={(e) => setCompanyData(prev => ({ ...prev, company_address: e.target.value }))}
+                      value={profileData.personal_address}
+                      onChange={(e) => setProfileData(prev => ({ ...prev, personal_address: e.target.value }))}
                       rows={3}
                       className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                       placeholder="123 Main St, City, State 12345"
@@ -191,11 +197,11 @@ const Settings: React.FC = () => {
                     AffiliateWP ID
                   </label>
                   <div className="relative">
-                    <User className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
+                    <CreditCard className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
                     <input
                       type="number"
-                      value={companyData.affiliatewp_id}
-                      onChange={(e) => setCompanyData(prev => ({ ...prev, affiliatewp_id: e.target.value }))}
+                      value={profileData.affiliatewp_id}
+                      onChange={(e) => setProfileData(prev => ({ ...prev, affiliatewp_id: e.target.value }))}
                       className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                       placeholder="12345"
                     />

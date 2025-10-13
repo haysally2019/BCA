@@ -203,9 +203,12 @@ export interface Profile {
   id: string;
   user_id: string;
   company_name: string;
+  full_name?: string;
   company_phone?: string;
+  personal_phone?: string;
   company_email?: string;
   company_address?: string;
+  personal_address?: string;
   subscription_plan: string;
   user_role: string;
   territory?: string;

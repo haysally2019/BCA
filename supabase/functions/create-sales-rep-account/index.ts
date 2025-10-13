@@ -190,9 +190,11 @@ Deno.serve(async (req: Request) => {
     console.log('Step 9: Creating profile');
     const profilePayload = {
       user_id: authData.user.id,
-      company_name: name,
+      company_name: 'Tartan Builders Inc',
+      full_name: name,
       company_email: email,
       company_phone: phone,
+      personal_phone: phone,
       user_role: user_role || 'sales_rep',
       territory: territory || null,
       commission_rate: commission_rate || 15,

@@ -70,7 +70,7 @@ const Sidebar: React.FC = () => {
 
   const menuItems = getMenuItems();
 
-  const getCompanyDisplay = () => {
+  const getUserDisplay = () => {
     const isAgencyUser = profile?.company_name === 'Blue Collar Academy' ||
                         profile?.company_name === 'Tartan Builders Inc' ||
                         profile?.subscription_plan === 'enterprise' ||
@@ -84,28 +84,30 @@ const Sidebar: React.FC = () => {
       return name.split(' ').map(word => word[0]).join('').toUpperCase().slice(0, 3);
     };
 
+    const displayName = profile?.full_name || profile?.company_name || 'User';
+
     if (isAgencyUser && isManager) {
       return {
-        name: profile?.company_name || 'Blue Collar Academy',
+        name: displayName,
         plan: 'Manager/Admin',
-        initials: getInitials(profile?.company_name || 'BCA')
+        initials: getInitials(displayName)
       };
     } else if (isAgencyUser) {
       return {
-        name: profile?.company_name || 'Blue Collar Academy',
+        name: displayName,
         plan: 'Sales Rep',
-        initials: getInitials(profile?.company_name || 'BCA')
+        initials: getInitials(displayName)
       };
     } else {
       return {
-        name: profile?.company_name || 'Blue Collar Academy',
+        name: displayName,
         plan: 'Premium Plan',
-        initials: getInitials(profile?.company_name || 'BCA')
+        initials: getInitials(displayName)
       };
     }
   };
 
-  const companyDisplay = getCompanyDisplay();
+  const userDisplay = getUserDisplay();
 
   return (
     <div className="hidden md:flex md:flex-col w-64 bg-white border-r border-gray-200 h-screen shadow-sm overflow-hidden">
@@ -150,11 +152,11 @@ const Sidebar: React.FC = () => {
       <div className="p-3 border-t border-gray-100 flex-shrink-0">
         <div className="flex items-center space-x-2.5 p-2.5 bg-gray-50 rounded-lg">
           <div className="w-8 h-8 bg-academy-blue-600 rounded-full flex items-center justify-center flex-shrink-0">
-            <span className="text-xs font-semibold text-white">{companyDisplay.initials}</span>
+            <span className="text-xs font-semibold text-white">{userDisplay.initials}</span>
           </div>
           <div className="text-xs min-w-0 flex-1">
-            <p className="font-medium text-gray-900 truncate">{companyDisplay.name}</p>
-            <p className="text-gray-500 truncate">{companyDisplay.plan}</p>
+            <p className="font-medium text-gray-900 truncate">{userDisplay.name}</p>
+            <p className="text-gray-500 truncate">{userDisplay.plan}</p>
           </div>
         </div>
       </div>

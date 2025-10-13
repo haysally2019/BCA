@@ -6,9 +6,12 @@ interface Profile {
   id: string;
   user_id: string;
   company_name: string;
+  full_name?: string;
   company_phone?: string;
+  personal_phone?: string;
   company_email?: string;
   company_address?: string;
+  personal_address?: string;
   subscription_plan: string;
   user_role?: string;
   affiliatewp_id?: number;
@@ -31,7 +34,8 @@ interface AuthState {
 const createMockProfile = (user: User, name?: string, userType?: 'management' | 'sales_rep'): Profile => ({
   id: user.id,
   user_id: user.id,
-  company_name: name || user.email?.split('@')[0] || 'My Company',
+  company_name: name || user.email?.split('@')[0] || 'User',
+  full_name: name || user.email?.split('@')[0] || 'User',
   company_email: user.email,
   subscription_plan: userType === 'management' ? 'enterprise' : 'professional',
   created_at: new Date().toISOString(),
@@ -114,6 +118,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
                 .from('profiles')
                 .update({
                   company_name: name,
+                  full_name: name,
                   company_email: email,
                   subscription_plan: userType === 'management' ? 'enterprise' : 'professional',
                   user_role: userType === 'management' ? 'manager' : 'sales_rep',
@@ -141,6 +146,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
                 .insert({
                   user_id: data.user.id,
                   company_name: name,
+                  full_name: name,
                   company_email: email,
                   subscription_plan: userType === 'management' ? 'enterprise' : 'professional',
                   user_role: userType === 'management' ? 'manager' : 'sales_rep',
@@ -159,6 +165,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
                     .from('profiles')
                     .update({
                       company_name: name,
+                      full_name: name,
                       company_email: email,
                       subscription_plan: userType === 'management' ? 'enterprise' : 'professional',
                       user_role: userType === 'management' ? 'manager' : 'sales_rep',
