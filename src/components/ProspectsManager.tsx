@@ -5,6 +5,7 @@ import { useAuthStore } from '../store/authStore';
 import { useDataStore } from '../store/dataStore';
 import BaseModal from './modals/BaseModal';
 import ConfirmationModal from './modals/ConfirmationModal';
+import ImportLeadsModal from './modals/ImportLeadsModal';
 import { FormField, validateForm, prospectValidationSchema, type ValidationErrors } from './modals/FormValidation';
 import toast from 'react-hot-toast';
 
@@ -115,6 +116,52 @@ const ProspectsManager: React.FC = () => {
     } catch (error) {
       console.error('Error deleting prospect:', error);
       toast.error('Failed to delete prospect');
+    }
+  };
+
+  const handleImportProspects = async (importedData: any[]): Promise<{ success: number; failed: number; duplicates: number; dbDuplicates: number }> => {
+    if (!profile) {
+      throw new Error('No profile found');
+    }
+
+    try {
+      const prospectsData = importedData.map(data => {
+        const prospectData: Partial<Prospect> = {
+          company_name: data.company_name || data.name || 'Unknown Company',
+          contact_name: data.contact_name || data.name || '',
+          phone: data.phone || '',
+          email: data.email,
+          status: data.status || 'lead',
+          deal_value: data.deal_value || data.estimated_value || 199,
+          probability: data.probability || data.score || 50,
+          source: data.source || 'import',
+          company_size: data.company_size,
+          current_crm: data.current_crm,
+          pain_points: data.pain_points,
+          decision_maker: data.decision_maker || false,
+          notes: data.notes,
+          next_follow_up_date: data.next_follow_up_date,
+        };
+
+        return prospectData;
+      });
+
+      const result = await supabaseService.bulkCreateProspects(profile.id, prospectsData);
+
+      if (result.success.length > 0) {
+        useDataStore.getState().invalidateCache([`dashboard_${profile.id}_30d`]);
+        await loadDashboardData(profile.id);
+      }
+
+      return {
+        success: result.success.length,
+        failed: result.failed.length,
+        duplicates: 0,
+        dbDuplicates: result.duplicates.length
+      };
+    } catch (error) {
+      console.error('Error importing prospects:', error);
+      throw error;
     }
   };
 
@@ -522,30 +569,12 @@ const ProspectsManager: React.FC = () => {
         confirmText="Delete Prospect"
       />
 
-      {/* Import Modal Placeholder */}
-      {showImportModal && (
-        <BaseModal
-          isOpen={showImportModal}
-          onClose={() => setShowImportModal(false)}
-          title="Import Prospects"
-          size="md"
-        >
-          <div className="text-center py-8">
-            <Upload className="w-16 h-16 text-gray-400 mx-auto mb-4" />
-            <h3 className="text-lg font-semibold text-gray-900 mb-2">Import Feature Coming Soon</h3>
-            <p className="text-gray-600 mb-6">
-              The bulk import feature for prospects is currently under development.
-              For now, please add prospects individually using the "Add Prospect" button.
-            </p>
-            <button
-              onClick={() => setShowImportModal(false)}
-              className="bg-red-700 text-white px-6 py-2 rounded-lg hover:bg-red-800 transition-colors"
-            >
-              Got it
-            </button>
-          </div>
-        </BaseModal>
-      )}
+      {/* Import Modal */}
+      <ImportLeadsModal
+        isOpen={showImportModal}
+        onClose={() => setShowImportModal(false)}
+        onImport={handleImportProspects}
+      />
     </div>
   );
 };

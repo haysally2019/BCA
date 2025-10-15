@@ -906,6 +906,111 @@ export const supabaseService = {
     }
   },
 
+  async bulkCreateProspects(companyId: string, prospectsData: Partial<Prospect>[]): Promise<{
+    success: Prospect[];
+    failed: Array<{ data: Partial<Prospect>; error: string }>;
+    duplicates: Array<{ data: Partial<Prospect>; existingProspect: Prospect }>;
+  }> {
+    try {
+      const success: Prospect[] = [];
+      const failed: Array<{ data: Partial<Prospect>; error: string }> = [];
+      const duplicates: Array<{ data: Partial<Prospect>; existingProspect: Prospect }> = [];
+
+      const phoneNumbers = prospectsData
+        .map(prospect => prospect.phone)
+        .filter(phone => phone && phone.trim());
+
+      const { data: existingProspects } = await supabase
+        .from('prospects')
+        .select('*')
+        .eq('company_id', companyId)
+        .in('phone', phoneNumbers);
+
+      const existingPhoneMap = new Map(
+        (existingProspects || []).map(prospect => [this.normalizePhone(prospect.phone), prospect])
+      );
+
+      const chunkSize = 50;
+      for (let i = 0; i < prospectsData.length; i += chunkSize) {
+        const chunk = prospectsData.slice(i, i + chunkSize);
+        const validProspects: any[] = [];
+
+        for (const prospectData of chunk) {
+          const normalizedPhone = this.normalizePhone(prospectData.phone || '');
+          if (existingPhoneMap.has(normalizedPhone)) {
+            duplicates.push({
+              data: prospectData,
+              existingProspect: existingPhoneMap.get(normalizedPhone)!
+            });
+            continue;
+          }
+
+          if (!prospectData.company_name || !prospectData.contact_name || !prospectData.phone) {
+            failed.push({
+              data: prospectData,
+              error: 'Missing required fields: company_name, contact_name, or phone'
+            });
+            continue;
+          }
+
+          validProspects.push({
+            company_id: companyId,
+            assigned_rep_id: companyId,
+            company_name: prospectData.company_name,
+            contact_name: prospectData.contact_name,
+            email: prospectData.email || null,
+            phone: prospectData.phone,
+            status: prospectData.status || 'lead',
+            deal_value: prospectData.deal_value || 199,
+            probability: prospectData.probability || 50,
+            source: prospectData.source || 'import',
+            company_size: prospectData.company_size || null,
+            current_crm: prospectData.current_crm || null,
+            pain_points: prospectData.pain_points || null,
+            decision_maker: prospectData.decision_maker || false,
+            notes: prospectData.notes || null,
+            next_follow_up_date: prospectData.next_follow_up_date || null,
+            last_contact_date: new Date().toISOString(),
+          });
+        }
+
+        if (validProspects.length > 0) {
+          const { data: insertedProspects, error } = await supabase
+            .from('prospects')
+            .insert(validProspects)
+            .select();
+
+          if (error) {
+            for (const prospectData of validProspects) {
+              try {
+                const { data: singleProspect, error: singleError } = await supabase
+                  .from('prospects')
+                  .insert(prospectData)
+                  .select()
+                  .single();
+
+                if (singleError) throw singleError;
+                success.push(singleProspect);
+              } catch (singleErr: any) {
+                failed.push({
+                  data: prospectData,
+                  error: singleErr.message || 'Failed to insert prospect'
+                });
+              }
+            }
+          } else {
+            success.push(...(insertedProspects || []));
+          }
+        }
+      }
+
+      return { success, failed, duplicates };
+    } catch (error) {
+      console.error('Error in bulk create prospects:', error);
+      throw error;
+    }
+  },
+
   // COMPREHENSIVE ANALYTICS
   async getAnalyticsData(companyId: string, timeRange: string = '30d'): Promise<AnalyticsData> {
     try {
