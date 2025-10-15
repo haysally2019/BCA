@@ -297,7 +297,7 @@ const LeadManagement: React.FC = () => {
     setSelectedLeads([]);
   };
 
-  const handleImportLeads = async (leadsData: any[]) => {
+  const handleImportLeads = async (leadsData: any[]): Promise<{ success: number; failed: number; duplicates: number; dbDuplicates: number }> => {
     if (!profile) {
       toast.error('Profile not loaded. Please refresh the page and try again.');
       throw new Error('Profile not loaded');
@@ -308,41 +308,77 @@ const LeadManagement: React.FC = () => {
       throw new Error('No leads data provided');
     }
 
-    let successCount = 0;
-    let failCount = 0;
-    const importedLeads: Lead[] = [];
-    const errors: string[] = [];
+    try {
+      // Use the new bulk insert function
+      const result = await supabaseService.bulkCreateLeads(profile.id, leadsData);
 
-    for (let i = 0; i < leadsData.length; i++) {
-      const leadData = leadsData[i];
-      try {
-        const newLead = await supabaseService.createLead(profile.id, leadData);
-        importedLeads.push(newLead);
-        successCount++;
-      } catch (error: any) {
-        failCount++;
-        const errorMsg = error?.message || 'Unknown error';
-        console.error(`Error importing lead ${i + 1}:`, error);
-        errors.push(`Row ${i + 1}: ${errorMsg}`);
-
-        if (failCount >= 5) {
-          console.error('Too many import errors, stopping import');
-          throw new Error(`Import stopped after ${failCount} failures. Check your data and permissions.`);
-        }
+      // Update the leads list with successfully imported leads
+      if (result.success.length > 0) {
+        setLeads(prev => [...result.success, ...prev]);
       }
-    }
 
-    if (importedLeads.length > 0) {
-      setLeads(prev => [...importedLeads, ...prev]);
-    }
+      // Provide detailed feedback to the user
+      if (result.success.length > 0) {
+        toast.success(
+          `Successfully imported ${result.success.length} lead${result.success.length > 1 ? 's' : ''}`
+        );
+      }
 
-    if (failCount > 0 && successCount === 0) {
-      console.error('All imports failed:', errors);
-      throw new Error(`Failed to import all leads. Please check your data and try again.`);
-    }
+      if (result.duplicates.length > 0) {
+        toast.error(
+          `${result.duplicates.length} duplicate${result.duplicates.length > 1 ? 's' : ''} skipped (already exist in database)`,
+          { duration: 4000 }
+        );
+      }
 
-    if (errors.length > 0) {
-      console.warn('Import completed with errors:', errors);
+      if (result.failed.length > 0) {
+        toast.error(
+          `${result.failed.length} lead${result.failed.length > 1 ? 's' : ''} failed to import`,
+          { duration: 4000 }
+        );
+      }
+
+      // If everything failed, throw an error with the results attached
+      if (result.success.length === 0 && result.failed.length > 0) {
+        const firstError = result.failed[0];
+        const error: any = new Error(firstError.error || 'Failed to import leads');
+        error.importResults = {
+          success: result.success.length,
+          failed: result.failed.length,
+          duplicates: 0,
+          dbDuplicates: result.duplicates.length,
+        };
+        throw error;
+      }
+
+      // Reload leads to ensure we have the latest data
+      await loadLeads();
+
+      // Return results for the modal
+      return {
+        success: result.success.length,
+        failed: result.failed.length,
+        duplicates: 0,
+        dbDuplicates: result.duplicates.length,
+      };
+
+    } catch (error: any) {
+      console.error('Import error:', error);
+      const errorMessage = error.message || 'Unknown error occurred during import';
+
+      // If it's a permissions error, provide more context
+      if (errorMessage.includes('permission') || errorMessage.includes('policy')) {
+        const permError: any = new Error('Permission denied. Please check your account permissions and try again.');
+        permError.importResults = error.importResults;
+        throw permError;
+      }
+
+      // Preserve import results if they exist
+      if (error.importResults) {
+        throw error;
+      }
+
+      throw new Error(errorMessage);
     }
   };
 

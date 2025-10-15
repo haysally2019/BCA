@@ -6,7 +6,7 @@ import toast from 'react-hot-toast';
 interface ImportLeadsModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onImport: (leads: any[]) => Promise<void>;
+  onImport: (leads: any[]) => Promise<{ success: number; failed: number; duplicates: number; dbDuplicates: number }>;
 }
 
 interface CSVColumn {
@@ -19,6 +19,7 @@ interface ImportResult {
   success: number;
   failed: number;
   duplicates: number;
+  dbDuplicates: number;
   errors: Array<{ row: number; error: string; data: any }>;
 }
 
@@ -210,6 +211,7 @@ export const ImportLeadsModal: React.FC<ImportLeadsModalProps> = ({ isOpen, onCl
       success: 0,
       failed: 0,
       duplicates: 0,
+      dbDuplicates: 0,
       errors: [],
     };
 
@@ -230,18 +232,24 @@ export const ImportLeadsModal: React.FC<ImportLeadsModalProps> = ({ isOpen, onCl
 
             switch (col.mappedField) {
               case 'name':
-                leadData.name = value;
+                // Sanitize name to prevent any malicious content
+                leadData.name = value.replace(/[<>]/g, '');
                 if (!value) hasRequiredFields = false;
                 break;
               case 'phone':
-                leadData.phone = value;
-                if (!value) hasRequiredFields = false;
+                // Basic phone validation and sanitization
+                const cleanPhone = value.replace(/[^\d\s\-\(\)\+]/g, '');
+                leadData.phone = cleanPhone;
+                if (!cleanPhone || cleanPhone.replace(/\D/g, '').length < 10) {
+                  throw new Error('Invalid phone number format');
+                }
                 break;
               case 'email':
                 if (value && !isValidEmail(value)) {
                   throw new Error('Invalid email format');
                 }
-                leadData.email = value;
+                // Store email in lowercase
+                leadData.email = value.toLowerCase();
                 break;
               case 'status':
                 const normalizedStatus = value.toLowerCase().replace(/\s+/g, '_');
@@ -260,8 +268,17 @@ export const ImportLeadsModal: React.FC<ImportLeadsModalProps> = ({ isOpen, onCl
               case 'source':
                 leadData.source = value.toLowerCase().replace(/\s+/g, '_') || 'import';
                 break;
+              case 'address':
+                // Sanitize address
+                leadData.address = value.replace(/[<>]/g, '');
+                break;
+              case 'notes':
+                // Sanitize notes
+                leadData.notes = value.replace(/[<>]/g, '');
+                break;
               default:
-                leadData[col.mappedField] = value;
+                // Sanitize any other fields
+                leadData[col.mappedField] = value.replace(/[<>]/g, '');
             }
           }
         });
@@ -270,12 +287,19 @@ export const ImportLeadsModal: React.FC<ImportLeadsModalProps> = ({ isOpen, onCl
           throw new Error('Missing required fields (name or phone)');
         }
 
-        if (processedPhones.has(leadData.phone)) {
+        // Check for duplicates within the CSV file itself
+        const normalizedPhone = leadData.phone.replace(/\D/g, '');
+        if (processedPhones.has(normalizedPhone)) {
           result.duplicates++;
+          result.errors.push({
+            row: i + 2,
+            error: 'Duplicate phone number in CSV',
+            data: row,
+          });
           continue;
         }
 
-        processedPhones.add(leadData.phone);
+        processedPhones.add(normalizedPhone);
 
         if (!leadData.status) leadData.status = 'new';
         if (!leadData.score) leadData.score = 50;
@@ -295,17 +319,48 @@ export const ImportLeadsModal: React.FC<ImportLeadsModalProps> = ({ isOpen, onCl
 
     try {
       if (validLeads.length > 0) {
-        await onImport(validLeads);
-        result.success = validLeads.length;
-        toast.success(`Successfully imported ${validLeads.length} lead${validLeads.length > 1 ? 's' : ''}`);
+        // Use the onImport callback which will handle the bulk insert
+        const importResults = await onImport(validLeads);
+
+        // Update result with actual database results
+        result.success = importResults.success;
+        result.dbDuplicates = importResults.dbDuplicates;
+
+        // Keep track of CSV duplicates separately
+        // (these are already counted in result.duplicates from the loop above)
+
+        if (importResults.success > 0) {
+          toast.success(`Successfully imported ${importResults.success} lead${importResults.success > 1 ? 's' : ''}`);
+        }
       } else {
         toast.error('No valid leads to import');
       }
     } catch (error: any) {
       console.error('Import error:', error);
-      toast.error('Failed to import leads: ' + (error.message || 'Unknown error'));
-      result.failed = validLeads.length;
-      result.success = 0;
+      const errorMessage = error.message || 'Unknown error';
+      toast.error('Failed to import leads: ' + errorMessage);
+
+      // Check if error has import results attached
+      if (error.importResults) {
+        result.success = error.importResults.success;
+        result.failed = error.importResults.failed;
+        result.dbDuplicates = error.importResults.dbDuplicates;
+      }
+
+      // If there's an error object with details, add to errors list
+      if (error.details) {
+        result.errors.push({
+          row: 0,
+          error: `Database error: ${errorMessage}`,
+          data: error.details,
+        });
+      }
+
+      // Only override failed count if no results were attached
+      if (!error.importResults) {
+        result.failed = validLeads.length;
+        result.success = 0;
+      }
     }
 
     setImportResult(result);
@@ -530,8 +585,17 @@ export const ImportLeadsModal: React.FC<ImportLeadsModalProps> = ({ isOpen, onCl
           {importResult.duplicates > 0 && (
             <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
               <div className="flex items-center justify-between">
-                <span className="text-sm font-medium text-yellow-900">Duplicates skipped</span>
+                <span className="text-sm font-medium text-yellow-900">Duplicates in CSV (skipped)</span>
                 <span className="text-lg font-bold text-yellow-600">{importResult.duplicates}</span>
+              </div>
+            </div>
+          )}
+
+          {importResult.dbDuplicates > 0 && (
+            <div className="bg-orange-50 border border-orange-200 rounded-lg p-4">
+              <div className="flex items-center justify-between">
+                <span className="text-sm font-medium text-orange-900">Already exist in database (skipped)</span>
+                <span className="text-lg font-bold text-orange-600">{importResult.dbDuplicates}</span>
               </div>
             </div>
           )}

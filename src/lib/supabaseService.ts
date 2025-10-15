@@ -273,6 +273,132 @@ export const supabaseService = {
     }
   },
 
+  async bulkCreateLeads(companyId: string, leadsData: Partial<Lead>[]): Promise<{
+    success: Lead[];
+    failed: Array<{ data: Partial<Lead>; error: string }>;
+    duplicates: Array<{ data: Partial<Lead>; existingLead: Lead }>;
+  }> {
+    try {
+      const success: Lead[] = [];
+      const failed: Array<{ data: Partial<Lead>; error: string }> = [];
+      const duplicates: Array<{ data: Partial<Lead>; existingLead: Lead }> = [];
+
+      // Check for duplicates in the database
+      const phoneNumbers = leadsData
+        .map(lead => lead.phone)
+        .filter(phone => phone && phone.trim());
+
+      const { data: existingLeads } = await supabase
+        .from('leads')
+        .select('*')
+        .eq('company_id', companyId)
+        .in('phone', phoneNumbers);
+
+      const existingPhoneMap = new Map(
+        (existingLeads || []).map(lead => [this.normalizePhone(lead.phone), lead])
+      );
+
+      // Process leads in chunks of 50 for better performance
+      const chunkSize = 50;
+      for (let i = 0; i < leadsData.length; i += chunkSize) {
+        const chunk = leadsData.slice(i, i + chunkSize);
+        const validLeads: any[] = [];
+
+        for (const leadData of chunk) {
+          // Check for duplicates
+          const normalizedPhone = this.normalizePhone(leadData.phone || '');
+          if (existingPhoneMap.has(normalizedPhone)) {
+            duplicates.push({
+              data: leadData,
+              existingLead: existingPhoneMap.get(normalizedPhone)!
+            });
+            continue;
+          }
+
+          // Validate required fields
+          if (!leadData.name || !leadData.phone) {
+            failed.push({
+              data: leadData,
+              error: 'Missing required fields: name or phone'
+            });
+            continue;
+          }
+
+          // Prepare lead for insertion
+          validLeads.push({
+            company_id: companyId,
+            assigned_rep_id: companyId,
+            name: leadData.name,
+            email: leadData.email || null,
+            phone: leadData.phone,
+            address: leadData.address || null,
+            status: leadData.status || 'new',
+            score: leadData.score || Math.floor(Math.random() * 40) + 60,
+            estimated_value: leadData.estimated_value || null,
+            roof_type: leadData.roof_type || null,
+            notes: leadData.notes || null,
+            source: leadData.source || 'import',
+          });
+        }
+
+        // Bulk insert valid leads
+        if (validLeads.length > 0) {
+          const { data: insertedLeads, error } = await supabase
+            .from('leads')
+            .insert(validLeads)
+            .select();
+
+          if (error) {
+            // If bulk insert fails, try one by one
+            for (const leadData of validLeads) {
+              try {
+                const { data: singleLead, error: singleError } = await supabase
+                  .from('leads')
+                  .insert(leadData)
+                  .select()
+                  .single();
+
+                if (singleError) throw singleError;
+                success.push(singleLead);
+
+                // Log activity for individual lead
+                await this.logLeadActivity(singleLead.id, companyId, 'lead_created', {
+                  subject: 'Lead Imported',
+                  description: `Lead ${singleLead.name} imported from CSV`,
+                });
+              } catch (singleErr: any) {
+                failed.push({
+                  data: leadData,
+                  error: singleErr.message || 'Failed to insert lead'
+                });
+              }
+            }
+          } else {
+            success.push(...(insertedLeads || []));
+
+            // Log activities for all inserted leads
+            for (const lead of insertedLeads || []) {
+              await this.logLeadActivity(lead.id, companyId, 'lead_created', {
+                subject: 'Lead Imported',
+                description: `Lead ${lead.name} imported from CSV`,
+              });
+            }
+          }
+        }
+      }
+
+      return { success, failed, duplicates };
+    } catch (error) {
+      console.error('Error in bulk create leads:', error);
+      throw error;
+    }
+  },
+
+  normalizePhone(phone: string): string {
+    // Remove all non-digit characters for comparison
+    return phone.replace(/\D/g, '');
+  },
+
   async updateLead(leadId: string, updates: Partial<Lead>): Promise<Lead> {
     try {
       console.log('updateLead called with:', { leadId, updates });
