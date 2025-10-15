@@ -56,11 +56,14 @@ const Settings: React.FC = () => {
         company_address: profileData.personal_address,
         affiliatewp_id: profileData.affiliatewp_id ? parseInt(profileData.affiliatewp_id) : undefined
       };
+
+      console.log('Saving profile updates:', updates);
       await updateProfile(updates);
       toast.success('Profile updated successfully');
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error updating profile:', error);
-      toast.error('Failed to update profile');
+      const errorMessage = error?.message || 'Failed to update profile';
+      toast.error(`Failed to update profile: ${errorMessage}`);
     } finally {
       setLoading(false);
     }

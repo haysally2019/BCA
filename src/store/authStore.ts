@@ -381,27 +381,38 @@ export const useAuthStore = create<AuthState>((set, get) => ({
 
   updateProfile: async (updates: Partial<Profile>) => {
     const { profile } = get();
-    if (!profile) return;
+    if (!profile) {
+      console.error('[AuthStore] Cannot update profile: no profile found');
+      throw new Error('No profile found');
+    }
 
-    const updatedProfile = { ...profile, ...updates, updated_at: new Date().toISOString() };
-    set({ profile: updatedProfile });
+    console.log('[AuthStore] Updating profile with data:', updates);
 
     try {
-      const { data } = await supabase
+      const { data, error } = await supabase
         .from('profiles')
         .update({
           ...updates,
           updated_at: new Date().toISOString(),
         })
-        .eq('id', profile.id)
+        .eq('user_id', profile.user_id)
         .select()
         .single();
 
+      if (error) {
+        console.error('[AuthStore] Profile update error:', error);
+        throw error;
+      }
+
       if (data) {
+        console.log('[AuthStore] Profile updated successfully:', data);
         set({ profile: data });
+      } else {
+        console.warn('[AuthStore] No data returned from profile update');
       }
     } catch (error) {
-      // Profile update failed, using local update
+      console.error('[AuthStore] Exception during profile update:', error);
+      throw error;
     }
   },
 
