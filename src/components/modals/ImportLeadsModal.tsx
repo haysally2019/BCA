@@ -65,19 +65,34 @@ export const ImportLeadsModal: React.FC<ImportLeadsModalProps> = ({ isOpen, onCl
     reader.onload = (e) => {
       try {
         const text = e.target?.result as string;
+
+        if (!text || text.trim().length === 0) {
+          toast.error('CSV file is empty');
+          setFile(null);
+          return;
+        }
+
         const lines = text.split(/\r?\n/).filter(line => line.trim());
 
         if (lines.length < 2) {
           toast.error('CSV file must contain a header row and at least one data row');
+          setFile(null);
           return;
         }
 
         const parsedData = lines.map(line => parseCSVLine(line));
         const headers = parsedData[0];
-        const dataRows = parsedData.slice(1);
+        const dataRows = parsedData.slice(1).filter(row => row.some(cell => cell.trim()));
+
+        if (dataRows.length === 0) {
+          toast.error('No valid data rows found in CSV file');
+          setFile(null);
+          return;
+        }
 
         if (dataRows.length > MAX_IMPORT_LEADS) {
           toast.error(`Maximum ${MAX_IMPORT_LEADS} leads can be imported at once. Your file has ${dataRows.length} rows.`);
+          setFile(null);
           return;
         }
 
@@ -90,11 +105,19 @@ export const ImportLeadsModal: React.FC<ImportLeadsModalProps> = ({ isOpen, onCl
         setColumns(detectedColumns);
         setCsvData(dataRows);
         setStep('mapping');
+        toast.success(`CSV file loaded successfully with ${dataRows.length} row${dataRows.length > 1 ? 's' : ''}`);
       } catch (error) {
         console.error('Error parsing CSV:', error);
         toast.error('Error parsing CSV file. Please check the file format.');
+        setFile(null);
       }
     };
+
+    reader.onerror = () => {
+      toast.error('Error reading CSV file');
+      setFile(null);
+    };
+
     reader.readAsText(file);
   };
 
@@ -255,7 +278,6 @@ export const ImportLeadsModal: React.FC<ImportLeadsModalProps> = ({ isOpen, onCl
         if (!leadData.source) leadData.source = 'import';
 
         validLeads.push(leadData);
-        result.success++;
 
       } catch (error: any) {
         result.failed++;
@@ -270,9 +292,16 @@ export const ImportLeadsModal: React.FC<ImportLeadsModalProps> = ({ isOpen, onCl
     try {
       if (validLeads.length > 0) {
         await onImport(validLeads);
+        result.success = validLeads.length;
+        toast.success(`Successfully imported ${validLeads.length} lead${validLeads.length > 1 ? 's' : ''}`);
+      } else {
+        toast.error('No valid leads to import');
       }
     } catch (error: any) {
-      toast.error('Failed to import leads: ' + error.message);
+      console.error('Import error:', error);
+      toast.error('Failed to import leads: ' + (error.message || 'Unknown error'));
+      result.failed = validLeads.length;
+      result.success = 0;
     }
 
     setImportResult(result);
@@ -320,12 +349,17 @@ export const ImportLeadsModal: React.FC<ImportLeadsModalProps> = ({ isOpen, onCl
   };
 
   const handleClose = () => {
+    if (isProcessing) {
+      toast.error('Please wait for the import to complete');
+      return;
+    }
     setFile(null);
     setColumns([]);
     setCsvData([]);
     setStep('upload');
     setImportResult(null);
     setProgress({ current: 0, total: 0 });
+    setIsProcessing(false);
     onClose();
   };
 
@@ -335,9 +369,18 @@ export const ImportLeadsModal: React.FC<ImportLeadsModalProps> = ({ isOpen, onCl
         <div className="mb-4">
           <Upload className="w-16 h-16 text-gray-400 mx-auto mb-4" />
           <h3 className="text-lg font-semibold text-gray-900 mb-2">Import Leads from CSV</h3>
-          <p className="text-sm text-gray-600">
+          <p className="text-sm text-gray-600 mb-3">
             Upload a CSV file with your lead data. Maximum {MAX_IMPORT_LEADS} leads per import.
           </p>
+          <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 text-left">
+            <p className="text-xs font-medium text-blue-900 mb-2">CSV Requirements:</p>
+            <ul className="text-xs text-blue-800 space-y-1 list-disc list-inside">
+              <li>Required fields: Name and Phone</li>
+              <li>First row must contain column headers</li>
+              <li>Use standard CSV format with commas</li>
+              <li>Download the template below for guidance</li>
+            </ul>
+          </div>
         </div>
 
         <div className="border-2 border-dashed border-gray-300 rounded-lg p-8 hover:border-red-400 transition-colors">

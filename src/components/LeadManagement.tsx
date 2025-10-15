@@ -295,28 +295,50 @@ const LeadManagement: React.FC = () => {
 
   const handleImportLeads = async (leadsData: any[]) => {
     if (!profile) {
-      toast.error('Profile not loaded');
-      return;
+      toast.error('Profile not loaded. Please refresh the page and try again.');
+      throw new Error('Profile not loaded');
+    }
+
+    if (!leadsData || leadsData.length === 0) {
+      toast.error('No leads data provided');
+      throw new Error('No leads data provided');
     }
 
     let successCount = 0;
+    let failCount = 0;
     const importedLeads: Lead[] = [];
+    const errors: string[] = [];
 
-    for (const leadData of leadsData) {
+    for (let i = 0; i < leadsData.length; i++) {
+      const leadData = leadsData[i];
       try {
         const newLead = await supabaseService.createLead(profile.id, leadData);
         importedLeads.push(newLead);
         successCount++;
-      } catch (error) {
-        console.error('Error importing lead:', error);
-        throw error;
+      } catch (error: any) {
+        failCount++;
+        const errorMsg = error?.message || 'Unknown error';
+        console.error(`Error importing lead ${i + 1}:`, error);
+        errors.push(`Row ${i + 1}: ${errorMsg}`);
+
+        if (failCount >= 5) {
+          console.error('Too many import errors, stopping import');
+          throw new Error(`Import stopped after ${failCount} failures. Check your data and permissions.`);
+        }
       }
     }
 
-    setLeads(prev => [...importedLeads, ...prev]);
+    if (importedLeads.length > 0) {
+      setLeads(prev => [...importedLeads, ...prev]);
+    }
 
-    if (successCount > 0) {
-      toast.success(`Successfully imported ${successCount} lead${successCount > 1 ? 's' : ''}`);
+    if (failCount > 0 && successCount === 0) {
+      console.error('All imports failed:', errors);
+      throw new Error(`Failed to import all leads. Please check your data and try again.`);
+    }
+
+    if (errors.length > 0) {
+      console.warn('Import completed with errors:', errors);
     }
   };
 
@@ -414,9 +436,9 @@ const LeadManagement: React.FC = () => {
         <div className="flex flex-wrap items-center gap-2">
           <button
             onClick={() => setShowImportModal(true)}
-            className="hidden md:flex bg-gray-100 text-gray-700 px-3 py-2 rounded-lg items-center space-x-1.5 hover:bg-gray-200 transition-colors text-sm touch-manipulation"
+            className="flex bg-gray-100 text-gray-700 px-2.5 py-1.5 sm:px-3 sm:py-2 rounded-lg items-center space-x-1.5 hover:bg-gray-200 transition-colors text-xs sm:text-sm touch-manipulation"
           >
-            <Upload className="w-4 h-4" />
+            <Upload className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
             <span>Import</span>
           </button>
           <button
