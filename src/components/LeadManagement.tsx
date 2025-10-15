@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Search, Filter, Plus, MapPin, Star, Users, DollarSign, Tag, Download, Upload, MoreVertical, CheckCircle, AlertCircle, TrendingUp, Calendar, CreditCard as Edit3, Trash2, Eye, Phone, Mail, ArrowRight, ThumbsUp, FileText, Trophy, X } from 'lucide-react';
+import { Search, Filter, Plus, MapPin, Star, Users, DollarSign, Tag, Upload, MoreVertical, CheckCircle, AlertCircle, TrendingUp, Calendar, CreditCard as Edit3, Trash2, Eye, Phone, Mail, ArrowRight, ThumbsUp, FileText, Trophy, X } from 'lucide-react';
 import { supabaseService } from '../lib/supabaseService';
 import { useAuthStore } from '../store/authStore';
 import BaseModal from './modals/BaseModal';
@@ -420,13 +420,6 @@ const LeadManagement: React.FC = () => {
             <span>Import</span>
           </button>
           <button
-            onClick={handleExportLeads}
-            className="hidden md:flex bg-gray-100 text-gray-700 px-3 py-2 rounded-lg items-center space-x-1.5 hover:bg-gray-200 transition-colors text-sm touch-manipulation"
-          >
-            <Download className="w-4 h-4" />
-            <span>Export</span>
-          </button>
-          <button
             onClick={() => setShowAddModal(true)}
             className="bg-red-700 text-white px-2.5 py-1.5 sm:px-3 sm:py-2 rounded-lg flex items-center space-x-1.5 hover:bg-red-800 transition-colors text-xs sm:text-sm touch-manipulation"
           >
@@ -555,12 +548,6 @@ const LeadManagement: React.FC = () => {
                 className="text-xs sm:text-sm bg-blue-600 text-white px-2.5 py-1 sm:px-3 sm:py-1.5 rounded hover:bg-blue-700 touch-manipulation"
               >
                 Bulk Actions
-              </button>
-              <button
-                onClick={() => handleBulkAction('export')}
-                className="text-xs sm:text-sm bg-green-600 text-white px-2.5 py-1 sm:px-3 sm:py-1.5 rounded hover:bg-green-700 touch-manipulation"
-              >
-                Export
               </button>
             </div>
           </div>
