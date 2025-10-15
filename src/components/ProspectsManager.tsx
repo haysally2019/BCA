@@ -16,6 +16,7 @@ const ProspectsManager: React.FC = () => {
   const [selectedProspects, setSelectedProspects] = useState<string[]>([]);
   const [showAddModal, setShowAddModal] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [showImportModal, setShowImportModal] = useState(false);
   const [prospectToDelete, setProspectToDelete] = useState<Prospect | null>(null);
   const { profile } = useAuthStore();
   const { prospects, loadDashboardData } = useDataStore();
@@ -246,11 +247,18 @@ const ProspectsManager: React.FC = () => {
           <p className="text-gray-600 mt-1">Manage your Blue Collar Academy training prospects</p>
         </div>
         <div className="flex items-center space-x-3">
-          <button className="hidden md:flex bg-gray-100 text-gray-700 px-4 py-2 rounded-lg items-center space-x-2 hover:bg-gray-200 transition-colors">
+          <button
+            onClick={() => setShowImportModal(true)}
+            type="button"
+            className="bg-gray-100 text-gray-700 px-4 py-2 rounded-lg flex items-center space-x-2 hover:bg-gray-200 transition-colors cursor-pointer"
+          >
             <Upload className="w-4 h-4" />
             <span>Import</span>
           </button>
-          <button className="hidden md:flex bg-gray-100 text-gray-700 px-4 py-2 rounded-lg items-center space-x-2 hover:bg-gray-200 transition-colors">
+          <button
+            onClick={() => toast.info('Export feature coming soon')}
+            className="hidden md:flex bg-gray-100 text-gray-700 px-4 py-2 rounded-lg items-center space-x-2 hover:bg-gray-200 transition-colors"
+          >
             <Download className="w-4 h-4" />
             <span>Export</span>
           </button>
@@ -513,6 +521,31 @@ const ProspectsManager: React.FC = () => {
         type="danger"
         confirmText="Delete Prospect"
       />
+
+      {/* Import Modal Placeholder */}
+      {showImportModal && (
+        <BaseModal
+          isOpen={showImportModal}
+          onClose={() => setShowImportModal(false)}
+          title="Import Prospects"
+          size="md"
+        >
+          <div className="text-center py-8">
+            <Upload className="w-16 h-16 text-gray-400 mx-auto mb-4" />
+            <h3 className="text-lg font-semibold text-gray-900 mb-2">Import Feature Coming Soon</h3>
+            <p className="text-gray-600 mb-6">
+              The bulk import feature for prospects is currently under development.
+              For now, please add prospects individually using the "Add Prospect" button.
+            </p>
+            <button
+              onClick={() => setShowImportModal(false)}
+              className="bg-red-700 text-white px-6 py-2 rounded-lg hover:bg-red-800 transition-colors"
+            >
+              Got it
+            </button>
+          </div>
+        </BaseModal>
+      )}
     </div>
   );
 };
