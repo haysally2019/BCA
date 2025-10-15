@@ -55,10 +55,6 @@ const LeadManagement: React.FC = () => {
   const { profile } = useAuthStore();
 
   useEffect(() => {
-    console.log('showImportModal state changed:', showImportModal);
-  }, [showImportModal]);
-
-  useEffect(() => {
     if (profile) {
       loadLeads();
     }
@@ -475,24 +471,16 @@ const LeadManagement: React.FC = () => {
         </div>
         <div className="flex flex-wrap items-center gap-2">
           <button
-            onClick={(e) => {
-              e.preventDefault();
-              e.stopPropagation();
-              console.log('Import button clicked, current state:', showImportModal);
-              setShowImportModal(true);
-              setTimeout(() => {
-                console.log('State after 100ms:', showImportModal);
-              }, 100);
-            }}
+            onClick={() => setShowImportModal(true)}
             type="button"
-            className="flex bg-gray-100 text-gray-700 px-2.5 py-1.5 sm:px-3 sm:py-2 rounded-lg items-center space-x-1.5 hover:bg-gray-200 transition-colors text-xs sm:text-sm touch-manipulation cursor-pointer"
+            className="bg-gray-100 text-gray-700 px-2.5 py-1.5 sm:px-3 sm:py-2 rounded-lg flex items-center space-x-1.5 hover:bg-gray-200 transition-colors text-xs sm:text-sm cursor-pointer"
           >
             <Upload className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
             <span>Import Leads</span>
           </button>
           <button
             onClick={() => setShowAddModal(true)}
-            className="bg-red-700 text-white px-2.5 py-1.5 sm:px-3 sm:py-2 rounded-lg flex items-center space-x-1.5 hover:bg-red-800 transition-colors text-xs sm:text-sm touch-manipulation"
+            className="bg-red-700 text-white px-2.5 py-1.5 sm:px-3 sm:py-2 rounded-lg flex items-center space-x-1.5 hover:bg-red-800 transition-colors text-xs sm:text-sm"
           >
             <Plus className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
             <span>Add Lead</span>
@@ -1003,10 +991,7 @@ const LeadManagement: React.FC = () => {
       {showImportModal && (
         <ImportLeadsModal
           isOpen={showImportModal}
-          onClose={() => {
-            console.log('Closing import modal');
-            setShowImportModal(false);
-          }}
+          onClose={() => setShowImportModal(false)}
           onImport={handleImportLeads}
         />
       )}

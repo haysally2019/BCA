@@ -49,10 +49,6 @@ export const ImportLeadsModal: React.FC<ImportLeadsModalProps> = ({ isOpen, onCl
   const [importResult, setImportResult] = useState<ImportResult | null>(null);
   const [step, setStep] = useState<'upload' | 'mapping' | 'processing' | 'results'>('upload');
 
-  React.useEffect(() => {
-    console.log('ImportLeadsModal render - isOpen:', isOpen, 'step:', step);
-  }, [isOpen, step]);
-
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const selectedFile = e.target.files?.[0];
     if (selectedFile) {
