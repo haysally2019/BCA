@@ -286,7 +286,7 @@ Deno.serve(async (req: Request) => {
 
     console.log('Step 12: Logging activity');
     try {
-      await supabaseAdmin
+      const { error: activityLogError } = await supabaseAdmin
         .from('team_activity_log')
         .insert({
           team_member_id: teamMemberData.id,
@@ -300,9 +300,17 @@ Deno.serve(async (req: Request) => {
             affiliatewp_id,
           },
         });
-      console.log('SUCCESS: Activity logged');
+
+      if (activityLogError) {
+        console.error('Warning: Failed to log activity:', activityLogError);
+        console.error('Activity log error code:', activityLogError.code);
+        console.error('Activity log error message:', activityLogError.message);
+        console.error('Activity log error details:', activityLogError.details);
+      } else {
+        console.log('SUCCESS: Activity logged');
+      }
     } catch (logError) {
-      console.error('Warning: Error logging activity (non-fatal):', logError);
+      console.error('Warning: Exception logging activity (non-fatal):', logError);
     }
 
     console.log('=== COMPLETE SUCCESS ===');
