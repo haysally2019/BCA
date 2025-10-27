@@ -94,18 +94,90 @@ const Dashboard: React.FC = () => {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-64">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-academy-blue-600"></div>
+      <div className="space-y-4">
+        {/* Show affiliate URL even while loading */}
+        <div className="bg-gradient-to-br from-red-50 to-orange-50 rounded-lg sm:rounded-xl p-4 sm:p-5 lg:p-6 shadow-sm border border-red-100">
+          <div className="flex items-start justify-between mb-3">
+            <div className="flex items-center gap-2">
+              <div className="w-10 h-10 bg-red-500 rounded-lg flex items-center justify-center">
+                <LinkIcon className="w-5 h-5 text-white" />
+              </div>
+              <div>
+                <h3 className="text-base sm:text-lg font-semibold text-gray-900">Your Affiliate URL</h3>
+                <p className="text-xs sm:text-sm text-gray-600">Share this link to track referrals and earn commissions</p>
+              </div>
+            </div>
+          </div>
+          <div className="flex items-center gap-2 bg-white rounded-lg p-3 border border-gray-200">
+            <code className="flex-1 text-xs sm:text-sm text-gray-700 font-mono overflow-x-auto whitespace-nowrap">
+              {profile?.affiliate_referral_url || 'https://bluecollaracademy.info/?ref=3'}
+            </code>
+            <button
+              onClick={copyAffiliateUrl}
+              className="flex-shrink-0 p-2 hover:bg-gray-100 rounded-md transition-colors"
+              title="Copy to clipboard"
+            >
+              {copied ? (
+                <CheckCheck className="w-5 h-5 text-green-600" />
+              ) : (
+                <Copy className="w-5 h-5 text-gray-600" />
+              )}
+            </button>
+          </div>
+          <p className="mt-2 text-xs text-gray-500">
+            Use this URL when promoting Blue Collar Academy to track your referrals
+          </p>
+        </div>
+
+        <div className="flex items-center justify-center h-64">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-academy-blue-600"></div>
+        </div>
       </div>
     );
   }
 
   if (!analyticsData) {
     return (
-      <div className="text-center py-12">
-        <Activity className="w-16 h-16 text-gray-300 mx-auto mb-4" />
-        <h3 className="text-lg font-medium text-gray-900 mb-2">No Data Available</h3>
-        <p className="text-gray-500">Start adding leads to see your dashboard analytics.</p>
+      <div className="space-y-4">
+        {/* Show affiliate URL even with no data */}
+        <div className="bg-gradient-to-br from-red-50 to-orange-50 rounded-lg sm:rounded-xl p-4 sm:p-5 lg:p-6 shadow-sm border border-red-100">
+          <div className="flex items-start justify-between mb-3">
+            <div className="flex items-center gap-2">
+              <div className="w-10 h-10 bg-red-500 rounded-lg flex items-center justify-center">
+                <LinkIcon className="w-5 h-5 text-white" />
+              </div>
+              <div>
+                <h3 className="text-base sm:text-lg font-semibold text-gray-900">Your Affiliate URL</h3>
+                <p className="text-xs sm:text-sm text-gray-600">Share this link to track referrals and earn commissions</p>
+              </div>
+            </div>
+          </div>
+          <div className="flex items-center gap-2 bg-white rounded-lg p-3 border border-gray-200">
+            <code className="flex-1 text-xs sm:text-sm text-gray-700 font-mono overflow-x-auto whitespace-nowrap">
+              {profile?.affiliate_referral_url || 'https://bluecollaracademy.info/?ref=3'}
+            </code>
+            <button
+              onClick={copyAffiliateUrl}
+              className="flex-shrink-0 p-2 hover:bg-gray-100 rounded-md transition-colors"
+              title="Copy to clipboard"
+            >
+              {copied ? (
+                <CheckCheck className="w-5 h-5 text-green-600" />
+              ) : (
+                <Copy className="w-5 h-5 text-gray-600" />
+              )}
+            </button>
+          </div>
+          <p className="mt-2 text-xs text-gray-500">
+            Use this URL when promoting Blue Collar Academy to track your referrals
+          </p>
+        </div>
+
+        <div className="text-center py-12">
+          <Activity className="w-16 h-16 text-gray-300 mx-auto mb-4" />
+          <h3 className="text-lg font-medium text-gray-900 mb-2">No Data Available</h3>
+          <p className="text-gray-500">Start adding leads to see your dashboard analytics.</p>
+        </div>
       </div>
     );
   }
