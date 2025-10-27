@@ -1,12 +1,80 @@
 import 'jsr:@supabase/functions-js/edge-runtime.d.ts';
 import { createClient } from 'npm:@supabase/supabase-js@2.39.0';
-import { getAffiliateWPCredentials } from '../_shared/get-credentials.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Methods': 'POST, OPTIONS',
   'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-Client-Info, Apikey',
 };
+
+// Connection pooling: Reuse Supabase client across invocations
+let supabaseClient: any = null;
+let credentialsCache: { data: any; timestamp: number } | null = null;
+const CREDENTIALS_CACHE_TTL = 5 * 60 * 1000; // 5 minutes
+
+interface AffiliateWPCredentials {
+  siteUrl: string;
+  username: string;
+  password: string;
+}
+
+function getSupabaseClient() {
+  if (!supabaseClient) {
+    const supabaseUrl = Deno.env.get('SUPABASE_URL');
+    const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
+
+    if (!supabaseUrl || !serviceRoleKey) {
+      throw new Error('Supabase configuration missing');
+    }
+
+    supabaseClient = createClient(supabaseUrl, serviceRoleKey, {
+      auth: {
+        autoRefreshToken: false,
+        persistSession: false,
+      },
+    });
+  }
+  return supabaseClient;
+}
+
+async function getAffiliateWPCredentials(): Promise<AffiliateWPCredentials> {
+  const supabase = getSupabaseClient();
+
+  const { data, error } = await supabase
+    .from('app_settings')
+    .select('key, value')
+    .in('key', ['affiliatewp_site_url', 'affiliatewp_api_username', 'affiliatewp_api_password']);
+
+  if (error) {
+    throw new Error(`Failed to fetch credentials: ${error.message}`);
+  }
+
+  if (!data || data.length !== 3) {
+    throw new Error('AffiliateWP credentials not configured in database');
+  }
+
+  const credentials: Record<string, string> = {};
+  data.forEach((item: any) => {
+    credentials[item.key] = item.value;
+  });
+
+  return {
+    siteUrl: credentials.affiliatewp_site_url,
+    username: credentials.affiliatewp_api_username,
+    password: credentials.affiliatewp_api_password,
+  };
+}
+
+async function getCachedCredentials() {
+  const now = Date.now();
+  if (credentialsCache && (now - credentialsCache.timestamp) < CREDENTIALS_CACHE_TTL) {
+    return credentialsCache.data;
+  }
+
+  const credentials = await getAffiliateWPCredentials();
+  credentialsCache = { data: credentials, timestamp: now };
+  return credentials;
+}
 
 interface CreateAffiliateRequest {
   profile_id: string;
@@ -27,9 +95,10 @@ interface AffiliateWPResponse {
 async function createAffiliateInWordPress(
   email: string,
   name: string,
-  phone?: string
+  phone?: string,
+  timeoutMs: number = 30000
 ): Promise<AffiliateWPResponse> {
-  const { siteUrl: wpUrl, username: wpUsername, password: wpAppPassword } = await getAffiliateWPCredentials();
+  const { siteUrl: wpUrl, username: wpUsername, password: wpAppPassword } = await getCachedCredentials();
 
   console.log('Creating affiliate in WordPress:', { email, name });
 
@@ -56,28 +125,44 @@ async function createAffiliateInWordPress(
   console.log('Sending request to AffiliateWP API:', apiUrl);
   console.log('Payload:', JSON.stringify(payload, null, 2));
 
-  const response = await fetch(apiUrl, {
-    method: 'POST',
-    headers: {
-      'Authorization': `Basic ${credentials}`,
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify(payload),
-  });
+  // Add timeout protection and connection reuse
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
 
-  if (!response.ok) {
-    const errorText = await response.text();
-    console.error('AffiliateWP API Error:', response.status, errorText);
-    throw new Error(`AffiliateWP API error: ${response.status} - ${errorText}`);
+  try {
+    const response = await fetch(apiUrl, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Basic ${credentials}`,
+        'Content-Type': 'application/json',
+        'Connection': 'keep-alive',
+      },
+      body: JSON.stringify(payload),
+      signal: controller.signal,
+    });
+
+    clearTimeout(timeoutId);
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error('AffiliateWP API Error:', response.status, errorText);
+      throw new Error(`AffiliateWP API error: ${response.status} - ${errorText}`);
+    }
+
+    const result = await response.json();
+    console.log('AffiliateWP API Success:', JSON.stringify(result, null, 2));
+
+    return result;
+  } catch (error) {
+    clearTimeout(timeoutId);
+    if (error instanceof Error && error.name === 'AbortError') {
+      throw new Error(`WordPress API timeout after ${timeoutMs}ms`);
+    }
+    throw error;
   }
-
-  const result = await response.json();
-  console.log('AffiliateWP API Success:', JSON.stringify(result, null, 2));
-
-  return result;
 }
 
-async function logSyncOperation(
+async function updateSyncLog(
   supabase: any,
   profileId: string,
   affiliatewpId: number | null,
@@ -87,29 +172,48 @@ async function logSyncOperation(
   errorMessage: string | null = null
 ): Promise<void> {
   try {
-    const logEntry = {
-      profile_id: profileId,
-      affiliatewp_id: affiliatewpId,
-      operation: 'create',
-      sync_direction: 'portal_to_affiliatewp',
-      status,
-      request_payload: requestData,
-      response_payload: responseData,
-      error_message: errorMessage,
-      processed_at: status === 'success' || status === 'failed' ? new Date().toISOString() : null,
-    };
-
-    const { error } = await supabase
+    // Update existing sync log entry instead of creating duplicate
+    const { data: existingLog } = await supabase
       .from('affiliatewp_sync_log')
-      .insert(logEntry);
+      .select('id')
+      .eq('profile_id', profileId)
+      .eq('operation', 'create')
+      .in('status', ['pending', 'processing'])
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .maybeSingle();
 
-    if (error) {
-      console.error('Failed to log sync operation:', error);
+    if (existingLog) {
+      // Update existing log
+      await supabase
+        .from('affiliatewp_sync_log')
+        .update({
+          affiliatewp_id: affiliatewpId,
+          status,
+          response_payload: responseData,
+          error_message: errorMessage,
+          processed_at: status === 'success' || status === 'failed' ? new Date().toISOString() : null,
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', existingLog.id);
     } else {
-      console.log('Sync operation logged successfully');
+      // Create new log only if none exists
+      await supabase
+        .from('affiliatewp_sync_log')
+        .insert({
+          profile_id: profileId,
+          affiliatewp_id: affiliatewpId,
+          operation: 'create',
+          sync_direction: 'portal_to_affiliatewp',
+          status,
+          request_payload: requestData,
+          response_payload: responseData,
+          error_message: errorMessage,
+          processed_at: status === 'success' || status === 'failed' ? new Date().toISOString() : null,
+        });
     }
   } catch (err) {
-    console.error('Exception logging sync operation:', err);
+    console.error('Exception updating sync log:', err);
   }
 }
 
@@ -125,19 +229,8 @@ Deno.serve(async (req: Request) => {
   }
 
   try {
-    const supabaseUrl = Deno.env.get('SUPABASE_URL');
-    const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
-
-    if (!supabaseUrl || !serviceRoleKey) {
-      throw new Error('Supabase configuration missing');
-    }
-
-    const supabase = createClient(supabaseUrl, serviceRoleKey, {
-      auth: {
-        autoRefreshToken: false,
-        persistSession: false,
-      },
-    });
+    // Use connection-pooled client
+    const supabase = getSupabaseClient();
 
     console.log('Step 1: Parsing request body');
     const requestData: CreateAffiliateRequest = await req.json();
@@ -191,7 +284,7 @@ Deno.serve(async (req: Request) => {
       .eq('id', profile_id);
 
     console.log('Step 4: Creating affiliate in WordPress');
-    await logSyncOperation(supabase, profile_id, null, 'processing', { email, name, phone });
+    await updateSyncLog(supabase, profile_id, null, 'processing', { email, name, phone });
 
     let affiliateResponse: AffiliateWPResponse;
     try {
@@ -199,11 +292,21 @@ Deno.serve(async (req: Request) => {
       console.log('Successfully created affiliate:', affiliateResponse);
     } catch (wpError) {
       console.error('WordPress API error:', wpError);
-      await logSyncOperation(
-        supabase, 
-        profile_id, 
-        null, 
-        'failed', 
+
+      // Update profile sync status
+      await supabase
+        .from('profiles')
+        .update({
+          affiliatewp_sync_status: 'failed',
+          affiliatewp_sync_error: wpError instanceof Error ? wpError.message : String(wpError),
+        })
+        .eq('id', profile_id);
+
+      await updateSyncLog(
+        supabase,
+        profile_id,
+        null,
+        'failed',
         { email, name, phone },
         null,
         wpError instanceof Error ? wpError.message : String(wpError)
@@ -225,7 +328,7 @@ Deno.serve(async (req: Request) => {
 
     if (updateError) {
       console.error('Failed to update profile:', updateError);
-      await logSyncOperation(
+      await updateSyncLog(
         supabase,
         profile_id,
         affiliateResponse.affiliate_id,
@@ -238,7 +341,7 @@ Deno.serve(async (req: Request) => {
     }
 
     console.log('Step 6: Logging successful sync operation');
-    await logSyncOperation(
+    await updateSyncLog(
       supabase,
       profile_id,
       affiliateResponse.affiliate_id,
