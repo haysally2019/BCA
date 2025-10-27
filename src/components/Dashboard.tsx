@@ -182,34 +182,46 @@ const Dashboard: React.FC = () => {
     );
   }
 
+  // Calculate live affiliate metrics from profile
+  const affiliateMetrics = {
+    totalEarnings: (profile?.affiliatewp_earnings || 0) + (profile?.affiliatewp_unpaid_earnings || 0),
+    paidEarnings: profile?.affiliatewp_earnings || 0,
+    unpaidEarnings: profile?.affiliatewp_unpaid_earnings || 0,
+    referrals: profile?.affiliatewp_referrals || 0,
+    visits: profile?.affiliatewp_visits || 0,
+    commissionRate: profile?.commission_rate || 0,
+    lastSync: profile?.last_metrics_sync,
+    hasSyncedData: profile?.last_metrics_sync !== null && profile?.last_metrics_sync !== undefined
+  };
+
   const stats = [
+    {
+      title: 'Total Earnings',
+      value: affiliateMetrics.hasSyncedData ? `$${affiliateMetrics.totalEarnings.toLocaleString()}` : 'Not synced',
+      icon: DollarSign,
+      color: 'bg-green-500',
+      description: affiliateMetrics.hasSyncedData ? `${affiliateMetrics.commissionRate}% commission rate` : 'Sync metrics to see data'
+    },
+    {
+      title: 'Paid Earnings',
+      value: affiliateMetrics.hasSyncedData ? `$${affiliateMetrics.paidEarnings.toLocaleString()}` : 'Not synced',
+      icon: CheckCircle,
+      color: 'bg-emerald-500',
+      description: affiliateMetrics.hasSyncedData ? 'From AffiliateWP' : 'Sync metrics to see data'
+    },
+    {
+      title: 'Referrals',
+      value: affiliateMetrics.hasSyncedData ? affiliateMetrics.referrals.toString() : 'Not synced',
+      icon: Target,
+      color: 'bg-purple-500',
+      description: affiliateMetrics.hasSyncedData ? `${affiliateMetrics.visits} total visits` : 'Sync metrics to see data'
+    },
     {
       title: 'Total Leads',
       value: analyticsData.totalLeads.toString(),
       icon: Users,
       color: 'bg-blue-500',
       description: `${analyticsData.totalLeads - Math.floor(analyticsData.totalLeads * 0.2)} active leads`
-    },
-    {
-      title: 'Calls Made',
-      value: analyticsData.totalCalls.toString(),
-      icon: Phone,
-      color: 'bg-green-500',
-      description: `${analyticsData.callSuccessRate}% success rate`
-    },
-    {
-      title: 'SMS Sent',
-      value: analyticsData.totalSMS.toLocaleString(),
-      icon: MessageSquare,
-      color: 'bg-purple-500',
-      description: `${analyticsData.smsResponseRate}% response rate`
-    },
-    {
-      title: 'Revenue',
-      value: `$${analyticsData.totalRevenue.toLocaleString()}`,
-      icon: DollarSign,
-      color: 'bg-emerald-500',
-      description: `$${analyticsData.avgDealSize.toLocaleString()} avg deal`
     },
   ];
 
@@ -237,6 +249,21 @@ const Dashboard: React.FC = () => {
           </div>
         </div>
       </div>
+
+      {/* Sync Status Notice */}
+      {!affiliateMetrics.hasSyncedData && (
+        <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+          <div className="flex items-start space-x-3">
+            <AlertCircle className="w-5 h-5 text-blue-600 mt-0.5 flex-shrink-0" />
+            <div className="flex-1">
+              <h3 className="text-sm font-semibold text-blue-900 mb-1">AffiliateWP Metrics Not Synced</h3>
+              <p className="text-sm text-blue-800">
+                Your commission metrics haven't been synced yet. Contact your manager or visit the Commissions tab to sync your AffiliateWP data.
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Stats Grid */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-2 sm:gap-3 lg:gap-4">
@@ -463,42 +490,59 @@ const Dashboard: React.FC = () => {
               <Activity className="w-4 h-4 sm:w-5 sm:h-5" />
             </div>
             <div>
-              <h3 className="text-sm sm:text-base lg:text-lg font-semibold">Sales Performance</h3>
-              <p className="text-xs text-academy-blue-100">Real-time metrics from your CRM data</p>
+              <h3 className="text-sm sm:text-base lg:text-lg font-semibold">Affiliate Performance</h3>
+              <p className="text-xs text-academy-blue-100">Live metrics from AffiliateWP</p>
             </div>
           </div>
           <div className="flex items-center space-x-2">
-            <Activity className="w-5 h-5 text-green-400" />
-            <span className="text-sm text-green-400">Live data</span>
+            {affiliateMetrics.hasSyncedData ? (
+              <>
+                <Activity className="w-5 h-5 text-green-400" />
+                <span className="text-sm text-green-400">Synced</span>
+              </>
+            ) : (
+              <>
+                <AlertCircle className="w-5 h-5 text-yellow-400" />
+                <span className="text-sm text-yellow-400">Not synced</span>
+              </>
+            )}
           </div>
         </div>
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4 lg:gap-6">
           <div className="text-center">
-            <div className="text-lg sm:text-xl lg:text-2xl font-bold mb-0.5 sm:mb-1">{analyticsData.callSuccessRate}%</div>
-            <div className="text-academy-blue-100 text-xs">Call Success Rate</div>
+            <div className="text-lg sm:text-xl lg:text-2xl font-bold mb-0.5 sm:mb-1">
+              {affiliateMetrics.hasSyncedData ? `$${affiliateMetrics.totalEarnings.toLocaleString()}` : '-'}
+            </div>
+            <div className="text-academy-blue-100 text-xs">Total Earnings</div>
             <div className="text-xs text-green-400 mt-1 hidden sm:block">
-              {analyticsData.totalCalls > 0 ? `${analyticsData.totalCalls} calls made` : 'No calls yet'}
+              {affiliateMetrics.hasSyncedData ? 'Paid + Unpaid' : 'Not synced'}
             </div>
           </div>
           <div className="text-center">
-            <div className="text-lg sm:text-xl lg:text-2xl font-bold mb-0.5 sm:mb-1">{analyticsData.conversionRate}%</div>
-            <div className="text-academy-blue-100 text-xs">Lead Conversion Rate</div>
+            <div className="text-lg sm:text-xl lg:text-2xl font-bold mb-0.5 sm:mb-1">
+              {affiliateMetrics.hasSyncedData ? `$${affiliateMetrics.paidEarnings.toLocaleString()}` : '-'}
+            </div>
+            <div className="text-academy-blue-100 text-xs">Paid Earnings</div>
             <div className="text-xs text-academy-blue-400 mt-1 hidden sm:block">
-              {analyticsData.totalLeads > 0 ? `${analyticsData.totalLeads} total leads` : 'No leads yet'}
+              {affiliateMetrics.hasSyncedData ? 'From AffiliateWP' : 'Not synced'}
             </div>
           </div>
           <div className="text-center">
-            <div className="text-lg sm:text-xl lg:text-2xl font-bold mb-0.5 sm:mb-1">{analyticsData.smsResponseRate}%</div>
-            <div className="text-academy-blue-100 text-xs">SMS Response Rate</div>
+            <div className="text-lg sm:text-xl lg:text-2xl font-bold mb-0.5 sm:mb-1">
+              {affiliateMetrics.hasSyncedData ? affiliateMetrics.referrals.toString() : '-'}
+            </div>
+            <div className="text-academy-blue-100 text-xs">Total Referrals</div>
             <div className="text-xs text-green-400 mt-1 hidden sm:block">
-              {analyticsData.totalSMS > 0 ? `${analyticsData.totalSMS} messages sent` : 'No SMS sent'}
+              {affiliateMetrics.hasSyncedData ? `${affiliateMetrics.visits} visits` : 'Not synced'}
             </div>
           </div>
           <div className="text-center">
-            <div className="text-lg sm:text-xl lg:text-2xl font-bold mb-0.5 sm:mb-1">{analyticsData.totalAppointments}</div>
-            <div className="text-academy-blue-100 text-xs">Appointments Scheduled</div>
+            <div className="text-lg sm:text-xl lg:text-2xl font-bold mb-0.5 sm:mb-1">
+              {affiliateMetrics.hasSyncedData ? `${affiliateMetrics.commissionRate}%` : '-'}
+            </div>
+            <div className="text-academy-blue-100 text-xs">Commission Rate</div>
             <div className="text-xs text-green-400 mt-1 hidden sm:block">
-              {analyticsData.appointmentCompletionRate}% completion rate
+              {affiliateMetrics.hasSyncedData ? 'Current rate' : 'Not synced'}
             </div>
           </div>
         </div>

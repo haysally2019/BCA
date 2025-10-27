@@ -34,6 +34,23 @@ Deno.serve(async (req: Request) => {
     // Get AffiliateWP credentials
     const credentials = await getCredentials(supabase);
 
+    if (!credentials) {
+      return new Response(
+        JSON.stringify({
+          success: false,
+          error: "AffiliateWP credentials not configured. Please configure credentials in Settings.",
+          credentials_missing: true
+        }),
+        {
+          status: 200,
+          headers: {
+            ...corsHeaders,
+            "Content-Type": "application/json",
+          },
+        }
+      );
+    }
+
     // Fetch all affiliates from AffiliateWP
     const affiliateResponse = await fetch(
       `${credentials.wordpress_site_url}/wp-json/affwp/v1/affiliates`,

@@ -64,7 +64,7 @@ const CommissionsTracker: React.FC = () => {
     setTimeout(() => setWebhookCopied(false), 2000);
   };
 
-  const syncAffiliateMetrics = async () => {
+  const syncAffiliateMetrics = async (silent: boolean = false) => {
     setSyncingMetrics(true);
     try {
       const response = await fetch(
@@ -81,15 +81,29 @@ const CommissionsTracker: React.FC = () => {
       const result = await response.json();
 
       if (result.success) {
-        toast.success(`Synced metrics for ${result.metrics_count} affiliates`);
-        // Reload sales reps to show updated metrics
+        if (!silent) {
+          toast.success(`Synced metrics for ${result.metrics_count} affiliates`);
+        }
         await loadSalesReps();
+        return true;
       } else {
-        toast.error('Failed to sync metrics: ' + result.error);
+        if (result.credentials_missing) {
+          if (!silent) {
+            toast.error('AffiliateWP is not configured. Please contact your administrator.');
+          }
+          return false;
+        }
+        if (!silent) {
+          toast.error('Failed to sync metrics: ' + result.error);
+        }
+        return false;
       }
     } catch (error) {
       console.error('Error syncing metrics:', error);
-      toast.error('Failed to sync affiliate metrics');
+      if (!silent) {
+        toast.error('Failed to sync affiliate metrics');
+      }
+      return false;
     } finally {
       setSyncingMetrics(false);
     }
@@ -100,11 +114,8 @@ const CommissionsTracker: React.FC = () => {
 
   useEffect(() => {
     if (profile) {
-      // Auto-sync metrics on load, then load data
-      syncAffiliateMetrics().then(() => {
-        loadCommissionsData(profile.id);
-        loadSalesReps();
-      });
+      loadCommissionsData(profile.id);
+      loadSalesReps();
     }
   }, [profile, loadCommissionsData]);
 
@@ -245,13 +256,17 @@ const CommissionsTracker: React.FC = () => {
   // Calculate metrics - if viewing own data, show individual metrics; if manager, show totals
   const isViewingOwnData = profile?.user_role === 'sales_rep' || profile?.user_role === 'affiliate';
 
+  // Check if we have any synced data
+  const hasSyncedData = salesReps.some(rep => rep.last_sync !== null && rep.last_sync !== undefined);
+
   const metrics = isViewingOwnData && currentRep ? {
     totalPaidEarnings: currentRep.paid_earnings || 0,
     totalUnpaidEarnings: currentRep.unpaid_earnings || 0,
     totalVisits: currentRep.visits || 0,
     totalReferrals: currentRep.referrals || 0,
     commissionRate: currentRep.commission_rate || 0,
-    totalEarnings: (currentRep.paid_earnings || 0) + (currentRep.unpaid_earnings || 0)
+    totalEarnings: (currentRep.paid_earnings || 0) + (currentRep.unpaid_earnings || 0),
+    hasSyncedData: currentRep.last_sync !== null && currentRep.last_sync !== undefined
   } : {
     // Manager view - show totals across all reps
     totalPaidEarnings: salesReps.reduce((sum, rep) => sum + (rep.paid_earnings || 0), 0),
@@ -260,7 +275,8 @@ const CommissionsTracker: React.FC = () => {
     totalReferrals: salesReps.reduce((sum, rep) => sum + (rep.referrals || 0), 0),
     commissionRate: salesReps.length > 0 ?
       salesReps.reduce((sum, rep) => sum + (rep.commission_rate || 0), 0) / salesReps.length : 0,
-    totalEarnings: salesReps.reduce((sum, rep) => sum + (rep.paid_earnings || 0) + (rep.unpaid_earnings || 0), 0)
+    totalEarnings: salesReps.reduce((sum, rep) => sum + (rep.paid_earnings || 0) + (rep.unpaid_earnings || 0), 0),
+    hasSyncedData
   };
 
   // Monthly commission data for chart - only use affiliate commissions
@@ -325,6 +341,16 @@ const CommissionsTracker: React.FC = () => {
             <option value="ytd">Year to Date</option>
             <option value="last_year">Last Year</option>
           </select>
+          {isManagement && (
+            <button
+              onClick={() => syncAffiliateMetrics(false)}
+              disabled={syncingMetrics}
+              className="w-full sm:w-auto bg-red-600 text-white px-4 py-2.5 rounded-lg flex items-center justify-center space-x-2 hover:bg-red-700 transition-colors min-h-[44px] disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              <Settings className={`w-4 h-4 ${syncingMetrics ? 'animate-spin' : ''}`} />
+              <span>{syncingMetrics ? 'Syncing...' : 'Sync Metrics'}</span>
+            </button>
+          )}
           <button className="w-full sm:w-auto bg-gray-100 text-gray-700 px-4 py-2.5 rounded-lg flex items-center justify-center space-x-2 hover:bg-gray-200 transition-colors min-h-[44px]">
             <Download className="w-4 h-4" />
             <span>Export</span>
@@ -332,15 +358,30 @@ const CommissionsTracker: React.FC = () => {
         </div>
       </div>
 
+      {/* Sync Status Notice */}
+      {!hasSyncedData && isManagement && (
+        <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+          <div className="flex items-start space-x-3">
+            <AlertCircle className="w-5 h-5 text-yellow-600 mt-0.5 flex-shrink-0" />
+            <div className="flex-1">
+              <h3 className="text-sm font-semibold text-yellow-900 mb-1">Metrics Not Synced</h3>
+              <p className="text-sm text-yellow-800 mb-2">
+                AffiliateWP metrics have not been synced yet. Click "Sync Metrics" to fetch the latest data from AffiliateWP.
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Commission Summary */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4">
         {[
-          { title: 'Total Earnings', value: `$${metrics.totalEarnings.toLocaleString()}`, icon: DollarSign, color: 'bg-green-500' },
-          { title: 'Paid Earnings', value: `$${metrics.totalPaidEarnings.toLocaleString()}`, icon: CheckCircle, color: 'bg-emerald-500' },
-          { title: 'Unpaid Earnings', value: `$${metrics.totalUnpaidEarnings.toLocaleString()}`, icon: Clock, color: 'bg-yellow-500' },
-          { title: 'Commission Rate', value: `${metrics.commissionRate.toFixed(1)}%`, icon: TrendingUp, color: 'bg-red-500' },
-          { title: 'Total Visits', value: metrics.totalVisits.toLocaleString(), icon: Users, color: 'bg-blue-500' },
-          { title: 'Total Referrals', value: metrics.totalReferrals.toString(), icon: Target, color: 'bg-purple-500' }
+          { title: 'Total Earnings', value: metrics.hasSyncedData ? `$${metrics.totalEarnings.toLocaleString()}` : 'Not synced', icon: DollarSign, color: 'bg-green-500' },
+          { title: 'Paid Earnings', value: metrics.hasSyncedData ? `$${metrics.totalPaidEarnings.toLocaleString()}` : 'Not synced', icon: CheckCircle, color: 'bg-emerald-500' },
+          { title: 'Unpaid Earnings', value: metrics.hasSyncedData ? `$${metrics.totalUnpaidEarnings.toLocaleString()}` : 'Not synced', icon: Clock, color: 'bg-yellow-500' },
+          { title: 'Commission Rate', value: metrics.hasSyncedData ? `${metrics.commissionRate.toFixed(1)}%` : 'Not synced', icon: TrendingUp, color: 'bg-red-500' },
+          { title: 'Total Visits', value: metrics.hasSyncedData ? metrics.totalVisits.toLocaleString() : 'Not synced', icon: Users, color: 'bg-blue-500' },
+          { title: 'Total Referrals', value: metrics.hasSyncedData ? metrics.totalReferrals.toString() : 'Not synced', icon: Target, color: 'bg-purple-500' }
         ].map((metric, index) => {
           const Icon = metric.icon;
           return (
@@ -875,12 +916,24 @@ const CommissionsTracker: React.FC = () => {
                     <h4 className="text-lg font-semibold text-academy-blue-900">AffiliateWP Integration</h4>
                   </div>
                   <div className="flex items-center space-x-2">
-                    <CheckCircle className="w-5 h-5 text-green-600" />
-                    <span className="text-sm font-medium text-green-600">Active</span>
+                    {hasSyncedData ? (
+                      <>
+                        <CheckCircle className="w-5 h-5 text-green-600" />
+                        <span className="text-sm font-medium text-green-600">Active & Synced</span>
+                      </>
+                    ) : (
+                      <>
+                        <AlertCircle className="w-5 h-5 text-yellow-600" />
+                        <span className="text-sm font-medium text-yellow-600">Not Configured</span>
+                      </>
+                    )}
                   </div>
                 </div>
                 <p className="text-academy-blue-800 mb-4">
-                  Automatically track and manage affiliate commissions from your AffiliateWP system.
+                  {hasSyncedData
+                    ? 'Automatically track and manage affiliate commissions from your AffiliateWP system.'
+                    : 'AffiliateWP credentials need to be configured. Contact your system administrator to set up the integration.'
+                  }
                 </p>
 
                 {/* Webhook Configuration */}
@@ -920,14 +973,27 @@ const CommissionsTracker: React.FC = () => {
                   <div className="flex items-start space-x-3">
                     <AlertCircle className="w-5 h-5 text-blue-600 mt-0.5" />
                     <div className="flex-1">
-                      <h5 className="text-sm font-medium text-blue-900 mb-2">Setup Instructions</h5>
+                      <h5 className="text-sm font-medium text-blue-900 mb-2">
+                        {hasSyncedData ? 'Setup Instructions' : 'Configuration Required'}
+                      </h5>
+                      {!hasSyncedData && (
+                        <div className="mb-3 p-3 bg-yellow-50 border border-yellow-200 rounded">
+                          <p className="text-sm text-yellow-900 font-medium mb-1">AffiliateWP Not Configured</p>
+                          <p className="text-sm text-yellow-800">
+                            Before using this integration, your administrator must configure AffiliateWP credentials in the database.
+                            After credentials are configured, use the "Sync Metrics" button above to fetch affiliate data.
+                          </p>
+                        </div>
+                      )}
                       <ol className="text-sm text-gray-700 space-y-1 list-decimal list-inside">
+                        <li>Configure AffiliateWP credentials in the app_settings table</li>
                         <li>Log in to your AffiliateWP dashboard</li>
                         <li>Navigate to Settings → Webhooks</li>
                         <li>Click "Add New Webhook"</li>
                         <li>Paste the webhook endpoint URL above</li>
                         <li>Select events: Referral Created, Referral Approved, Referral Paid</li>
                         <li>Save the webhook configuration</li>
+                        <li>Click "Sync Metrics" button to pull initial data</li>
                       </ol>
                     </div>
                   </div>
