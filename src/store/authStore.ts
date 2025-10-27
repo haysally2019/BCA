@@ -231,6 +231,11 @@ export const useAuthStore = create<AuthState>((set, get) => ({
               .maybeSingle();
 
             if (!profileError && profile) {
+              console.log('[AuthStore] Real profile loaded:', {
+                id: profile.id,
+                affiliatewp_id: profile.affiliatewp_id,
+                affiliate_referral_url: profile.affiliate_referral_url
+              });
               set({ profile });
             }
           } catch (profileError) {
@@ -399,6 +404,8 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         console.log('[AuthStore] Profile refreshed successfully:', {
           profileId: profile.id,
           must_change_password: profile.must_change_password,
+          affiliatewp_id: profile.affiliatewp_id,
+          affiliate_referral_url: profile.affiliate_referral_url,
           timestamp
         });
         set({ profile });
