@@ -112,8 +112,27 @@ function AppContent() {
 
   useEffect(() => {
     const handleVisibilityChange = async () => {
-      if (document.visibilityState === 'visible') {
-        console.log('[App] Tab became visible - checking auth state');
+      if (document.visibilityState === 'visible' && user) {
+        console.log('[App] Tab became visible - refreshing session');
+
+        try {
+          const { data: { session }, error } = await supabase.auth.getSession();
+
+          if (error) {
+            console.error('[App] Session refresh error:', error);
+            if (error.message.includes('Invalid Refresh Token') || error.message.includes('Invalid login credentials')) {
+              console.log('[App] Invalid token - signing out');
+              await useAuthStore.getState().signOut();
+              navigate('/');
+            }
+          } else if (session?.user) {
+            console.log('[App] Session refreshed successfully');
+          } else {
+            console.log('[App] No active session - user will be redirected to login');
+          }
+        } catch (error) {
+          console.error('[App] Error checking session:', error);
+        }
 
         if (loading) {
           console.warn('[App] Detected stuck loading state on tab visibility change');
@@ -127,7 +146,7 @@ function AppContent() {
     return () => {
       document.removeEventListener('visibilitychange', handleVisibilityChange);
     };
-  }, [loading]);
+  }, [loading, user, navigate]);
 
   useEffect(() => {
     const checkPasswordChange = async () => {

@@ -260,10 +260,15 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       const initPromise = (async () => {
         const { data: { session }, error: getSessionError } = await supabase.auth.getSession();
 
-        if (getSessionError && getSessionError.message.includes('Invalid Refresh Token')) {
-          await supabase.auth.signOut();
-          set({ user: null, profile: null, loading: false });
-          return null;
+        if (getSessionError) {
+          if (getSessionError.message.includes('Invalid Refresh Token') ||
+              getSessionError.message.includes('Invalid login credentials') ||
+              getSessionError.message.includes('refresh_token_not_found')) {
+            console.log('[AuthStore] Invalid or expired session - clearing auth state');
+            await supabase.auth.signOut();
+            set({ user: null, profile: null, loading: false });
+            return null;
+          }
         }
 
         if (session?.user) {
@@ -294,6 +299,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
           }
 
           if (event === 'TOKEN_REFRESHED') {
+            console.log('[AuthStore] Token refreshed event');
             if (session?.user) {
               const currentProfile = get().profile;
 
@@ -316,6 +322,9 @@ export const useAuthStore = create<AuthState>((set, get) => ({
                   console.log('[AuthStore] Error fetching profile after token refresh');
                 }
               }
+            } else {
+              console.warn('[AuthStore] Token refresh event with no session - signing out');
+              set({ user: null, profile: null, loading: false });
             }
             return;
           }
