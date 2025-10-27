@@ -847,7 +847,7 @@ const CommissionsTracker: React.FC = () => {
                           <div className="text-xs text-gray-600">Unpaid Earnings</div>
                         </div>
                         <div className="bg-blue-50 rounded-lg p-3">
-                          <div className="text-xl font-bold text-blue-600">{rep.commission_rate}%</div>
+                          <div className="text-xl font-bold text-blue-600">{rep.commission_rate.toFixed(1)}%</div>
                           <div className="text-xs text-gray-600">Commission Rate</div>
                         </div>
                         <div className="bg-purple-50 rounded-lg p-3">

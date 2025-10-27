@@ -217,6 +217,12 @@ export interface Profile {
   created_at: string;
   updated_at: string;
   user_type?: string;
+  affiliatewp_id?: number;
+  affiliatewp_earnings?: number;
+  affiliatewp_unpaid_earnings?: number;
+  affiliatewp_referrals?: number;
+  affiliatewp_visits?: number;
+  last_metrics_sync?: string;
 }
 
 export const supabaseService = {
