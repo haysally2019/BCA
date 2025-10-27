@@ -53,6 +53,7 @@ const CommissionsTracker: React.FC = () => {
   // Add affiliate management state
   const [showAffiliateManagement, setShowAffiliateManagement] = useState(false);
   const [webhookCopied, setWebhookCopied] = useState(false);
+  const [syncingMetrics, setSyncingMetrics] = useState(false);
 
   const webhookEndpoint = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/affiliatewp-webhook`;
 
@@ -61,6 +62,37 @@ const CommissionsTracker: React.FC = () => {
     setWebhookCopied(true);
     toast.success('Webhook URL copied to clipboard');
     setTimeout(() => setWebhookCopied(false), 2000);
+  };
+
+  const syncAffiliateMetrics = async () => {
+    setSyncingMetrics(true);
+    try {
+      const response = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/fetch-affiliatewp-metrics`,
+        {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
+            'Content-Type': 'application/json',
+          },
+        }
+      );
+
+      const result = await response.json();
+
+      if (result.success) {
+        toast.success(`Synced metrics for ${result.metrics_count} affiliates`);
+        // Reload sales reps to show updated metrics
+        await loadSalesReps();
+      } else {
+        toast.error('Failed to sync metrics: ' + result.error);
+      }
+    } catch (error) {
+      console.error('Error syncing metrics:', error);
+      toast.error('Failed to sync affiliate metrics');
+    } finally {
+      setSyncingMetrics(false);
+    }
   };
 
   // Check if user has management access
@@ -95,20 +127,26 @@ const CommissionsTracker: React.FC = () => {
         const ytdCommission = repCommissions.reduce((sum, c) => sum + c.commission_amount, 0);
         const ytdRevenue = repCommissions.reduce((sum, c) => sum + c.deal_value, 0);
         const avgDealSize = repDeals > 0 ? Math.round(ytdRevenue / repDeals) : 0;
-        
+
         return {
           id: rep.id,
-          name: rep.company_name,
+          name: rep.company_name || rep.full_name,
           territory: rep.territory || 'Unassigned',
           commission_rate: rep.commission_rate || 15,
           ytd_revenue: ytdRevenue,
           ytd_commission: ytdCommission,
           deals_closed: repDeals,
           avg_deal_size: avgDealSize,
-          quota_attainment: 0 // Cannot calculate without quota data
+          quota_attainment: 0, // Cannot calculate without quota data
+          // AffiliateWP metrics
+          paid_earnings: rep.affiliatewp_earnings || 0,
+          unpaid_earnings: rep.affiliatewp_unpaid_earnings || 0,
+          referrals: rep.affiliatewp_referrals || 0,
+          visits: rep.affiliatewp_visits || 0,
+          last_sync: rep.last_metrics_sync
         };
       });
-      
+
       setSalesReps(repsData);
     } catch (error) {
       // Error loading sales reps
@@ -728,21 +766,66 @@ const CommissionsTracker: React.FC = () => {
 
           {activeTab === 'reps' && (
             <div className="space-y-6">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-lg font-semibold text-gray-900">Sales Rep Performance</h3>
+                <button
+                  onClick={syncAffiliateMetrics}
+                  disabled={syncingMetrics}
+                  className="bg-red-600 text-white px-4 py-2 rounded-lg flex items-center space-x-2 hover:bg-red-700 transition-colors disabled:opacity-50"
+                >
+                  <TrendingUp className="w-4 h-4" />
+                  <span>{syncingMetrics ? 'Syncing...' : 'Sync AffiliateWP Metrics'}</span>
+                </button>
+              </div>
               <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 md:gap-6">
                 {salesReps.map(rep => (
                   <div key={rep.id} className="bg-white border border-gray-200 rounded-lg p-4 md:p-6">
-                    <div className="flex items-center space-x-3 mb-4">
-                      <div className="w-12 h-12 bg-academy-blue-100 rounded-full flex items-center justify-center">
-                        <span className="text-academy-blue-600 font-semibold text-lg">
-                          {rep.name.split(' ').map(n => n[0]).join('')}
-                        </span>
-                      </div>
-                      <div>
-                        <h3 className="font-semibold text-gray-900">{rep.name}</h3>
-                        <p className="text-sm text-gray-600">{rep.territory}</p>
+                    <div className="flex items-center justify-between mb-4">
+                      <div className="flex items-center space-x-3">
+                        <div className="w-12 h-12 bg-academy-blue-100 rounded-full flex items-center justify-center">
+                          <span className="text-academy-blue-600 font-semibold text-lg">
+                            {rep.name.split(' ').map(n => n[0]).join('')}
+                          </span>
+                        </div>
+                        <div>
+                          <h3 className="font-semibold text-gray-900">{rep.name}</h3>
+                          <p className="text-sm text-gray-600">{rep.territory}</p>
+                        </div>
                       </div>
                     </div>
 
+                    {/* AffiliateWP Metrics */}
+                    <div className="bg-gradient-to-br from-red-50 to-orange-50 rounded-lg p-4 mb-4">
+                      <h4 className="text-sm font-semibold text-gray-900 mb-3 flex items-center">
+                        <Link className="w-4 h-4 mr-1.5 text-red-600" />
+                        AffiliateWP Metrics
+                      </h4>
+                      <div className="grid grid-cols-2 gap-3">
+                        <div>
+                          <div className="text-lg font-bold text-green-600">${rep.paid_earnings.toLocaleString()}</div>
+                          <div className="text-xs text-gray-600">Paid Earnings</div>
+                        </div>
+                        <div>
+                          <div className="text-lg font-bold text-yellow-600">${rep.unpaid_earnings.toLocaleString()}</div>
+                          <div className="text-xs text-gray-600">Unpaid Earnings</div>
+                        </div>
+                        <div>
+                          <div className="text-lg font-bold text-blue-600">{rep.commission_rate}%</div>
+                          <div className="text-xs text-gray-600">Rate</div>
+                        </div>
+                        <div>
+                          <div className="text-lg font-bold text-purple-600">{rep.visits.toLocaleString()}</div>
+                          <div className="text-xs text-gray-600">Visits</div>
+                        </div>
+                      </div>
+                      {rep.last_sync && (
+                        <div className="text-xs text-gray-500 mt-2 text-right">
+                          Last synced: {new Date(rep.last_sync).toLocaleDateString()}
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Internal Sales Metrics */}
                     <div className="grid grid-cols-2 gap-4 mb-4">
                       <div className="text-center">
                         <div className="text-xl font-bold text-green-600">${rep.ytd_commission.toLocaleString()}</div>
@@ -776,11 +859,6 @@ const CommissionsTracker: React.FC = () => {
                           style={{ width: `${Math.min(rep.quota_attainment, 100)}%` }}
                         />
                       </div>
-                    </div>
-
-                    <div className="text-center">
-                      <span className="text-sm text-gray-600">Commission Rate: </span>
-                      <span className="text-sm font-medium text-gray-900">{rep.commission_rate}%</span>
                     </div>
                   </div>
                 ))}
