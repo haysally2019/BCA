@@ -3,6 +3,11 @@
   publish = "dist"
 
 [[redirects]]
+  from = "/batch-affiliate-creation.html"
+  to = "/batch-affiliate-creation.html"
+  status = 200
+
+[[redirects]]
   from = "/*"
   to = "/index.html"
   status = 200
