@@ -103,7 +103,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       if (data.user) {
         console.log('[AuthStore] User created successfully:', data.user.id);
 
-        const mockProfile = { ...createMockProfile(data.user, name), affiliatewp_id: affiliatewpId };
+        const mockProfile = createMockProfile(data.user, name);
         set({ user: data.user, profile: mockProfile });
 
         let profileCreated = false;
@@ -130,30 +130,9 @@ export const useAuthStore = create<AuthState>((set, get) => ({
 
             if (existingProfile) {
               console.log('[AuthStore] Profile found via trigger:', existingProfile.id);
+              console.log('[AuthStore] AffiliateWP account will be created automatically in the background');
 
-              if (affiliatewpId && !existingProfile.affiliatewp_id) {
-                console.log('[AuthStore] Updating profile with AffiliateWP ID');
-                const { data: updatedProfile, error: updateError } = await supabase
-                  .from('profiles')
-                  .update({
-                    full_name: name,
-                    affiliatewp_id: affiliatewpId,
-                    updated_at: new Date().toISOString()
-                  })
-                  .eq('user_id', data.user.id)
-                  .select()
-                  .single();
-
-                if (!updateError && updatedProfile) {
-                  console.log('[AuthStore] Profile updated with AffiliateWP ID');
-                  set({ profile: updatedProfile });
-                } else {
-                  set({ profile: existingProfile });
-                }
-              } else {
-                set({ profile: existingProfile });
-              }
-
+              set({ profile: existingProfile });
               profileCreated = true;
               console.log('[AuthStore] Signup completed successfully');
             } else {
@@ -176,6 +155,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         if (!profileCreated) {
           console.error('[AuthStore] WARNING: Profile not found after all retries, but user is created');
           console.log('[AuthStore] User can still access the app with mock profile');
+          console.log('[AuthStore] AffiliateWP account creation will be queued automatically');
         }
       }
     } catch (error) {
