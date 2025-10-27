@@ -142,7 +142,23 @@ Deno.serve(async (req: Request) => {
     }
     console.log('SUCCESS: Authorization check passed');
 
-    console.log('Step 6: Checking for existing email');
+    console.log('Step 6: Fetching manager company details');
+    const { data: managerProfile, error: managerFetchError } = await supabaseAdmin
+      .from('profiles')
+      .select('company_name, subscription_plan')
+      .eq('id', managerProfileId)
+      .maybeSingle();
+
+    if (managerFetchError || !managerProfile) {
+      console.error('FAILED: Error fetching manager profile:', managerFetchError);
+      throw new Error('Unable to fetch manager profile information');
+    }
+
+    const managerCompanyName = managerProfile.company_name || 'Tartan Builders Inc';
+    const managerSubscriptionPlan = managerProfile.subscription_plan || 'professional';
+    console.log('SUCCESS: Manager company details fetched:', managerCompanyName);
+
+    console.log('Step 7: Checking for existing email');
     const { data: existingUser } = await supabaseAdmin.auth.admin.listUsers();
     const emailExists = existingUser?.users.some(u => u.email === email);
     if (emailExists) {
@@ -152,7 +168,7 @@ Deno.serve(async (req: Request) => {
     console.log('SUCCESS: Email is unique');
 
     if (affiliatewp_id) {
-      console.log('Step 7: Checking AffiliateWP ID');
+      console.log('Step 8: Checking AffiliateWP ID');
       const { data: existingProfile, error: affiliateCheckError } = await supabaseAdmin
         .from('profiles')
         .select('id')
@@ -170,7 +186,7 @@ Deno.serve(async (req: Request) => {
       console.log('SUCCESS: AffiliateWP ID is unique');
     }
 
-    console.log('Step 8: Generating password and creating auth user');
+    console.log('Step 9: Generating password and creating auth user');
     const password = generateSecurePassword();
 
     const { data: authData, error: createError } = await supabaseAdmin.auth.admin.createUser({
@@ -193,10 +209,10 @@ Deno.serve(async (req: Request) => {
     }
     console.log('SUCCESS: Auth user created:', authData.user.id);
 
-    console.log('Step 9: Creating profile');
+    console.log('Step 10: Creating profile');
     const profilePayload = {
       user_id: authData.user.id,
-      company_name: 'Tartan Builders Inc',
+      company_name: managerCompanyName,
       full_name: name,
       company_email: email,
       company_phone: phone,
@@ -205,7 +221,7 @@ Deno.serve(async (req: Request) => {
       territory: territory || null,
       commission_rate: commission_rate || 15,
       affiliatewp_id: affiliatewp_id || null,
-      subscription_plan: 'professional',
+      subscription_plan: managerSubscriptionPlan,
       is_active: true,
       manager_id: managerProfileId,
       created_by: managerProfileId,
@@ -227,7 +243,7 @@ Deno.serve(async (req: Request) => {
     }
     console.log('SUCCESS: Profile created:', profileData.id);
 
-    console.log('Step 10: Creating team member');
+    console.log('Step 11: Creating team member');
     const teamMemberPayload = {
       profile_id: profileData.id,
       company_id: managerProfileId,
@@ -260,7 +276,7 @@ Deno.serve(async (req: Request) => {
     }
     console.log('SUCCESS: Team member created:', teamMemberData.id);
 
-    console.log('Step 11: Sending welcome email (optional)');
+    console.log('Step 12: Sending welcome email (optional)');
     let emailSent = false;
     try {
       const siteUrl = Deno.env.get('SITE_URL') || 'https://0ec90b57d6e95fcbda19832f.supabase.co';
@@ -290,7 +306,7 @@ Deno.serve(async (req: Request) => {
       emailSent = false;
     }
 
-    console.log('Step 12: Logging activity');
+    console.log('Step 13: Logging activity');
     try {
       const { error: activityLogError } = await supabaseAdmin
         .from('team_activity_log')
