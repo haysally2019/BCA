@@ -91,29 +91,102 @@ interface AffiliateWPResponse {
   status: string;
 }
 
-async function createAffiliateInWordPress(
+async function createWordPressUser(
   email: string,
   name: string,
-  phone?: string,
+  credentials: string,
+  wpUrl: string,
   timeoutMs: number = 30000
-): Promise<AffiliateWPResponse> {
-  const { siteUrl: wpUrl, username: wpUsername, password: wpAppPassword } = await getCachedCredentials();
-
-  console.log('Creating affiliate in WordPress:', { email, name });
-
-  const apiUrl = `${wpUrl}/wp-json/affwp/v1/affiliates`;
-  const credentials = btoa(`${wpUsername}:${wpAppPassword}`);
-
+): Promise<number> {
   const nameParts = name.split(' ');
   const firstName = nameParts[0] || name;
   const lastName = nameParts.slice(1).join(' ') || '';
   const username = email.split('@')[0].toLowerCase().replace(/[^a-z0-9]/g, '');
 
-  const payload = {
-    user_login: username,
-    user_email: email,
+  const randomPassword = crypto.randomUUID();
+
+  const userPayload = {
+    username: username,
+    email: email,
     first_name: firstName,
     last_name: lastName,
+    password: randomPassword,
+    roles: ['subscriber']
+  };
+
+  console.log('Creating WordPress user:', { username, email });
+
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+
+  try {
+    const response = await fetch(`${wpUrl}/wp-json/wp/v2/users`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Basic ${credentials}`,
+        'Content-Type': 'application/json',
+        'Connection': 'keep-alive',
+      },
+      body: JSON.stringify(userPayload),
+      signal: controller.signal,
+    });
+
+    clearTimeout(timeoutId);
+
+    if (!response.ok) {
+      const errorText = await response.text();
+
+      if (response.status === 400 && errorText.includes('username_exists')) {
+        console.log('User already exists, fetching existing user ID');
+        const usersResponse = await fetch(`${wpUrl}/wp-json/wp/v2/users?search=${email}`, {
+          headers: {
+            'Authorization': `Basic ${credentials}`,
+          },
+        });
+
+        if (usersResponse.ok) {
+          const users = await usersResponse.json();
+          if (users.length > 0) {
+            console.log('Found existing user with ID:', users[0].id);
+            return users[0].id;
+          }
+        }
+      }
+
+      console.error('WordPress User Creation Error:', response.status, errorText);
+      throw new Error(`WordPress user creation error: ${response.status} - ${errorText}`);
+    }
+
+    const result = await response.json();
+    console.log('WordPress user created successfully:', result.id);
+    return result.id;
+  } catch (error) {
+    clearTimeout(timeoutId);
+    if (error instanceof Error && error.name === 'AbortError') {
+      throw new Error(`WordPress API timeout after ${timeoutMs}ms`);
+    }
+    throw error;
+  }
+}
+
+async function createAffiliateInWordPress(
+  email: string,
+  name: string,
+  phone?: string,
+  timeoutMs: number = 30000
+): Promise<{ affiliateResponse: AffiliateWPResponse; wpUrl: string }> {
+  const { siteUrl: wpUrl, username: wpUsername, password: wpAppPassword } = await getCachedCredentials();
+
+  console.log('Creating affiliate in WordPress:', { email, name });
+
+  const credentials = btoa(`${wpUsername}:${wpAppPassword}`);
+
+  const wpUserId = await createWordPressUser(email, name, credentials, wpUrl, timeoutMs);
+
+  const apiUrl = `${wpUrl}/wp-json/affwp/v1/affiliates`;
+
+  const payload = {
+    user_id: wpUserId,
     payment_email: email,
     status: 'active',
     rate_type: 'percentage',
@@ -150,7 +223,7 @@ async function createAffiliateInWordPress(
     const result = await response.json();
     console.log('AffiliateWP API Success:', JSON.stringify(result, null, 2));
 
-    return result;
+    return { affiliateResponse: result, wpUrl };
   } catch (error) {
     clearTimeout(timeoutId);
     if (error instanceof Error && error.name === 'AbortError') {
@@ -281,8 +354,11 @@ Deno.serve(async (req: Request) => {
     await updateSyncLog(supabase, profile_id, null, 'processing', { email, name, phone });
 
     let affiliateResponse: AffiliateWPResponse;
+    let wpSiteUrl: string;
     try {
-      affiliateResponse = await createAffiliateInWordPress(email, name, phone);
+      const result = await createAffiliateInWordPress(email, name, phone);
+      affiliateResponse = result.affiliateResponse;
+      wpSiteUrl = result.wpUrl;
       console.log('Successfully created affiliate:', affiliateResponse);
     } catch (wpError) {
       console.error('WordPress API error:', wpError);
@@ -308,6 +384,7 @@ Deno.serve(async (req: Request) => {
     }
 
     console.log('Step 5: Updating profile with AffiliateWP ID');
+    const affiliateReferralUrl = `${wpSiteUrl}/?ref=${affiliateResponse.affiliate_id}`;
     const { error: updateError } = await supabase
       .from('profiles')
       .update({
@@ -316,6 +393,7 @@ Deno.serve(async (req: Request) => {
         affiliatewp_account_status: 'active',
         last_affiliatewp_sync: new Date().toISOString(),
         affiliatewp_sync_error: null,
+        affiliate_referral_url: affiliateReferralUrl,
       })
       .eq('id', profile_id);
 
