@@ -10,8 +10,7 @@ const Auth: React.FC = () => {
   const [formData, setFormData] = useState({
     email: '',
     password: '',
-    name: '',
-    affiliatewp_id: ''
+    name: ''
   });
 
   const { signIn, signUp, user, initialize } = useAuthStore();
@@ -49,9 +48,8 @@ const Auth: React.FC = () => {
         await signIn(formData.email, formData.password);
         toast.success('Welcome back!');
       } else {
-        const affiliatewpId = formData.affiliatewp_id ? parseInt(formData.affiliatewp_id) : undefined;
-        await signUp(formData.email, formData.password, formData.name, 'sales_rep', affiliatewpId);
-        toast.success('Account created successfully!');
+        await signUp(formData.email, formData.password, formData.name, 'sales_rep');
+        toast.success('Account created successfully! Your AffiliateWP account will be created automatically.');
       }
     } catch (error: any) {
       toast.error(getErrorMessage(error));
@@ -98,27 +96,6 @@ const Auth: React.FC = () => {
             </p>
           </div>
 
-          {!isLogin && (
-            <div className="mb-4">
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                AffiliateWP ID (Optional)
-              </label>
-              <div className="relative">
-                <User className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
-                <input
-                  type="number"
-                  name="affiliatewp_id"
-                  value={formData.affiliatewp_id}
-                  onChange={handleInputChange}
-                  className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-academy-blue-600 focus:border-academy-blue-600 transition-all duration-200"
-                  placeholder="12345"
-                />
-              </div>
-              <p className="text-xs text-gray-500 mt-1">
-                Enter your AffiliateWP ID to link commission tracking
-              </p>
-            </div>
-          )}
 
           <form onSubmit={handleSubmit} className="space-y-4">
             {!isLogin && (
@@ -201,9 +178,10 @@ const Auth: React.FC = () => {
                 Sales Rep Features:
               </h4>
               <ul className="text-sm text-academy-blue-800 space-y-1">
+                <li>• Automatic AffiliateWP account creation</li>
                 <li>• Personal lead management and tracking</li>
                 <li>• Individual sales pipeline management</li>
-                <li>• Personal commission tracking</li>
+                <li>• Automated commission tracking</li>
                 <li>• Individual performance metrics</li>
                 <li>• Customer communication tools</li>
               </ul>
