@@ -10,7 +10,10 @@ import {
   Bell,
   CreditCard,
   Users,
-  User
+  User,
+  Link as LinkIcon,
+  Copy,
+  CheckCheck
 } from 'lucide-react';
 import { useAuthStore } from '../store/authStore';
 import toast from 'react-hot-toast';
@@ -18,6 +21,7 @@ import toast from 'react-hot-toast';
 const Settings: React.FC = () => {
   const [activeTab, setActiveTab] = useState('profile');
   const [loading, setLoading] = useState(false);
+  const [copied, setCopied] = useState(false);
   const [profileData, setProfileData] = useState({
     full_name: '',
     personal_phone: '',
@@ -27,6 +31,18 @@ const Settings: React.FC = () => {
   });
 
   const { profile, user, signOut, updateProfile } = useAuthStore();
+
+  const copyAffiliateUrl = async () => {
+    const url = profile?.affiliate_referral_url || 'https://bluecollaracademy.info/?ref=3';
+    try {
+      await navigator.clipboard.writeText(url);
+      setCopied(true);
+      toast.success('Affiliate URL copied to clipboard!');
+      setTimeout(() => setCopied(false), 2000);
+    } catch (error) {
+      toast.error('Failed to copy URL');
+    }
+  };
 
 
   useEffect(() => {
@@ -100,6 +116,40 @@ const Settings: React.FC = () => {
         >
           Sign Out
         </button>
+      </div>
+
+      {/* Affiliate URL Card - BIG AND VISIBLE */}
+      <div className="bg-gradient-to-br from-red-50 to-orange-50 rounded-xl p-6 shadow-lg border-2 border-red-200">
+        <div className="flex items-start justify-between mb-4">
+          <div className="flex items-center gap-3">
+            <div className="w-12 h-12 bg-red-500 rounded-lg flex items-center justify-center">
+              <LinkIcon className="w-6 h-6 text-white" />
+            </div>
+            <div>
+              <h3 className="text-xl font-bold text-gray-900">Your Affiliate URL</h3>
+              <p className="text-sm text-gray-600">Share this link to track referrals and earn commissions</p>
+            </div>
+          </div>
+        </div>
+        <div className="flex items-center gap-2 bg-white rounded-lg p-4 border-2 border-gray-300">
+          <code className="flex-1 text-base text-gray-900 font-mono overflow-x-auto whitespace-nowrap">
+            {profile?.affiliate_referral_url || 'https://bluecollaracademy.info/?ref=3'}
+          </code>
+          <button
+            onClick={copyAffiliateUrl}
+            className="flex-shrink-0 p-3 bg-red-500 hover:bg-red-600 rounded-lg transition-colors"
+            title="Copy to clipboard"
+          >
+            {copied ? (
+              <CheckCheck className="w-6 h-6 text-white" />
+            ) : (
+              <Copy className="w-6 h-6 text-white" />
+            )}
+          </button>
+        </div>
+        <p className="mt-3 text-sm text-gray-600 font-medium">
+          Use this URL when promoting Blue Collar Academy to track your referrals
+        </p>
       </div>
 
       <div className="bg-white rounded-xl shadow-sm border border-gray-100">
