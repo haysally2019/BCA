@@ -118,38 +118,33 @@ const Settings: React.FC = () => {
         </button>
       </div>
 
-      {/* Affiliate URL Card - BIG AND VISIBLE */}
-      <div className="bg-gradient-to-br from-red-50 to-orange-50 rounded-xl p-6 shadow-lg border-2 border-red-200">
-        <div className="flex items-start justify-between mb-4">
-          <div className="flex items-center gap-3">
-            <div className="w-12 h-12 bg-red-500 rounded-lg flex items-center justify-center">
-              <LinkIcon className="w-6 h-6 text-white" />
-            </div>
-            <div>
-              <h3 className="text-xl font-bold text-gray-900">Your Affiliate URL</h3>
-              <p className="text-sm text-gray-600">Share this link to track referrals and earn commissions</p>
-            </div>
+      {/* Affiliate URL Card */}
+      <div className="bg-gradient-to-br from-red-50 to-orange-50 rounded-lg p-4 shadow-sm border border-red-100">
+        <div className="flex items-center gap-2 mb-3">
+          <div className="w-8 h-8 bg-red-500 rounded-lg flex items-center justify-center">
+            <LinkIcon className="w-4 h-4 text-white" />
+          </div>
+          <div>
+            <h3 className="text-sm font-semibold text-gray-900">Your Affiliate URL</h3>
+            <p className="text-xs text-gray-600">Share this link to track referrals</p>
           </div>
         </div>
-        <div className="flex items-center gap-2 bg-white rounded-lg p-4 border-2 border-gray-300">
-          <code className="flex-1 text-base text-gray-900 font-mono overflow-x-auto whitespace-nowrap">
+        <div className="flex items-center gap-2 bg-white rounded-lg p-2 border border-gray-200">
+          <code className="flex-1 text-sm text-gray-700 font-mono overflow-x-auto whitespace-nowrap">
             {profile?.affiliate_referral_url || 'https://bluecollaracademy.info/?ref=3'}
           </code>
           <button
             onClick={copyAffiliateUrl}
-            className="flex-shrink-0 p-3 bg-red-500 hover:bg-red-600 rounded-lg transition-colors"
+            className="flex-shrink-0 p-2 hover:bg-gray-100 rounded-md transition-colors"
             title="Copy to clipboard"
           >
             {copied ? (
-              <CheckCheck className="w-6 h-6 text-white" />
+              <CheckCheck className="w-4 h-4 text-green-600" />
             ) : (
-              <Copy className="w-6 h-6 text-white" />
+              <Copy className="w-4 h-4 text-gray-600" />
             )}
           </button>
         </div>
-        <p className="mt-3 text-sm text-gray-600 font-medium">
-          Use this URL when promoting Blue Collar Academy to track your referrals
-        </p>
       </div>
 
       <div className="bg-white rounded-xl shadow-sm border border-gray-100">
