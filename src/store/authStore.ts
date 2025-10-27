@@ -15,6 +15,7 @@ interface Profile {
   subscription_plan: string;
   user_role?: string;
   affiliatewp_id?: number;
+  affiliate_referral_url?: string;
   created_at: string;
   updated_at: string;
 }
