@@ -52,19 +52,29 @@ Deno.serve(async (req: Request) => {
 
     const affiliates = await affiliateResponse.json();
 
+    console.log(`Fetched ${affiliates.length} affiliates from AffiliateWP`);
+
     // Extract metrics for each affiliate
-    const metrics: AffiliateStats[] = affiliates.map((affiliate: any) => ({
-      affiliate_id: affiliate.affiliate_id,
-      earnings: parseFloat(affiliate.earnings || "0"),
-      unpaid_earnings: parseFloat(affiliate.unpaid_earnings || "0"),
-      referrals: parseInt(affiliate.referrals || "0", 10),
-      visits: parseInt(affiliate.visits || "0", 10),
-      rate: parseFloat(affiliate.rate || "0"),
-    }));
+    const metrics: AffiliateStats[] = affiliates.map((affiliate: any) => {
+      const rate = parseFloat(affiliate.rate || "0");
+      // AffiliateWP may return rate as decimal (0.30) or percentage (30)
+      // If rate is less than 1, it's likely a decimal, convert to percentage
+      const normalizedRate = rate < 1 && rate > 0 ? rate * 100 : rate;
+
+      return {
+        affiliate_id: affiliate.affiliate_id,
+        earnings: parseFloat(affiliate.earnings || "0"),
+        unpaid_earnings: parseFloat(affiliate.unpaid_earnings || "0"),
+        referrals: parseInt(affiliate.referrals || "0", 10),
+        visits: parseInt(affiliate.visits || "0", 10),
+        rate: normalizedRate,
+      };
+    });
 
     // Update profiles with latest metrics
+    let updatedCount = 0;
     for (const metric of metrics) {
-      await supabase
+      const { data, error } = await supabase
         .from("profiles")
         .update({
           affiliatewp_earnings: metric.earnings,
@@ -74,14 +84,27 @@ Deno.serve(async (req: Request) => {
           commission_rate: metric.rate > 0 ? metric.rate : undefined,
           last_metrics_sync: new Date().toISOString(),
         })
-        .eq("affiliatewp_id", metric.affiliate_id);
+        .eq("affiliatewp_id", metric.affiliate_id)
+        .select();
+
+      if (data && data.length > 0) {
+        updatedCount++;
+        console.log(`Updated affiliate ${metric.affiliate_id} with rate ${metric.rate}%`);
+      } else if (error) {
+        console.error(`Failed to update affiliate ${metric.affiliate_id}:`, error);
+      } else {
+        console.log(`No profile found for affiliate_id ${metric.affiliate_id}`);
+      }
     }
+
+    console.log(`Successfully updated ${updatedCount} out of ${metrics.length} profiles`);
 
     return new Response(
       JSON.stringify({
         success: true,
         message: "Affiliate metrics synced successfully",
         metrics_count: metrics.length,
+        updated_count: updatedCount,
       }),
       {
         headers: {
