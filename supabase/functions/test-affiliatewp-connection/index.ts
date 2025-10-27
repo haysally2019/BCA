@@ -1,4 +1,5 @@
 import 'jsr:@supabase/functions-js/edge-runtime.d.ts';
+import { getAffiliateWPCredentials } from '../_shared/get-credentials.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -12,26 +13,28 @@ Deno.serve(async (req: Request) => {
   }
 
   try {
-    const wpUrl = Deno.env.get('AFFILIATEWP_SITE_URL');
-    const wpUsername = Deno.env.get('AFFILIATEWP_API_USERNAME');
-    const wpAppPassword = Deno.env.get('AFFILIATEWP_API_PASSWORD');
-
     console.log('Testing AffiliateWP connection...');
-    console.log('WordPress URL:', wpUrl);
-    console.log('Username:', wpUsername);
-    console.log('Password configured:', wpAppPassword ? 'Yes' : 'No');
 
-    if (!wpUrl || !wpUsername || !wpAppPassword) {
+    let wpUrl: string;
+    let wpUsername: string;
+    let wpAppPassword: string;
+
+    try {
+      const credentials = await getAffiliateWPCredentials();
+      wpUrl = credentials.siteUrl;
+      wpUsername = credentials.username;
+      wpAppPassword = credentials.password;
+
+      console.log('WordPress URL:', wpUrl);
+      console.log('Username:', wpUsername);
+      console.log('Password configured: Yes');
+    } catch (credError) {
       return new Response(
         JSON.stringify({
           success: false,
           error: 'Missing credentials',
-          details: {
-            url_configured: !!wpUrl,
-            username_configured: !!wpUsername,
-            password_configured: !!wpAppPassword,
-          },
-          instructions: 'Add AFFILIATEWP_SITE_URL, AFFILIATEWP_API_USERNAME, and AFFILIATEWP_API_PASSWORD to your Supabase secrets'
+          details: credError instanceof Error ? credError.message : 'Failed to fetch credentials from database',
+          instructions: 'Credentials should be stored in the app_settings table'
         }),
         {
           status: 400,

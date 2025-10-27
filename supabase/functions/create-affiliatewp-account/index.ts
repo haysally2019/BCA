@@ -1,5 +1,6 @@
 import 'jsr:@supabase/functions-js/edge-runtime.d.ts';
 import { createClient } from 'npm:@supabase/supabase-js@2.39.0';
+import { getAffiliateWPCredentials } from '../_shared/get-credentials.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -28,13 +29,7 @@ async function createAffiliateInWordPress(
   name: string,
   phone?: string
 ): Promise<AffiliateWPResponse> {
-  const wpUrl = Deno.env.get('AFFILIATEWP_SITE_URL');
-  const wpUsername = Deno.env.get('AFFILIATEWP_API_USERNAME');
-  const wpAppPassword = Deno.env.get('AFFILIATEWP_API_PASSWORD');
-
-  if (!wpUrl || !wpUsername || !wpAppPassword) {
-    throw new Error('AffiliateWP API credentials not configured');
-  }
+  const { siteUrl: wpUrl, username: wpUsername, password: wpAppPassword } = await getAffiliateWPCredentials();
 
   console.log('Creating affiliate in WordPress:', { email, name });
 
