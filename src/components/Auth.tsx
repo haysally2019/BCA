@@ -50,11 +50,24 @@ const Auth: React.FC = () => {
         toast.success('Welcome back!');
       } else {
         const affiliatewpId = formData.affiliatewp_id ? parseInt(formData.affiliatewp_id) : undefined;
+        console.log('[Auth] Starting signup with:', { email: formData.email, name: formData.name, affiliatewpId });
         await signUp(formData.email, formData.password, formData.name, 'sales_rep', affiliatewpId);
-        toast.success('Account created successfully!');
+        toast.success('Account created successfully! Loading your dashboard...');
       }
     } catch (error: any) {
-      toast.error(getErrorMessage(error));
+      console.error('[Auth] Signup/Login error:', error);
+
+      let errorMessage = getErrorMessage(error);
+
+      if (errorMessage.includes('already registered') || errorMessage.includes('already been registered')) {
+        errorMessage = 'This email is already registered. Please sign in instead.';
+      } else if (errorMessage.includes('Invalid login credentials')) {
+        errorMessage = 'Invalid email or password. Please try again.';
+      } else if (errorMessage.includes('Email not confirmed')) {
+        errorMessage = 'Please check your email to confirm your account.';
+      }
+
+      toast.error(errorMessage);
     } finally {
       setLoading(false);
     }

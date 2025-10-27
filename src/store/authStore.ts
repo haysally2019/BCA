@@ -88,137 +88,98 @@ export const useAuthStore = create<AuthState>((set, get) => ({
 
   signUp: async (email: string, password: string, name: string, userType: 'sales_rep' = 'sales_rep', affiliatewpId?: number) => {
     try {
+      console.log('[AuthStore] Starting signup process for:', email);
+
       const { data, error } = await supabase.auth.signUp({
         email,
         password
       });
 
-      if (error) throw error;
+      if (error) {
+        console.error('[AuthStore] Signup error:', error);
+        throw error;
+      }
 
       if (data.user) {
+        console.log('[AuthStore] User created successfully:', data.user.id);
+
         const mockProfile = { ...createMockProfile(data.user, name), affiliatewp_id: affiliatewpId };
         set({ user: data.user, profile: mockProfile });
 
         let profileCreated = false;
         let retryCount = 0;
-        const maxRetries = 3;
+        const maxRetries = 5;
+
+        console.log('[AuthStore] Waiting for trigger to create profile...');
+        await new Promise(resolve => setTimeout(resolve, 1500));
 
         while (!profileCreated && retryCount < maxRetries) {
           try {
-            const { data: existingProfile } = await supabase
+            console.log(`[AuthStore] Checking for profile (attempt ${retryCount + 1}/${maxRetries})`);
+
+            const { data: existingProfile, error: fetchError } = await supabase
               .from('profiles')
               .select('*')
               .eq('user_id', data.user.id)
               .maybeSingle();
 
+            if (fetchError) {
+              console.error('[AuthStore] Error fetching profile:', fetchError);
+              throw fetchError;
+            }
+
             if (existingProfile) {
-              console.log('[AuthStore] Profile already exists, updating with correct role and subscription');
+              console.log('[AuthStore] Profile found via trigger:', existingProfile.id);
 
-              const { data: updatedProfile, error: updateError } = await supabase
-                .from('profiles')
-                .update({
-                  company_name: name,
-                  full_name: name,
-                  company_email: email,
-                  subscription_plan: 'professional',
-                  user_role: 'sales_rep',
-                  affiliatewp_id: affiliatewpId,
-                  updated_at: new Date().toISOString()
-                })
-                .eq('user_id', data.user.id)
-                .select()
-                .single();
+              if (affiliatewpId && !existingProfile.affiliatewp_id) {
+                console.log('[AuthStore] Updating profile with AffiliateWP ID');
+                const { data: updatedProfile, error: updateError } = await supabase
+                  .from('profiles')
+                  .update({
+                    full_name: name,
+                    affiliatewp_id: affiliatewpId,
+                    updated_at: new Date().toISOString()
+                  })
+                  .eq('user_id', data.user.id)
+                  .select()
+                  .single();
 
-              if (updateError) {
-                console.error('[AuthStore] Failed to update profile:', updateError);
+                if (!updateError && updatedProfile) {
+                  console.log('[AuthStore] Profile updated with AffiliateWP ID');
+                  set({ profile: updatedProfile });
+                } else {
+                  set({ profile: existingProfile });
+                }
+              } else {
                 set({ profile: existingProfile });
-              } else if (updatedProfile) {
-                console.log('[AuthStore] Profile updated successfully');
-                set({ profile: updatedProfile });
               }
 
               profileCreated = true;
+              console.log('[AuthStore] Signup completed successfully');
             } else {
-              console.log(`[AuthStore] Creating profile (attempt ${retryCount + 1}/${maxRetries})`);
-
-              const { data: profile, error: createError } = await supabase
-                .from('profiles')
-                .insert({
-                  user_id: data.user.id,
-                  company_name: name,
-                  full_name: name,
-                  company_email: email,
-                  subscription_plan: 'professional',
-                  user_role: 'sales_rep',
-                  affiliatewp_id: affiliatewpId
-                })
-                .select()
-                .single();
-
-              if (createError) {
-                console.error('[AuthStore] Profile creation error:', createError);
-
-                if (createError.code === '23505') {
-                  console.log('[AuthStore] Duplicate key error, updating existing profile');
-
-                  const { data: updatedProfile, error: updateError } = await supabase
-                    .from('profiles')
-                    .update({
-                      company_name: name,
-                      full_name: name,
-                      company_email: email,
-                      subscription_plan: userType === 'management' ? 'enterprise' : 'professional',
-                      user_role: userType === 'management' ? 'manager' : 'sales_rep',
-                      affiliatewp_id: affiliatewpId,
-                      updated_at: new Date().toISOString()
-                    })
-                    .eq('user_id', data.user.id)
-                    .select()
-                    .single();
-
-                  if (!updateError && updatedProfile) {
-                    console.log('[AuthStore] Profile updated after duplicate key error');
-                    set({ profile: updatedProfile });
-                    profileCreated = true;
-                  } else {
-                    const { data: retryProfile } = await supabase
-                      .from('profiles')
-                      .select('*')
-                      .eq('user_id', data.user.id)
-                      .maybeSingle();
-
-                    if (retryProfile) {
-                      set({ profile: retryProfile });
-                      profileCreated = true;
-                    }
-                  }
-                } else {
-                  retryCount++;
-                  if (retryCount < maxRetries) {
-                    console.warn(`[AuthStore] Retrying profile creation in 1 second...`);
-                    await new Promise(resolve => setTimeout(resolve, 1000));
-                  }
-                }
-              } else if (profile) {
-                console.log('[AuthStore] Profile created successfully');
-                set({ profile });
-                profileCreated = true;
+              console.log('[AuthStore] Profile not yet created by trigger, waiting...');
+              retryCount++;
+              if (retryCount < maxRetries) {
+                await new Promise(resolve => setTimeout(resolve, 1000));
               }
             }
           } catch (profileError) {
-            console.error('[AuthStore] Exception during profile creation:', profileError);
+            console.error('[AuthStore] Exception during profile fetch:', profileError);
             retryCount++;
             if (retryCount < maxRetries) {
+              console.log('[AuthStore] Retrying in 1 second...');
               await new Promise(resolve => setTimeout(resolve, 1000));
             }
           }
         }
 
         if (!profileCreated) {
-          console.error('[AuthStore] CRITICAL: Failed to create profile after all retries');
+          console.error('[AuthStore] WARNING: Profile not found after all retries, but user is created');
+          console.log('[AuthStore] User can still access the app with mock profile');
         }
       }
     } catch (error) {
+      console.error('[AuthStore] Signup failed:', error);
       const errorMessage = error instanceof Error ? error.message : 'Sign up failed';
       throw new Error(errorMessage);
     }
