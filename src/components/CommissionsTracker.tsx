@@ -147,11 +147,11 @@ const CommissionsTracker: React.FC = () => {
           name: rep.company_name || rep.full_name,
           territory: rep.territory || 'Unassigned',
           // AffiliateWP metrics - use real commission rate from AffiliateWP
-          commission_rate: rep.commission_rate || 0,
-          paid_earnings: rep.affiliatewp_earnings || 0,
-          unpaid_earnings: rep.affiliatewp_unpaid_earnings || 0,
-          referrals: rep.affiliatewp_referrals || 0,
-          visits: rep.affiliatewp_visits || 0,
+          commission_rate: rep.commission_rate ?? 0,
+          paid_earnings: rep.affiliatewp_earnings ?? 0,
+          unpaid_earnings: rep.affiliatewp_unpaid_earnings ?? 0,
+          referrals: rep.affiliatewp_referrals ?? 0,
+          visits: rep.affiliatewp_visits ?? 0,
           last_sync: rep.last_metrics_sync,
           // Legacy internal tracking (not used anymore)
           ytd_revenue: ytdRevenue,
@@ -260,22 +260,22 @@ const CommissionsTracker: React.FC = () => {
   const hasSyncedData = salesReps.some(rep => rep.last_sync !== null && rep.last_sync !== undefined);
 
   const metrics = isViewingOwnData && currentRep ? {
-    totalPaidEarnings: currentRep.paid_earnings || 0,
-    totalUnpaidEarnings: currentRep.unpaid_earnings || 0,
-    totalVisits: currentRep.visits || 0,
-    totalReferrals: currentRep.referrals || 0,
-    commissionRate: currentRep.commission_rate || 0,
-    totalEarnings: (currentRep.paid_earnings || 0) + (currentRep.unpaid_earnings || 0),
+    totalPaidEarnings: currentRep.paid_earnings ?? 0,
+    totalUnpaidEarnings: currentRep.unpaid_earnings ?? 0,
+    totalVisits: currentRep.visits ?? 0,
+    totalReferrals: currentRep.referrals ?? 0,
+    commissionRate: currentRep.commission_rate ?? 0,
+    totalEarnings: (currentRep.paid_earnings ?? 0) + (currentRep.unpaid_earnings ?? 0),
     hasSyncedData: currentRep.last_sync !== null && currentRep.last_sync !== undefined
   } : {
     // Manager view - show totals across all reps
-    totalPaidEarnings: salesReps.reduce((sum, rep) => sum + (rep.paid_earnings || 0), 0),
-    totalUnpaidEarnings: salesReps.reduce((sum, rep) => sum + (rep.unpaid_earnings || 0), 0),
-    totalVisits: salesReps.reduce((sum, rep) => sum + (rep.visits || 0), 0),
-    totalReferrals: salesReps.reduce((sum, rep) => sum + (rep.referrals || 0), 0),
+    totalPaidEarnings: salesReps.reduce((sum, rep) => sum + (rep.paid_earnings ?? 0), 0),
+    totalUnpaidEarnings: salesReps.reduce((sum, rep) => sum + (rep.unpaid_earnings ?? 0), 0),
+    totalVisits: salesReps.reduce((sum, rep) => sum + (rep.visits ?? 0), 0),
+    totalReferrals: salesReps.reduce((sum, rep) => sum + (rep.referrals ?? 0), 0),
     commissionRate: salesReps.length > 0 ?
-      salesReps.reduce((sum, rep) => sum + (rep.commission_rate || 0), 0) / salesReps.length : 0,
-    totalEarnings: salesReps.reduce((sum, rep) => sum + (rep.paid_earnings || 0) + (rep.unpaid_earnings || 0), 0),
+      salesReps.reduce((sum, rep) => sum + (rep.commission_rate ?? 0), 0) / salesReps.length : 0,
+    totalEarnings: salesReps.reduce((sum, rep) => sum + (rep.paid_earnings ?? 0) + (rep.unpaid_earnings ?? 0), 0),
     hasSyncedData
   };
 
@@ -376,12 +376,12 @@ const CommissionsTracker: React.FC = () => {
       {/* Commission Summary */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4">
         {[
-          { title: 'Total Earnings', value: metrics.hasSyncedData ? `$${metrics.totalEarnings.toLocaleString()}` : 'Not synced', icon: DollarSign, color: 'bg-green-500' },
-          { title: 'Paid Earnings', value: metrics.hasSyncedData ? `$${metrics.totalPaidEarnings.toLocaleString()}` : 'Not synced', icon: CheckCircle, color: 'bg-emerald-500' },
-          { title: 'Unpaid Earnings', value: metrics.hasSyncedData ? `$${metrics.totalUnpaidEarnings.toLocaleString()}` : 'Not synced', icon: Clock, color: 'bg-yellow-500' },
-          { title: 'Commission Rate', value: metrics.hasSyncedData ? `${metrics.commissionRate.toFixed(1)}%` : 'Not synced', icon: TrendingUp, color: 'bg-red-500' },
-          { title: 'Total Visits', value: metrics.hasSyncedData ? metrics.totalVisits.toLocaleString() : 'Not synced', icon: Users, color: 'bg-blue-500' },
-          { title: 'Total Referrals', value: metrics.hasSyncedData ? metrics.totalReferrals.toString() : 'Not synced', icon: Target, color: 'bg-purple-500' }
+          { title: 'Total Earnings', value: `$${metrics.totalEarnings.toLocaleString()}`, icon: DollarSign, color: 'bg-green-500' },
+          { title: 'Paid Earnings', value: `$${metrics.totalPaidEarnings.toLocaleString()}`, icon: CheckCircle, color: 'bg-emerald-500' },
+          { title: 'Unpaid Earnings', value: `$${metrics.totalUnpaidEarnings.toLocaleString()}`, icon: Clock, color: 'bg-yellow-500' },
+          { title: 'Commission Rate', value: `${metrics.commissionRate.toFixed(1)}%`, icon: TrendingUp, color: 'bg-red-500' },
+          { title: 'Total Visits', value: metrics.totalVisits.toLocaleString(), icon: Users, color: 'bg-blue-500' },
+          { title: 'Total Referrals', value: metrics.totalReferrals.toString(), icon: Target, color: 'bg-purple-500' }
         ].map((metric, index) => {
           const Icon = metric.icon;
           return (

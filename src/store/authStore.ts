@@ -16,6 +16,12 @@ interface Profile {
   user_role?: string;
   affiliatewp_id?: number;
   affiliate_referral_url?: string;
+  affiliatewp_earnings?: number;
+  affiliatewp_unpaid_earnings?: number;
+  affiliatewp_referrals?: number;
+  affiliatewp_visits?: number;
+  commission_rate?: number;
+  last_metrics_sync?: string;
   created_at: string;
   updated_at: string;
 }

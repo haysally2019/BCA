@@ -184,12 +184,12 @@ const Dashboard: React.FC = () => {
 
   // Calculate live affiliate metrics from profile
   const affiliateMetrics = {
-    totalEarnings: (profile?.affiliatewp_earnings || 0) + (profile?.affiliatewp_unpaid_earnings || 0),
-    paidEarnings: profile?.affiliatewp_earnings || 0,
-    unpaidEarnings: profile?.affiliatewp_unpaid_earnings || 0,
-    referrals: profile?.affiliatewp_referrals || 0,
-    visits: profile?.affiliatewp_visits || 0,
-    commissionRate: profile?.commission_rate || 0,
+    totalEarnings: (profile?.affiliatewp_earnings ?? 0) + (profile?.affiliatewp_unpaid_earnings ?? 0),
+    paidEarnings: profile?.affiliatewp_earnings ?? 0,
+    unpaidEarnings: profile?.affiliatewp_unpaid_earnings ?? 0,
+    referrals: profile?.affiliatewp_referrals ?? 0,
+    visits: profile?.affiliatewp_visits ?? 0,
+    commissionRate: profile?.commission_rate ?? 0,
     lastSync: profile?.last_metrics_sync,
     hasSyncedData: profile?.last_metrics_sync !== null && profile?.last_metrics_sync !== undefined
   };
@@ -197,24 +197,24 @@ const Dashboard: React.FC = () => {
   const stats = [
     {
       title: 'Total Earnings',
-      value: affiliateMetrics.hasSyncedData ? `$${affiliateMetrics.totalEarnings.toLocaleString()}` : 'Not synced',
+      value: `$${affiliateMetrics.totalEarnings.toLocaleString()}`,
       icon: DollarSign,
       color: 'bg-green-500',
-      description: affiliateMetrics.hasSyncedData ? `${affiliateMetrics.commissionRate}% commission rate` : 'Sync metrics to see data'
+      description: `${affiliateMetrics.commissionRate.toFixed(1)}% commission rate`
     },
     {
       title: 'Paid Earnings',
-      value: affiliateMetrics.hasSyncedData ? `$${affiliateMetrics.paidEarnings.toLocaleString()}` : 'Not synced',
+      value: `$${affiliateMetrics.paidEarnings.toLocaleString()}`,
       icon: CheckCircle,
       color: 'bg-emerald-500',
-      description: affiliateMetrics.hasSyncedData ? 'From AffiliateWP' : 'Sync metrics to see data'
+      description: 'From AffiliateWP'
     },
     {
       title: 'Referrals',
-      value: affiliateMetrics.hasSyncedData ? affiliateMetrics.referrals.toString() : 'Not synced',
+      value: affiliateMetrics.referrals.toString(),
       icon: Target,
       color: 'bg-purple-500',
-      description: affiliateMetrics.hasSyncedData ? `${affiliateMetrics.visits} total visits` : 'Sync metrics to see data'
+      description: `${affiliateMetrics.visits} total visits`
     },
     {
       title: 'Total Leads',
@@ -511,38 +511,38 @@ const Dashboard: React.FC = () => {
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4 lg:gap-6">
           <div className="text-center">
             <div className="text-lg sm:text-xl lg:text-2xl font-bold mb-0.5 sm:mb-1">
-              {affiliateMetrics.hasSyncedData ? `$${affiliateMetrics.totalEarnings.toLocaleString()}` : '-'}
+              ${affiliateMetrics.totalEarnings.toLocaleString()}
             </div>
             <div className="text-academy-blue-100 text-xs">Total Earnings</div>
             <div className="text-xs text-green-400 mt-1 hidden sm:block">
-              {affiliateMetrics.hasSyncedData ? 'Paid + Unpaid' : 'Not synced'}
+              Paid + Unpaid
             </div>
           </div>
           <div className="text-center">
             <div className="text-lg sm:text-xl lg:text-2xl font-bold mb-0.5 sm:mb-1">
-              {affiliateMetrics.hasSyncedData ? `$${affiliateMetrics.paidEarnings.toLocaleString()}` : '-'}
+              ${affiliateMetrics.paidEarnings.toLocaleString()}
             </div>
             <div className="text-academy-blue-100 text-xs">Paid Earnings</div>
             <div className="text-xs text-academy-blue-400 mt-1 hidden sm:block">
-              {affiliateMetrics.hasSyncedData ? 'From AffiliateWP' : 'Not synced'}
+              From AffiliateWP
             </div>
           </div>
           <div className="text-center">
             <div className="text-lg sm:text-xl lg:text-2xl font-bold mb-0.5 sm:mb-1">
-              {affiliateMetrics.hasSyncedData ? affiliateMetrics.referrals.toString() : '-'}
+              {affiliateMetrics.referrals.toLocaleString()}
             </div>
             <div className="text-academy-blue-100 text-xs">Total Referrals</div>
             <div className="text-xs text-green-400 mt-1 hidden sm:block">
-              {affiliateMetrics.hasSyncedData ? `${affiliateMetrics.visits} visits` : 'Not synced'}
+              {affiliateMetrics.visits.toLocaleString()} visits
             </div>
           </div>
           <div className="text-center">
             <div className="text-lg sm:text-xl lg:text-2xl font-bold mb-0.5 sm:mb-1">
-              {affiliateMetrics.hasSyncedData ? `${affiliateMetrics.commissionRate}%` : '-'}
+              {affiliateMetrics.commissionRate.toFixed(1)}%
             </div>
             <div className="text-academy-blue-100 text-xs">Commission Rate</div>
             <div className="text-xs text-green-400 mt-1 hidden sm:block">
-              {affiliateMetrics.hasSyncedData ? 'Current rate' : 'Not synced'}
+              Current rate
             </div>
           </div>
         </div>
