@@ -9,7 +9,9 @@ import {
   Target,
   BarChart3,
   Users,
-  Settings
+  Settings,
+  Copy,
+  Link
 } from 'lucide-react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar } from 'recharts';
 import { supabaseService, Commission } from '../lib/supabaseService';
@@ -50,6 +52,16 @@ const CommissionsTracker: React.FC = () => {
 
   // Add affiliate management state
   const [showAffiliateManagement, setShowAffiliateManagement] = useState(false);
+  const [webhookCopied, setWebhookCopied] = useState(false);
+
+  const webhookEndpoint = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/affiliatewp-webhook`;
+
+  const copyWebhookUrl = () => {
+    navigator.clipboard.writeText(webhookEndpoint);
+    setWebhookCopied(true);
+    toast.success('Webhook URL copied to clipboard');
+    setTimeout(() => setWebhookCopied(false), 2000);
+  };
 
   // Check if user has management access
   const isManagement = profile?.subscription_plan === 'enterprise';
@@ -807,20 +819,72 @@ const CommissionsTracker: React.FC = () => {
               </div>
 
               <div className="bg-academy-blue-50 border border-academy-blue-200 rounded-lg p-4 md:p-6">
-                <div className="flex items-center space-x-3 mb-4">
-                  <Users className="w-6 h-6 text-academy-blue-600" />
-                  <h4 className="text-lg font-semibold text-academy-blue-900">AffiliateWP Integration</h4>
+                <div className="flex items-center justify-between mb-4">
+                  <div className="flex items-center space-x-3">
+                    <Link className="w-6 h-6 text-academy-blue-600" />
+                    <h4 className="text-lg font-semibold text-academy-blue-900">AffiliateWP Integration</h4>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <CheckCircle className="w-5 h-5 text-green-600" />
+                    <span className="text-sm font-medium text-green-600">Active</span>
+                  </div>
                 </div>
                 <p className="text-academy-blue-800 mb-4">
                   Automatically track and manage affiliate commissions from your AffiliateWP system.
                 </p>
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                  <div className="bg-white p-4 rounded-lg">
-                    <h5 className="font-medium text-gray-900 mb-2">Webhook Endpoint</h5>
-                    <code className="text-sm bg-gray-100 p-2 rounded block">
-                      {import.meta.env.VITE_SUPABASE_URL}/functions/v1/affiliatewp-webhook
-                    </code>
+
+                {/* Webhook Configuration */}
+                <div className="bg-white rounded-lg p-4 mb-4">
+                  <label className="block text-sm font-medium text-gray-900 mb-2">
+                    Webhook Endpoint
+                  </label>
+                  <div className="flex items-center space-x-2">
+                    <div className="flex-1 bg-gray-50 border border-gray-300 rounded-lg px-4 py-3 font-mono text-sm text-gray-700 overflow-x-auto">
+                      {webhookEndpoint}
+                    </div>
+                    <button
+                      onClick={copyWebhookUrl}
+                      className="flex items-center space-x-2 px-4 py-3 bg-academy-blue-600 text-white rounded-lg hover:bg-academy-blue-700 transition-colors whitespace-nowrap"
+                      title="Copy webhook URL"
+                    >
+                      {webhookCopied ? (
+                        <>
+                          <CheckCircle className="w-4 h-4" />
+                          <span className="text-sm">Copied!</span>
+                        </>
+                      ) : (
+                        <>
+                          <Copy className="w-4 h-4" />
+                          <span className="text-sm">Copy</span>
+                        </>
+                      )}
+                    </button>
                   </div>
+                  <p className="text-xs text-gray-600 mt-2">
+                    Add this webhook URL to your AffiliateWP settings to receive commission updates in real-time
+                  </p>
+                </div>
+
+                {/* Setup Instructions */}
+                <div className="bg-white border border-blue-200 rounded-lg p-4 mb-4">
+                  <div className="flex items-start space-x-3">
+                    <AlertCircle className="w-5 h-5 text-blue-600 mt-0.5" />
+                    <div className="flex-1">
+                      <h5 className="text-sm font-medium text-blue-900 mb-2">Setup Instructions</h5>
+                      <ol className="text-sm text-gray-700 space-y-1 list-decimal list-inside">
+                        <li>Log in to your AffiliateWP dashboard</li>
+                        <li>Navigate to Settings → Webhooks</li>
+                        <li>Click "Add New Webhook"</li>
+                        <li>Paste the webhook endpoint URL above</li>
+                        <li>Select events: Referral Created, Referral Approved, Referral Paid</li>
+                        <li>Save the webhook configuration</li>
+                      </ol>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Feature Grid */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-4">
                   <div className="bg-white p-4 rounded-lg">
                     <h5 className="font-medium text-gray-900 mb-2">Supported Events</h5>
                     <ul className="text-sm text-gray-600 space-y-1">
@@ -837,8 +901,18 @@ const CommissionsTracker: React.FC = () => {
                       <li>• Custom rate tiers</li>
                     </ul>
                   </div>
+                  <div className="bg-white p-4 rounded-lg">
+                    <h5 className="font-medium text-gray-900 mb-2">Features</h5>
+                    <ul className="text-sm text-gray-600 space-y-1">
+                      <li>• Automatic sync</li>
+                      <li>• Rate management</li>
+                      <li>• Performance tracking</li>
+                    </ul>
+                  </div>
                 </div>
-                <div className="mt-4 p-4 bg-white rounded-lg">
+
+                {/* Integration Status */}
+                <div className="bg-white rounded-lg p-4">
                   <div className="flex items-center justify-between">
                     <div>
                       <h5 className="font-medium text-gray-900">Integration Status</h5>
@@ -848,7 +922,7 @@ const CommissionsTracker: React.FC = () => {
                     </div>
                     <div className="flex items-center space-x-2">
                       <CheckCircle className="w-5 h-5 text-green-600" />
-                      <span className="text-sm font-medium text-green-600">Active</span>
+                      <span className="text-sm font-medium text-green-600">Ready</span>
                     </div>
                   </div>
                 </div>
