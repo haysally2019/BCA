@@ -24,7 +24,7 @@ interface AuthState {
   profile: Profile | null;
   loading: boolean;
   signIn: (email: string, password: string) => Promise<void>;
-  signUp: (email: string, password: string, name: string, userType?: 'sales_rep') => Promise<void>;
+  signUp: (email: string, password: string, name: string, userType?: 'sales_rep', affiliatewpId?: number) => Promise<void>;
   signOut: () => Promise<void>;
   initialize: () => Promise<{ unsubscribe: () => void } | null>;
   updateProfile: (updates: Partial<Profile>) => Promise<void>;
@@ -86,7 +86,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     }
   },
 
-  signUp: async (email: string, password: string, name: string, userType: 'sales_rep' = 'sales_rep') => {
+  signUp: async (email: string, password: string, name: string, userType: 'sales_rep' = 'sales_rep', affiliatewpId?: number) => {
     try {
       const { data, error } = await supabase.auth.signUp({
         email,
@@ -96,7 +96,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       if (error) throw error;
 
       if (data.user) {
-        const mockProfile = createMockProfile(data.user, name);
+        const mockProfile = { ...createMockProfile(data.user, name), affiliatewp_id: affiliatewpId };
         set({ user: data.user, profile: mockProfile });
 
         let profileCreated = false;
@@ -122,6 +122,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
                   company_email: email,
                   subscription_plan: 'professional',
                   user_role: 'sales_rep',
+                  affiliatewp_id: affiliatewpId,
                   updated_at: new Date().toISOString()
                 })
                 .eq('user_id', data.user.id)
@@ -148,7 +149,8 @@ export const useAuthStore = create<AuthState>((set, get) => ({
                   full_name: name,
                   company_email: email,
                   subscription_plan: 'professional',
-                  user_role: 'sales_rep'
+                  user_role: 'sales_rep',
+                  affiliatewp_id: affiliatewpId
                 })
                 .select()
                 .single();
@@ -167,6 +169,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
                       company_email: email,
                       subscription_plan: userType === 'management' ? 'enterprise' : 'professional',
                       user_role: userType === 'management' ? 'manager' : 'sales_rep',
+                      affiliatewp_id: affiliatewpId,
                       updated_at: new Date().toISOString()
                     })
                     .eq('user_id', data.user.id)

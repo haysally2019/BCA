@@ -32,6 +32,7 @@ const AddTeamMemberModal: React.FC<AddTeamMemberModalProps> = ({
     employment_status: 'active' as const,
     user_role: 'sales_rep',
     commission_rate: 15,
+    affiliatewp_id: '',
     notes: ''
   });
 
@@ -64,6 +65,7 @@ const AddTeamMemberModal: React.FC<AddTeamMemberModalProps> = ({
           user_role: formData.user_role,
           territory: formData.territory,
           commission_rate: formData.commission_rate,
+          affiliatewp_id: formData.affiliatewp_id ? parseInt(formData.affiliatewp_id) : undefined,
           position: formData.position,
           department: formData.department,
           employee_id: formData.employee_id,
@@ -82,12 +84,7 @@ const AddTeamMemberModal: React.FC<AddTeamMemberModalProps> = ({
           setShowPassword(true);
 
           console.log('State updated - showPassword: true, generatedPassword set');
-
-          if (result.affiliatewp_auto_created && result.affiliatewp_id) {
-            toast.success(`Account and AffiliateWP account (ID: ${result.affiliatewp_id}) created! Password displayed below.`);
-          } else {
-            toast.success('Account created! Temporary password displayed below.');
-          }
+          toast.success('Account created! Temporary password displayed below.');
         } else {
           console.warn('=== WARNING: No temporary password in result ===');
           console.warn('Result keys:', result ? Object.keys(result) : 'result is null/undefined');
@@ -134,6 +131,7 @@ const AddTeamMemberModal: React.FC<AddTeamMemberModalProps> = ({
           employment_status: 'active',
           user_role: 'sales_rep',
           commission_rate: 15,
+          affiliatewp_id: '',
           notes: ''
         });
       }
@@ -171,6 +169,7 @@ const AddTeamMemberModal: React.FC<AddTeamMemberModalProps> = ({
       employment_status: 'active',
       user_role: 'sales_rep',
       commission_rate: 15,
+      affiliatewp_id: '',
       notes: ''
     });
     onClose();
@@ -413,6 +412,22 @@ const AddTeamMemberModal: React.FC<AddTeamMemberModalProps> = ({
               />
             </div>
 
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                <Hash className="w-4 h-4 inline mr-2" />
+                AffiliateWP ID (Optional)
+              </label>
+              <input
+                type="number"
+                value={formData.affiliatewp_id}
+                onChange={(e) => setFormData({ ...formData, affiliatewp_id: e.target.value })}
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500"
+                placeholder="12345"
+              />
+              <p className="text-xs text-gray-500 mt-1">
+                Link this team member to their AffiliateWP account for commission tracking
+              </p>
+            </div>
           </div>
 
           <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
@@ -432,7 +447,7 @@ const AddTeamMemberModal: React.FC<AddTeamMemberModalProps> = ({
                 </label>
                 <p className="text-xs text-blue-700 mt-1 ml-6">
                   {createLoginAccount
-                    ? 'A secure password and AffiliateWP account will be automatically generated. The password will be sent via email and displayed here. The user will be required to change their password on first login.'
+                    ? 'A secure password will be automatically generated and sent to the team member via email. You will also see the password after creation to share securely. The user will be required to change their password on first login.'
                     : 'Team member will be added to your organization but will not have login access to the system.'}
                 </p>
               </div>

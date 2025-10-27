@@ -260,59 +260,7 @@ Deno.serve(async (req: Request) => {
     }
     console.log('SUCCESS: Team member created:', teamMemberData.id);
 
-    console.log('Step 11: Creating AffiliateWP account (optional)');
-    let affiliateWPCreated = false;
-    let generatedAffiliateId: number | null = null;
-
-    if (!affiliatewp_id) {
-      try {
-        console.log('Attempting to create AffiliateWP account...');
-        const affiliateWPEndpoint = `${supabaseUrl}/functions/v1/create-affiliatewp-account`;
-
-        const affiliateWPResponse = await fetch(affiliateWPEndpoint, {
-          method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${token}`,
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            profile_id: profileData.id,
-            email: email,
-            name: name,
-            rate: commission_rate || 15,
-            rate_type: 'percentage',
-            status: 'active'
-          })
-        });
-
-        const affiliateWPResult = await affiliateWPResponse.json();
-
-        if (affiliateWPResponse.ok && affiliateWPResult.success) {
-          console.log('SUCCESS: AffiliateWP account created:', affiliateWPResult.data?.affiliate_id);
-          affiliateWPCreated = true;
-          generatedAffiliateId = affiliateWPResult.data?.affiliate_id;
-
-          const { error: updateError } = await supabaseAdmin
-            .from('profiles')
-            .update({ affiliatewp_id: generatedAffiliateId })
-            .eq('id', profileData.id);
-
-          if (updateError) {
-            console.error('Warning: Failed to update profile with affiliatewp_id:', updateError);
-          }
-        } else if (affiliateWPResult.skip) {
-          console.log('INFO: AffiliateWP integration not configured - skipping affiliate account creation');
-        } else {
-          console.error('Warning: Failed to create AffiliateWP account:', affiliateWPResult.error);
-        }
-      } catch (affiliateWPError) {
-        console.error('Warning: Exception during AffiliateWP account creation (non-fatal):', affiliateWPError);
-      }
-    } else {
-      console.log('INFO: AffiliateWP ID provided by user, skipping automatic creation');
-    }
-
-    console.log('Step 12: Sending welcome email (optional)');
+    console.log('Step 11: Sending welcome email (optional)');
     let emailSent = false;
     try {
       const siteUrl = Deno.env.get('SITE_URL') || 'https://0ec90b57d6e95fcbda19832f.supabase.co';
@@ -342,7 +290,7 @@ Deno.serve(async (req: Request) => {
       emailSent = false;
     }
 
-    console.log('Step 13: Logging activity');
+    console.log('Step 12: Logging activity');
     try {
       const { error: activityLogError } = await supabaseAdmin
         .from('team_activity_log')
@@ -355,8 +303,7 @@ Deno.serve(async (req: Request) => {
           metadata: {
             email,
             user_role,
-            affiliatewp_id: generatedAffiliateId || affiliatewp_id,
-            affiliatewp_auto_created: affiliateWPCreated,
+            affiliatewp_id,
           },
         });
 
@@ -387,8 +334,7 @@ Deno.serve(async (req: Request) => {
           temporary_password: password,
           name,
           user_role,
-          affiliatewp_id: generatedAffiliateId || affiliatewp_id,
-          affiliatewp_auto_created: affiliateWPCreated,
+          affiliatewp_id,
           email_sent: emailSent,
         },
       }),
