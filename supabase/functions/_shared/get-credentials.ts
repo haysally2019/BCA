@@ -35,7 +35,7 @@ export async function getAffiliateWPCredentials(): Promise<AffiliateWPCredential
   }
 
   const credentials: Record<string, string> = {};
-  data.forEach(item => {
+  data.forEach((item: any) => {
     credentials[item.key] = item.value;
   });
 

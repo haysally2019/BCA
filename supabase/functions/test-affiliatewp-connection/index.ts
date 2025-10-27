@@ -99,7 +99,7 @@ Deno.serve(async (req: Request) => {
 
     // Test 3: Check AffiliateWP REST API
     console.log('Test 3: Testing AffiliateWP REST API...');
-    const affwpUrl = `${wpUrl}/wp-json/affwp/v2/affiliates`;
+    const affwpUrl = `${wpUrl}/wp-json/affwp/v1/affiliates`;
     
     const affwpResponse = await fetch(affwpUrl, {
       headers: {

@@ -7,10 +7,9 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-Client-Info, Apikey',
 };
 
-// Connection pooling: Reuse Supabase client across invocations
 let supabaseClient: any = null;
 let credentialsCache: { data: any; timestamp: number } | null = null;
-const CREDENTIALS_CACHE_TTL = 5 * 60 * 1000; // 5 minutes
+const CREDENTIALS_CACHE_TTL = 5 * 60 * 1000;
 
 interface AffiliateWPCredentials {
   siteUrl: string;
@@ -102,7 +101,7 @@ async function createAffiliateInWordPress(
 
   console.log('Creating affiliate in WordPress:', { email, name });
 
-  const apiUrl = `${wpUrl}/wp-json/affwp/v2/affiliates`;
+  const apiUrl = `${wpUrl}/wp-json/affwp/v1/affiliates`;
   const credentials = btoa(`${wpUsername}:${wpAppPassword}`);
 
   const nameParts = name.split(' ');
@@ -125,7 +124,6 @@ async function createAffiliateInWordPress(
   console.log('Sending request to AffiliateWP API:', apiUrl);
   console.log('Payload:', JSON.stringify(payload, null, 2));
 
-  // Add timeout protection and connection reuse
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
 
@@ -172,7 +170,6 @@ async function updateSyncLog(
   errorMessage: string | null = null
 ): Promise<void> {
   try {
-    // Update existing sync log entry instead of creating duplicate
     const { data: existingLog } = await supabase
       .from('affiliatewp_sync_log')
       .select('id')
@@ -184,7 +181,6 @@ async function updateSyncLog(
       .maybeSingle();
 
     if (existingLog) {
-      // Update existing log
       await supabase
         .from('affiliatewp_sync_log')
         .update({
@@ -197,7 +193,6 @@ async function updateSyncLog(
         })
         .eq('id', existingLog.id);
     } else {
-      // Create new log only if none exists
       await supabase
         .from('affiliatewp_sync_log')
         .insert({
@@ -229,7 +224,6 @@ Deno.serve(async (req: Request) => {
   }
 
   try {
-    // Use connection-pooled client
     const supabase = getSupabaseClient();
 
     console.log('Step 1: Parsing request body');
@@ -293,7 +287,6 @@ Deno.serve(async (req: Request) => {
     } catch (wpError) {
       console.error('WordPress API error:', wpError);
 
-      // Update profile sync status
       await supabase
         .from('profiles')
         .update({
