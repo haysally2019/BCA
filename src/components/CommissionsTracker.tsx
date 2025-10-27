@@ -235,56 +235,42 @@ const CommissionsTracker: React.FC = () => {
     }
   };
 
-  // Calculate totals including affiliate commissions
-  const totals: CommissionTotals = {
-    totalCommissions: commissions.reduce((sum, c) => sum + c.commission_amount, 0) +
-                      affiliateCommissions.reduce((sum, c) => sum + c.commission_amount, 0),
-    paidCommissions: commissions.filter(c => c.status === 'paid').reduce((sum, c) => sum + c.commission_amount, 0) +
-                     affiliateCommissions.filter(c => c.status === 'paid').reduce((sum, c) => sum + c.commission_amount, 0),
-    pendingCommissions: commissions.filter(c => c.status === 'pending').reduce((sum, c) => sum + c.commission_amount, 0) +
-                        affiliateCommissions.filter(c => c.status === 'pending').reduce((sum, c) => sum + c.commission_amount, 0),
-    approvedCommissions: commissions.filter(c => c.status === 'approved').reduce((sum, c) => sum + c.commission_amount, 0) +
-                         affiliateCommissions.filter(c => c.status === 'approved').reduce((sum, c) => sum + c.commission_amount, 0),
-    totalDeals: commissions.length + affiliateCommissions.length,
-    avgCommission: (commissions.length + affiliateCommissions.length) > 0 ?
-      (commissions.reduce((sum, c) => sum + c.commission_amount, 0) +
-       affiliateCommissions.reduce((sum, c) => sum + c.commission_amount, 0)) /
-      (commissions.length + affiliateCommissions.length) : 0
-  };
+  // Get current user's rep data
+  const currentRep = salesReps.find(rep => rep.id === profile?.id);
 
-  // Calculate AffiliateWP metrics from salesReps
-  const affiliateWPMetrics = {
+  // Calculate metrics - if viewing own data, show individual metrics; if manager, show totals
+  const isViewingOwnData = profile?.user_role === 'sales_rep' || profile?.user_role === 'affiliate';
+
+  const metrics = isViewingOwnData && currentRep ? {
+    totalPaidEarnings: currentRep.paid_earnings || 0,
+    totalUnpaidEarnings: currentRep.unpaid_earnings || 0,
+    totalVisits: currentRep.visits || 0,
+    totalReferrals: currentRep.referrals || 0,
+    commissionRate: currentRep.commission_rate || 0,
+    totalEarnings: (currentRep.paid_earnings || 0) + (currentRep.unpaid_earnings || 0)
+  } : {
+    // Manager view - show totals across all reps
     totalPaidEarnings: salesReps.reduce((sum, rep) => sum + (rep.paid_earnings || 0), 0),
     totalUnpaidEarnings: salesReps.reduce((sum, rep) => sum + (rep.unpaid_earnings || 0), 0),
     totalVisits: salesReps.reduce((sum, rep) => sum + (rep.visits || 0), 0),
     totalReferrals: salesReps.reduce((sum, rep) => sum + (rep.referrals || 0), 0),
-    avgRate: salesReps.length > 0 ?
-      salesReps.reduce((sum, rep) => sum + (rep.commission_rate || 0), 0) / salesReps.length : 0
+    commissionRate: salesReps.length > 0 ?
+      salesReps.reduce((sum, rep) => sum + (rep.commission_rate || 0), 0) / salesReps.length : 0,
+    totalEarnings: salesReps.reduce((sum, rep) => sum + (rep.paid_earnings || 0) + (rep.unpaid_earnings || 0), 0)
   };
 
-  // Monthly commission data for chart
+  // Monthly commission data for chart - only use affiliate commissions
   const monthlyData: MonthlyDataPoint[] = (() => {
     const monthMap = new Map<string, { commissions: number; deals: number }>();
-    
-    // Process regular commissions
-    commissions.forEach(commission => {
-      const date = new Date(commission.created_at);
-      const monthKey = date.toLocaleDateString('en-US', { month: 'short' });
-      const current = monthMap.get(monthKey) || { commissions: 0, deals: 0 };
-      monthMap.set(monthKey, {
-        commissions: current.commissions + commission.commission_amount,
-        deals: current.deals + 1
-      });
-    });
 
-    // Process affiliate commissions
+    // Process affiliate commissions from AffiliateWP
     affiliateCommissions.forEach(commission => {
       const date = new Date(commission.created_at);
       const monthKey = date.toLocaleDateString('en-US', { month: 'short' });
       const current = monthMap.get(monthKey) || { commissions: 0, deals: 0 };
       monthMap.set(monthKey, {
         commissions: current.commissions + commission.commission_amount,
-        deals: current.deals
+        deals: current.deals + 1
       });
     });
 
@@ -345,12 +331,12 @@ const CommissionsTracker: React.FC = () => {
       {/* Commission Summary */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4">
         {[
-          { title: 'Total Commissions', value: `$${totals.totalCommissions.toLocaleString()}`, icon: DollarSign, color: 'bg-green-500', subtitle: 'Internal Sales' },
-          { title: 'Paid Earnings', value: `$${affiliateWPMetrics.totalPaidEarnings.toLocaleString()}`, icon: CheckCircle, color: 'bg-emerald-500', subtitle: 'AffiliateWP' },
-          { title: 'Unpaid Earnings', value: `$${affiliateWPMetrics.totalUnpaidEarnings.toLocaleString()}`, icon: Clock, color: 'bg-yellow-500', subtitle: 'AffiliateWP' },
-          { title: 'Total Visits', value: affiliateWPMetrics.totalVisits.toLocaleString(), icon: Users, color: 'bg-blue-500', subtitle: 'AffiliateWP' },
-          { title: 'Total Referrals', value: affiliateWPMetrics.totalReferrals.toString(), icon: Target, color: 'bg-purple-500', subtitle: 'AffiliateWP' },
-          { title: 'Avg Rate', value: `${affiliateWPMetrics.avgRate.toFixed(1)}%`, icon: TrendingUp, color: 'bg-red-500', subtitle: 'AffiliateWP' }
+          { title: 'Total Earnings', value: `$${metrics.totalEarnings.toLocaleString()}`, icon: DollarSign, color: 'bg-green-500' },
+          { title: 'Paid Earnings', value: `$${metrics.totalPaidEarnings.toLocaleString()}`, icon: CheckCircle, color: 'bg-emerald-500' },
+          { title: 'Unpaid Earnings', value: `$${metrics.totalUnpaidEarnings.toLocaleString()}`, icon: Clock, color: 'bg-yellow-500' },
+          { title: 'Commission Rate', value: `${metrics.commissionRate.toFixed(1)}%`, icon: TrendingUp, color: 'bg-red-500' },
+          { title: 'Total Visits', value: metrics.totalVisits.toLocaleString(), icon: Users, color: 'bg-blue-500' },
+          { title: 'Total Referrals', value: metrics.totalReferrals.toString(), icon: Target, color: 'bg-purple-500' }
         ].map((metric, index) => {
           const Icon = metric.icon;
           return (
@@ -362,7 +348,6 @@ const CommissionsTracker: React.FC = () => {
               </div>
               <div className="text-2xl sm:text-xl font-bold text-gray-900">{metric.value}</div>
               <div className="text-sm text-gray-600">{metric.title}</div>
-              <div className="text-xs text-gray-500 mt-1">{metric.subtitle}</div>
             </div>
           );
         })}
@@ -374,8 +359,7 @@ const CommissionsTracker: React.FC = () => {
           <nav className="flex space-x-4 md:space-x-8 px-4 md:px-6 min-w-max">
             {[
               { id: 'overview', label: 'Overview' },
-              { id: 'commissions', label: 'Sales Rep Commissions', count: commissions.length },
-              { id: 'affiliate_commissions', label: 'Affiliate Commissions', count: affiliateCommissions.length },
+              { id: 'affiliate_commissions', label: 'Commission History', count: affiliateCommissions.length },
               { id: 'reps', label: 'Rep Performance', count: salesReps.length },
               { id: 'payouts', label: 'Payouts' },
               ...(isManagement ? [{ id: 'affiliates', label: 'Affiliate Program' }] : [])
@@ -419,14 +403,18 @@ const CommissionsTracker: React.FC = () => {
                 </div>
 
                 <div className="bg-gray-50 rounded-lg p-4 md:p-6">
-                  <h3 className="text-base md:text-lg font-semibold text-gray-900 mb-4">Rep Performance</h3>
+                  <h3 className="text-base md:text-lg font-semibold text-gray-900 mb-4">Rep Earnings</h3>
                   <ResponsiveContainer width="100%" height={250}>
-                    <BarChart data={salesReps}>
+                    <BarChart data={salesReps.map(rep => ({
+                      ...rep,
+                      total_earnings: (rep.paid_earnings || 0) + (rep.unpaid_earnings || 0)
+                    }))}>
                       <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
                       <XAxis dataKey="name" stroke="#6b7280" fontSize={12} />
                       <YAxis stroke="#6b7280" fontSize={12} />
                       <Tooltip />
-                      <Bar dataKey="ytd_commission" fill="#10b981" name="YTD Commission ($)" />
+                      <Bar dataKey="paid_earnings" fill="#10b981" name="Paid Earnings ($)" stackId="a" />
+                      <Bar dataKey="unpaid_earnings" fill="#eab308" name="Unpaid Earnings ($)" stackId="a" />
                     </BarChart>
                   </ResponsiveContainer>
                 </div>
@@ -436,7 +424,7 @@ const CommissionsTracker: React.FC = () => {
               <div className="bg-gray-50 rounded-lg p-4 md:p-6">
                 <h3 className="text-base md:text-lg font-semibold text-gray-900 mb-4">Top Performers This Quarter</h3>
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                  {salesReps.sort((a, b) => b.ytd_commission - a.ytd_commission).slice(0, 3).map((rep, index) => (
+                  {salesReps.sort((a, b) => ((b.paid_earnings || 0) + (b.unpaid_earnings || 0)) - ((a.paid_earnings || 0) + (a.unpaid_earnings || 0))).slice(0, 3).map((rep, index) => (
                     <div key={rep.id} className="bg-white p-4 rounded-lg border border-gray-200">
                       <div className="flex items-center space-x-3 mb-3">
                         <div className={`w-10 h-10 rounded-full flex items-center justify-center ${
@@ -455,12 +443,12 @@ const CommissionsTracker: React.FC = () => {
                       </div>
                       <div className="grid grid-cols-2 gap-4 text-center">
                         <div>
-                          <div className="text-lg font-bold text-green-600">${rep.ytd_commission.toLocaleString()}</div>
-                          <div className="text-xs text-gray-500">Commission</div>
+                          <div className="text-lg font-bold text-green-600">${((rep.paid_earnings || 0) + (rep.unpaid_earnings || 0)).toLocaleString()}</div>
+                          <div className="text-xs text-gray-500">Total Earnings</div>
                         </div>
                         <div>
-                          <div className="text-lg font-bold text-blue-600">{rep.quota_attainment}%</div>
-                          <div className="text-xs text-gray-500">Quota</div>
+                          <div className="text-lg font-bold text-blue-600">{(rep.referrals || 0)}</div>
+                          <div className="text-xs text-gray-500">Referrals</div>
                         </div>
                       </div>
                     </div>
@@ -470,7 +458,7 @@ const CommissionsTracker: React.FC = () => {
             </div>
           )}
 
-          {activeTab === 'commissions' && (
+          {activeTab === 'commissions_disabled' && (
             <div className="space-y-6">
               {/* Filters */}
               <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between space-y-3 sm:space-y-0">
@@ -804,71 +792,43 @@ const CommissionsTracker: React.FC = () => {
                       </div>
                     </div>
 
-                    {/* AffiliateWP Metrics */}
-                    <div className="bg-gradient-to-br from-red-50 to-orange-50 rounded-lg p-4 mb-4">
-                      <h4 className="text-sm font-semibold text-gray-900 mb-3 flex items-center">
-                        <Link className="w-4 h-4 mr-1.5 text-red-600" />
-                        AffiliateWP Metrics
-                      </h4>
+                    {/* Performance Metrics */}
+                    <div className="space-y-4">
                       <div className="grid grid-cols-2 gap-3">
-                        <div>
-                          <div className="text-lg font-bold text-green-600">${rep.paid_earnings.toLocaleString()}</div>
+                        <div className="bg-green-50 rounded-lg p-3">
+                          <div className="text-xl font-bold text-green-600">${rep.paid_earnings.toLocaleString()}</div>
                           <div className="text-xs text-gray-600">Paid Earnings</div>
                         </div>
-                        <div>
-                          <div className="text-lg font-bold text-yellow-600">${rep.unpaid_earnings.toLocaleString()}</div>
+                        <div className="bg-yellow-50 rounded-lg p-3">
+                          <div className="text-xl font-bold text-yellow-600">${rep.unpaid_earnings.toLocaleString()}</div>
                           <div className="text-xs text-gray-600">Unpaid Earnings</div>
                         </div>
-                        <div>
-                          <div className="text-lg font-bold text-blue-600">{rep.commission_rate}%</div>
-                          <div className="text-xs text-gray-600">Rate</div>
+                        <div className="bg-blue-50 rounded-lg p-3">
+                          <div className="text-xl font-bold text-blue-600">{rep.commission_rate}%</div>
+                          <div className="text-xs text-gray-600">Commission Rate</div>
                         </div>
-                        <div>
-                          <div className="text-lg font-bold text-purple-600">{rep.visits.toLocaleString()}</div>
-                          <div className="text-xs text-gray-600">Visits</div>
+                        <div className="bg-purple-50 rounded-lg p-3">
+                          <div className="text-xl font-bold text-purple-600">{rep.referrals.toLocaleString()}</div>
+                          <div className="text-xs text-gray-600">Referrals</div>
+                        </div>
+                        <div className="bg-red-50 rounded-lg p-3 col-span-2">
+                          <div className="text-xl font-bold text-red-600">{rep.visits.toLocaleString()}</div>
+                          <div className="text-xs text-gray-600">Total Visits</div>
                         </div>
                       </div>
+
+                      <div className="bg-gray-50 rounded-lg p-3">
+                        <div className="text-2xl font-bold text-gray-900">
+                          ${(rep.paid_earnings + rep.unpaid_earnings).toLocaleString()}
+                        </div>
+                        <div className="text-xs text-gray-600">Total Earnings</div>
+                      </div>
+
                       {rep.last_sync && (
-                        <div className="text-xs text-gray-500 mt-2 text-right">
-                          Last synced: {new Date(rep.last_sync).toLocaleDateString()}
+                        <div className="text-xs text-gray-500 text-center pt-2 border-t border-gray-200">
+                          Last synced: {new Date(rep.last_sync).toLocaleDateString()} at {new Date(rep.last_sync).toLocaleTimeString()}
                         </div>
                       )}
-                    </div>
-
-                    {/* Internal Sales Metrics */}
-                    <div className="grid grid-cols-2 gap-4 mb-4">
-                      <div className="text-center">
-                        <div className="text-xl font-bold text-green-600">${rep.ytd_commission.toLocaleString()}</div>
-                        <div className="text-xs text-gray-600">YTD Commission</div>
-                      </div>
-                      <div className="text-center">
-                        <div className="text-xl font-bold text-blue-600">${rep.ytd_revenue.toLocaleString()}</div>
-                        <div className="text-xs text-gray-600">YTD Revenue</div>
-                      </div>
-                      <div className="text-center">
-                        <div className="text-xl font-bold text-purple-600">{rep.deals_closed}</div>
-                        <div className="text-xs text-gray-600">Deals Closed</div>
-                      </div>
-                      <div className="text-center">
-                        <div className="text-xl font-bold text-orange-600">${rep.avg_deal_size}</div>
-                        <div className="text-xs text-gray-600">Avg Deal</div>
-                      </div>
-                    </div>
-
-                    <div className="mb-4">
-                      <div className="flex items-center justify-between text-sm mb-1">
-                        <span className="text-gray-600">Quota Attainment</span>
-                        <span className="font-medium">{rep.quota_attainment}%</span>
-                      </div>
-                      <div className="w-full bg-gray-200 rounded-full h-2">
-                        <div
-                          className={`h-2 rounded-full ${
-                            rep.quota_attainment >= 100 ? 'bg-green-600' :
-                            rep.quota_attainment >= 80 ? 'bg-yellow-600' : 'bg-red-600'
-                          }`}
-                          style={{ width: `${Math.min(rep.quota_attainment, 100)}%` }}
-                        />
-                      </div>
                     </div>
                   </div>
                 ))}
