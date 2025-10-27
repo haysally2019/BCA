@@ -24,20 +24,20 @@ interface AuthState {
   profile: Profile | null;
   loading: boolean;
   signIn: (email: string, password: string) => Promise<void>;
-  signUp: (email: string, password: string, name: string, userType?: 'management' | 'sales_rep', affiliatewpId?: number) => Promise<void>;
+  signUp: (email: string, password: string, name: string, userType?: 'sales_rep', affiliatewpId?: number) => Promise<void>;
   signOut: () => Promise<void>;
   initialize: () => Promise<{ unsubscribe: () => void } | null>;
   updateProfile: (updates: Partial<Profile>) => Promise<void>;
   refreshProfile: () => Promise<void>;
 }
 
-const createMockProfile = (user: User, name?: string, userType?: 'management' | 'sales_rep'): Profile => ({
+const createMockProfile = (user: User, name?: string): Profile => ({
   id: user.id,
   user_id: user.id,
   company_name: name || user.email?.split('@')[0] || 'User',
   full_name: name || user.email?.split('@')[0] || 'User',
   company_email: user.email,
-  subscription_plan: userType === 'management' ? 'enterprise' : 'professional',
+  subscription_plan: 'professional',
   created_at: new Date().toISOString(),
   updated_at: new Date().toISOString()
 });
@@ -86,7 +86,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     }
   },
 
-  signUp: async (email: string, password: string, name: string, userType: 'management' | 'sales_rep' = 'sales_rep', affiliatewpId?: number) => {
+  signUp: async (email: string, password: string, name: string, userType: 'sales_rep' = 'sales_rep', affiliatewpId?: number) => {
     try {
       const { data, error } = await supabase.auth.signUp({
         email,
@@ -96,7 +96,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       if (error) throw error;
 
       if (data.user) {
-        const mockProfile = { ...createMockProfile(data.user, name, userType), affiliatewp_id: affiliatewpId };
+        const mockProfile = { ...createMockProfile(data.user, name), affiliatewp_id: affiliatewpId };
         set({ user: data.user, profile: mockProfile });
 
         let profileCreated = false;
@@ -120,8 +120,8 @@ export const useAuthStore = create<AuthState>((set, get) => ({
                   company_name: name,
                   full_name: name,
                   company_email: email,
-                  subscription_plan: userType === 'management' ? 'enterprise' : 'professional',
-                  user_role: userType === 'management' ? 'manager' : 'sales_rep',
+                  subscription_plan: 'professional',
+                  user_role: 'sales_rep',
                   affiliatewp_id: affiliatewpId,
                   updated_at: new Date().toISOString()
                 })
@@ -148,8 +148,8 @@ export const useAuthStore = create<AuthState>((set, get) => ({
                   company_name: name,
                   full_name: name,
                   company_email: email,
-                  subscription_plan: userType === 'management' ? 'enterprise' : 'professional',
-                  user_role: userType === 'management' ? 'manager' : 'sales_rep',
+                  subscription_plan: 'professional',
+                  user_role: 'sales_rep',
                   affiliatewp_id: affiliatewpId
                 })
                 .select()

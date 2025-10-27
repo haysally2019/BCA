@@ -110,6 +110,12 @@ Deno.serve(async (req: Request) => {
     }
     console.log('SUCCESS: All required fields present');
 
+    if (user_role && (user_role === 'manager' || user_role === 'admin')) {
+      console.error('FAILED: Attempted to create manager/admin account');
+      throw new Error('Unauthorized: Cannot create manager or admin accounts through this endpoint. Only sales_rep accounts are allowed.');
+    }
+    console.log('SUCCESS: User role validation passed (sales_rep only)');
+
     console.log('Step 5: Fetching requesting user profile');
     const { data: requestingProfile, error: profileCheckError } = await supabaseAdmin
       .from('profiles')

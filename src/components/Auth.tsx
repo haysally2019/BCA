@@ -1,12 +1,11 @@
 import React, { useState, useEffect } from 'react';
-import { Mail, Lock, User, Phone, Building2, Target, Users } from 'lucide-react';
+import { Mail, Lock, User } from 'lucide-react';
 import { useAuthStore } from '../store/authStore';
 import { validateEmail, validatePassword, getErrorMessage } from '../lib/errorUtils';
 import toast from 'react-hot-toast';
 
 const Auth: React.FC = () => {
   const [isLogin, setIsLogin] = useState(true);
-  const [userType, setUserType] = useState<'management' | 'sales_rep'>('sales_rep');
   const [loading, setLoading] = useState(false);
   const [formData, setFormData] = useState({
     email: '',
@@ -51,7 +50,7 @@ const Auth: React.FC = () => {
         toast.success('Welcome back!');
       } else {
         const affiliatewpId = formData.affiliatewp_id ? parseInt(formData.affiliatewp_id) : undefined;
-        await signUp(formData.email, formData.password, formData.name, userType, affiliatewpId);
+        await signUp(formData.email, formData.password, formData.name, 'sales_rep', affiliatewpId);
         toast.success('Account created successfully!');
       }
     } catch (error: any) {
@@ -95,53 +94,11 @@ const Auth: React.FC = () => {
               {isLogin ? 'Welcome Back' : 'Create Account'}
             </h2>
             <p className="text-gray-600">
-              {isLogin ? 'Sign in to your account' : 'Choose your account type and get started'}
+              {isLogin ? 'Sign in to your account' : 'Create your sales rep account and get started'}
             </p>
           </div>
 
           {!isLogin && (
-            <div className="mb-6">
-              <label className="block text-sm font-medium text-gray-700 mb-3">Account Type</label>
-              <div className="grid grid-cols-1 gap-3">
-                <button
-                  type="button"
-                  onClick={() => setUserType('sales_rep')}
-                  className={`p-4 border-2 rounded-lg text-left transition-colors ${
-                    userType === 'sales_rep' 
-                      ? 'border-academy-blue-600 bg-academy-blue-50' 
-                      : 'border-gray-200 hover:border-gray-300'
-                  }`}
-                >
-                  <div className="flex items-center space-x-3">
-                    <Target className="w-5 h-5 text-academy-blue-600" />
-                    <div>
-                      <div className="font-medium text-gray-900">Sales Rep</div>
-                      <div className="text-sm text-gray-600">Lead management, pipeline tracking, and personal performance</div>
-                    </div>
-                  </div>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setUserType('management')}
-                  className={`p-4 border-2 rounded-lg text-left transition-colors ${
-                    userType === 'management' 
-                      ? 'border-academy-blue-600 bg-academy-blue-50' 
-                      : 'border-gray-200 hover:border-gray-300'
-                  }`}
-                >
-                  <div className="flex items-center space-x-3">
-                    <Users className="w-5 h-5 text-academy-blue-600" />
-                    <div>
-                      <div className="font-medium text-gray-900">Admin/Management</div>
-                      <div className="text-sm text-gray-600">Team management, advanced metrics, and full system access</div>
-                    </div>
-                  </div>
-                </button>
-              </div>
-            </div>
-          )}
-
-          {!isLogin && userType === 'sales_rep' && (
             <div className="mb-4">
               <label className="block text-sm font-medium text-gray-700 mb-1">
                 AffiliateWP ID (Optional)
@@ -167,7 +124,7 @@ const Auth: React.FC = () => {
             {!isLogin && (
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
-                  {userType === 'sales_rep' ? 'Full Name' : 'Name'}
+                  Full Name
                 </label>
                 <div className="relative">
                   <User className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
@@ -178,7 +135,7 @@ const Auth: React.FC = () => {
                     onChange={handleInputChange}
                     required={!isLogin}
                     className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-academy-blue-600 focus:border-academy-blue-600 transition-all duration-200"
-                    placeholder={userType === 'sales_rep' ? 'John Smith' : 'Your Name'}
+                    placeholder="John Smith"
                   />
                 </div>
               </div>
@@ -241,26 +198,14 @@ const Auth: React.FC = () => {
           {!isLogin && (
             <div className="mt-6 p-4 bg-academy-blue-50 rounded-lg">
               <h4 className="font-medium text-academy-blue-900 mb-2">
-                {userType === 'management' ? 'Admin/Management Features:' : 'Sales Rep Features:'}
+                Sales Rep Features:
               </h4>
               <ul className="text-sm text-academy-blue-800 space-y-1">
-                {userType === 'management' ? (
-                  <>
-                    <li>• Team member management and oversight</li>
-                    <li>• Advanced metric tracking and analytics</li>
-                    <li>• Commission management and reporting</li>
-                    <li>• System administration and settings</li>
-                    <li>• Lead assignment and territory management</li>
-                  </>
-                ) : (
-                  <>
-                    <li>• Personal lead management and tracking</li>
-                    <li>• Individual sales pipeline management</li>
-                    <li>• Personal commission tracking</li>
-                    <li>• Individual performance metrics</li>
-                    <li>• Customer communication tools</li>
-                  </>
-                )}
+                <li>• Personal lead management and tracking</li>
+                <li>• Individual sales pipeline management</li>
+                <li>• Personal commission tracking</li>
+                <li>• Individual performance metrics</li>
+                <li>• Customer communication tools</li>
               </ul>
             </div>
           )}
