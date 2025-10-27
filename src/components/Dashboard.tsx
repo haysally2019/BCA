@@ -36,6 +36,12 @@ const Dashboard: React.FC = () => {
 
   useEffect(() => {
     if (profile) {
+      console.log('[Dashboard] Profile loaded:', {
+        id: profile.id,
+        name: profile.full_name,
+        affiliatewp_id: profile.affiliatewp_id,
+        affiliate_referral_url: profile.affiliate_referral_url
+      });
       loadDashboardData();
     }
   }, [profile, timeRange, loadDashboardData]);
@@ -165,8 +171,18 @@ const Dashboard: React.FC = () => {
         })}
       </div>
 
+      {/* Debug Info - Remove after testing */}
+      {profile && (
+        <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 text-xs">
+          <p><strong>Debug - Profile Data:</strong></p>
+          <p>Name: {profile.full_name}</p>
+          <p>AffiliateWP ID: {profile.affiliatewp_id || 'Not set'}</p>
+          <p>Affiliate URL: {profile.affiliate_referral_url || 'Not set'}</p>
+        </div>
+      )}
+
       {/* Affiliate URL Card */}
-      {profile?.affiliate_referral_url && (
+      {profile?.affiliate_referral_url ? (
         <div className="bg-gradient-to-br from-red-50 to-orange-50 rounded-lg sm:rounded-xl p-4 sm:p-5 lg:p-6 shadow-sm border border-red-100">
           <div className="flex items-start justify-between mb-3">
             <div className="flex items-center gap-2">
@@ -199,7 +215,13 @@ const Dashboard: React.FC = () => {
             Use this URL when promoting Blue Collar Academy to track your referrals
           </p>
         </div>
-      )}
+      ) : profile?.affiliatewp_id ? (
+        <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+          <p className="text-sm text-blue-800">
+            Your affiliate account is being set up. Your unique referral URL will appear here shortly.
+          </p>
+        </div>
+      ) : null}
 
       {/* Charts Row */}
       {chartData && (
