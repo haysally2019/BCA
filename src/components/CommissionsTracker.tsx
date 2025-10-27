@@ -252,6 +252,16 @@ const CommissionsTracker: React.FC = () => {
       (commissions.length + affiliateCommissions.length) : 0
   };
 
+  // Calculate AffiliateWP metrics from salesReps
+  const affiliateWPMetrics = {
+    totalPaidEarnings: salesReps.reduce((sum, rep) => sum + (rep.paid_earnings || 0), 0),
+    totalUnpaidEarnings: salesReps.reduce((sum, rep) => sum + (rep.unpaid_earnings || 0), 0),
+    totalVisits: salesReps.reduce((sum, rep) => sum + (rep.visits || 0), 0),
+    totalReferrals: salesReps.reduce((sum, rep) => sum + (rep.referrals || 0), 0),
+    avgRate: salesReps.length > 0 ?
+      salesReps.reduce((sum, rep) => sum + (rep.commission_rate || 0), 0) / salesReps.length : 0
+  };
+
   // Monthly commission data for chart
   const monthlyData: MonthlyDataPoint[] = (() => {
     const monthMap = new Map<string, { commissions: number; deals: number }>();
@@ -335,12 +345,12 @@ const CommissionsTracker: React.FC = () => {
       {/* Commission Summary */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4">
         {[
-          { title: 'Total Commissions', value: `$${totals.totalCommissions.toLocaleString()}`, icon: DollarSign, color: 'bg-green-500', change: '+23%' },
-          { title: 'Paid', value: `$${totals.paidCommissions.toLocaleString()}`, icon: CheckCircle, color: 'bg-emerald-500', change: '+18%' },
-          { title: 'Approved', value: `$${totals.approvedCommissions.toLocaleString()}`, icon: Clock, color: 'bg-blue-500', change: '+12%' },
-          { title: 'Pending', value: `$${totals.pendingCommissions.toLocaleString()}`, icon: AlertCircle, color: 'bg-yellow-500', change: '+8%' },
-          { title: 'Total Deals', value: totals.totalDeals.toString(), icon: Target, color: 'bg-purple-500', change: '+15%' },
-          { title: 'Avg Commission', value: `$${totals.avgCommission.toFixed(2)}`, icon: TrendingUp, color: 'bg-red-500', change: '+5%' }
+          { title: 'Total Commissions', value: `$${totals.totalCommissions.toLocaleString()}`, icon: DollarSign, color: 'bg-green-500', subtitle: 'Internal Sales' },
+          { title: 'Paid Earnings', value: `$${affiliateWPMetrics.totalPaidEarnings.toLocaleString()}`, icon: CheckCircle, color: 'bg-emerald-500', subtitle: 'AffiliateWP' },
+          { title: 'Unpaid Earnings', value: `$${affiliateWPMetrics.totalUnpaidEarnings.toLocaleString()}`, icon: Clock, color: 'bg-yellow-500', subtitle: 'AffiliateWP' },
+          { title: 'Total Visits', value: affiliateWPMetrics.totalVisits.toLocaleString(), icon: Users, color: 'bg-blue-500', subtitle: 'AffiliateWP' },
+          { title: 'Total Referrals', value: affiliateWPMetrics.totalReferrals.toString(), icon: Target, color: 'bg-purple-500', subtitle: 'AffiliateWP' },
+          { title: 'Avg Rate', value: `${affiliateWPMetrics.avgRate.toFixed(1)}%`, icon: TrendingUp, color: 'bg-red-500', subtitle: 'AffiliateWP' }
         ].map((metric, index) => {
           const Icon = metric.icon;
           return (
@@ -349,10 +359,10 @@ const CommissionsTracker: React.FC = () => {
                 <div className={`w-10 h-10 sm:w-8 sm:h-8 ${metric.color} rounded-lg flex items-center justify-center`}>
                   <Icon className="w-5 h-5 sm:w-4 sm:h-4 text-white" />
                 </div>
-                <span className="text-xs sm:text-xs text-green-600 font-medium">{metric.change}</span>
               </div>
               <div className="text-2xl sm:text-xl font-bold text-gray-900">{metric.value}</div>
               <div className="text-sm text-gray-600">{metric.title}</div>
+              <div className="text-xs text-gray-500 mt-1">{metric.subtitle}</div>
             </div>
           );
         })}
