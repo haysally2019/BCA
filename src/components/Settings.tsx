@@ -1,16 +1,20 @@
 import React, { useState, useEffect } from 'react';
-import { 
-  Building2, 
-  Phone, 
-  Mail, 
-  MapPin, 
+import {
+  Building2,
+  Phone,
+  Mail,
+  MapPin,
   Save,
   Key,
   Shield,
   Bell,
   CreditCard,
   Users,
-  User
+  User,
+  Link,
+  Copy,
+  CheckCircle,
+  AlertCircle
 } from 'lucide-react';
 import { useAuthStore } from '../store/authStore';
 import toast from 'react-hot-toast';
@@ -84,8 +88,20 @@ const Settings: React.FC = () => {
     toast.success('Two-factor authentication setup coming soon!');
   };
 
+  const [webhookCopied, setWebhookCopied] = useState(false);
+
+  const webhookEndpoint = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/affiliatewp-webhook`;
+
+  const copyWebhookUrl = () => {
+    navigator.clipboard.writeText(webhookEndpoint);
+    setWebhookCopied(true);
+    toast.success('Webhook URL copied to clipboard');
+    setTimeout(() => setWebhookCopied(false), 2000);
+  };
+
   const tabs = [
     { id: 'profile', label: 'Profile', icon: User },
+    { id: 'integrations', label: 'Integrations', icon: Link },
     { id: 'notifications', label: 'Notifications', icon: Bell },
     { id: 'security', label: 'Security', icon: Shield },
   ];
@@ -223,6 +239,141 @@ const Settings: React.FC = () => {
                   <span>{loading ? 'Saving...' : 'Save Changes'}</span>
                 </button>
               </form>
+            </div>
+          )}
+
+          {activeTab === 'integrations' && (
+            <div>
+              <h3 className="text-lg font-semibold text-gray-900 mb-6">Integrations</h3>
+
+              <div className="space-y-6">
+                {/* AffiliateWP Integration */}
+                <div className="bg-white border border-gray-200 rounded-lg p-6">
+                  <div className="flex items-start justify-between mb-4">
+                    <div className="flex items-center space-x-3">
+                      <div className="w-12 h-12 bg-academy-blue-100 rounded-lg flex items-center justify-center">
+                        <Link className="w-6 h-6 text-academy-blue-600" />
+                      </div>
+                      <div>
+                        <h4 className="text-lg font-semibold text-gray-900">AffiliateWP</h4>
+                        <p className="text-sm text-gray-600">Track affiliate commissions and referrals</p>
+                      </div>
+                    </div>
+                    <div className="flex items-center space-x-2">
+                      <CheckCircle className="w-5 h-5 text-green-600" />
+                      <span className="text-sm font-medium text-green-600">Active</span>
+                    </div>
+                  </div>
+
+                  <div className="space-y-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Webhook Endpoint
+                      </label>
+                      <div className="flex items-center space-x-2">
+                        <div className="flex-1 bg-gray-50 border border-gray-300 rounded-lg px-4 py-3 font-mono text-sm text-gray-700 overflow-x-auto">
+                          {webhookEndpoint}
+                        </div>
+                        <button
+                          onClick={copyWebhookUrl}
+                          className="flex items-center space-x-2 px-4 py-3 bg-academy-blue-600 text-white rounded-lg hover:bg-academy-blue-700 transition-colors"
+                          title="Copy webhook URL"
+                        >
+                          {webhookCopied ? (
+                            <>
+                              <CheckCircle className="w-4 h-4" />
+                              <span className="text-sm">Copied!</span>
+                            </>
+                          ) : (
+                            <>
+                              <Copy className="w-4 h-4" />
+                              <span className="text-sm">Copy</span>
+                            </>
+                          )}
+                        </button>
+                      </div>
+                      <p className="text-xs text-gray-500 mt-2">
+                        Add this webhook URL to your AffiliateWP settings to receive commission updates in real-time
+                      </p>
+                    </div>
+
+                    <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                      <div className="flex items-start space-x-3">
+                        <AlertCircle className="w-5 h-5 text-blue-600 mt-0.5" />
+                        <div className="flex-1">
+                          <h5 className="text-sm font-medium text-blue-900 mb-1">Setup Instructions</h5>
+                          <ol className="text-sm text-blue-800 space-y-1 list-decimal list-inside">
+                            <li>Log in to your AffiliateWP dashboard</li>
+                            <li>Navigate to Settings → Webhooks</li>
+                            <li>Click "Add New Webhook"</li>
+                            <li>Paste the webhook endpoint URL above</li>
+                            <li>Select events: Referral Created, Referral Approved, Referral Paid</li>
+                            <li>Save the webhook configuration</li>
+                          </ol>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                      <div className="bg-gray-50 rounded-lg p-4">
+                        <div className="text-sm font-medium text-gray-700 mb-1">Supported Events</div>
+                        <ul className="text-sm text-gray-600 space-y-1">
+                          <li>• Referral created</li>
+                          <li>• Commission approved</li>
+                          <li>• Payment processed</li>
+                        </ul>
+                      </div>
+                      <div className="bg-gray-50 rounded-lg p-4">
+                        <div className="text-sm font-medium text-gray-700 mb-1">Commission Types</div>
+                        <ul className="text-sm text-gray-600 space-y-1">
+                          <li>• Upfront commissions</li>
+                          <li>• Residual commissions</li>
+                          <li>• Custom rate tiers</li>
+                        </ul>
+                      </div>
+                      <div className="bg-gray-50 rounded-lg p-4">
+                        <div className="text-sm font-medium text-gray-700 mb-1">Features</div>
+                        <ul className="text-sm text-gray-600 space-y-1">
+                          <li>• Automatic sync</li>
+                          <li>• Rate management</li>
+                          <li>• Performance tracking</li>
+                        </ul>
+                      </div>
+                    </div>
+
+                    <div className="border-t border-gray-200 pt-4">
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <div className="text-sm font-medium text-gray-700">Your AffiliateWP ID</div>
+                          <div className="text-sm text-gray-600">
+                            {profileData.affiliatewp_id || (
+                              <span className="text-gray-400">Not configured</span>
+                            )}
+                          </div>
+                        </div>
+                        <button
+                          onClick={() => setActiveTab('profile')}
+                          className="text-sm text-academy-blue-600 hover:text-academy-blue-700 font-medium"
+                        >
+                          Update in Profile →
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Future Integrations Placeholder */}
+                <div className="bg-gray-50 rounded-lg p-8 text-center border-2 border-dashed border-gray-300">
+                  <Link className="w-12 h-12 text-gray-400 mx-auto mb-4" />
+                  <h4 className="text-lg font-medium text-gray-900 mb-2">More Integrations Coming Soon</h4>
+                  <p className="text-gray-600 mb-4">
+                    Connect with popular tools to streamline your workflow
+                  </p>
+                  <p className="text-sm text-gray-500">
+                    Future integrations: Zapier, Slack, HubSpot, Salesforce, and more
+                  </p>
+                </div>
+              </div>
             </div>
           )}
 
