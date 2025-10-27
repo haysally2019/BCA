@@ -9,19 +9,22 @@ const corsHeaders = {
 
 interface AffiliateWPWebhookPayload {
   action: string;
-  referral_id: number;
+  referral_id?: number;
   affiliate_id: number;
-  customer_name: string;
-  customer_email: string;
-  product_name: string;
-  product_id: number;
-  order_total: number;
-  commission_amount: number;
-  commission_rate: number;
-  commission_type: 'upfront' | 'residual';
-  status: 'pending' | 'approved' | 'paid' | 'cancelled';
+  customer_name?: string;
+  customer_email?: string;
+  product_name?: string;
+  product_id?: number;
+  order_total?: number;
+  commission_amount?: number;
+  commission_rate?: number;
+  commission_type?: 'upfront' | 'residual';
+  status: 'pending' | 'approved' | 'paid' | 'cancelled' | 'active' | 'inactive' | 'rejected';
   payment_date?: string;
   notes?: string;
+  affiliate_email?: string;
+  affiliate_name?: string;
+  affiliate_status?: string;
   [key: string]: any;
 }
 
@@ -96,7 +99,6 @@ async function logWebhook(payload: any, processed: boolean = false, errorMessage
 
 async function findOrCreateAffiliate(affiliateId: number, payload: AffiliateWPWebhookPayload): Promise<string | null> {
   try {
-    // First, try to find existing affiliate
     const { data: existingAffiliate, error: findError } = await supabase
       .from('affiliates')
       .select('id')
@@ -112,7 +114,6 @@ async function findOrCreateAffiliate(affiliateId: number, payload: AffiliateWPWe
       return existingAffiliate.id;
     }
 
-    // Create new affiliate if not found
     const { data: newAffiliate, error: createError } = await supabase
       .from('affiliates')
       .insert({
@@ -136,6 +137,72 @@ async function findOrCreateAffiliate(affiliateId: number, payload: AffiliateWPWe
   }
 }
 
+async function syncAffiliateStatus(payload: AffiliateWPWebhookPayload): Promise<void> {
+  try {
+    console.log('Syncing affiliate status for affiliate_id:', payload.affiliate_id);
+
+    const status = payload.affiliate_status || payload.status;
+    const email = payload.affiliate_email || payload.customer_email;
+    const name = payload.affiliate_name || payload.customer_name;
+
+    const { data: profile, error: profileError } = await supabase
+      .from('profiles')
+      .select('id')
+      .eq('affiliatewp_id', payload.affiliate_id)
+      .maybeSingle();
+
+    if (profile) {
+      console.log('Found profile for affiliate, updating status');
+
+      const { error: updateError } = await supabase
+        .from('profiles')
+        .update({
+          affiliatewp_account_status: status,
+          last_affiliatewp_sync: new Date().toISOString(),
+          affiliatewp_sync_status: 'synced',
+        })
+        .eq('id', profile.id);
+
+      if (updateError) {
+        console.error('Failed to update profile status:', updateError);
+      } else {
+        console.log('Profile status updated successfully');
+      }
+
+      await supabase
+        .from('affiliatewp_sync_log')
+        .insert({
+          profile_id: profile.id,
+          affiliatewp_id: payload.affiliate_id,
+          operation: 'webhook',
+          sync_direction: 'affiliatewp_to_portal',
+          status: 'success',
+          request_payload: payload,
+          processed_at: new Date().toISOString(),
+        });
+    }
+
+    const { error: affiliateError } = await supabase
+      .from('affiliates')
+      .update({
+        status: status === 'active' ? 'active' : status === 'inactive' ? 'inactive' : 'suspended',
+        name: name || undefined,
+        email: email || undefined,
+        updated_at: new Date().toISOString(),
+      })
+      .eq('affiliate_id', payload.affiliate_id);
+
+    if (affiliateError && affiliateError.code !== '23503') {
+      console.error('Failed to update affiliate record:', affiliateError);
+    } else {
+      console.log('Affiliate record updated successfully');
+    }
+  } catch (error) {
+    console.error('Error syncing affiliate status:', error);
+    throw error;
+  }
+}
+
 async function processCommissionEntry(payload: AffiliateWPWebhookPayload): Promise<boolean> {
   try {
     const affiliateUuid = await findOrCreateAffiliate(payload.affiliate_id, payload);
@@ -144,7 +211,6 @@ async function processCommissionEntry(payload: AffiliateWPWebhookPayload): Promi
       throw new Error('Failed to find or create affiliate');
     }
 
-    // Check if commission entry already exists
     const { data: existingEntry, error: findError } = await supabase
       .from('commission_entries')
       .select('id')
@@ -156,7 +222,6 @@ async function processCommissionEntry(payload: AffiliateWPWebhookPayload): Promi
     }
 
     if (existingEntry) {
-      // Update existing entry
       const { error: updateError } = await supabase
         .from('commission_entries')
         .update({
@@ -182,7 +247,6 @@ async function processCommissionEntry(payload: AffiliateWPWebhookPayload): Promi
 
       console.log(`Updated commission entry for referral ${payload.referral_id}`);
     } else {
-      // Create new entry
       const { error: insertError } = await supabase
         .from('commission_entries')
         .insert({
@@ -209,7 +273,6 @@ async function processCommissionEntry(payload: AffiliateWPWebhookPayload): Promi
       console.log(`Created new commission entry for referral ${payload.referral_id}`);
     }
 
-    // Try to link commission to user profile if AffiliateWP ID matches
     try {
       const { data: profile, error: profileError } = await supabase
         .from('profiles')
@@ -234,13 +297,11 @@ async function processCommissionEntry(payload: AffiliateWPWebhookPayload): Promi
 }
 
 Deno.serve(async (req) => {
-  // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders })
   }
 
   try {
-    // Only accept POST requests
     if (req.method !== 'POST') {
       return new Response(
         JSON.stringify({ error: 'Method not allowed' }),
@@ -251,7 +312,6 @@ Deno.serve(async (req) => {
       )
     }
 
-    // Get request body
     const body = await req.text()
     let payload: AffiliateWPWebhookPayload
 
@@ -268,10 +328,8 @@ Deno.serve(async (req) => {
       )
     }
 
-    // Log incoming webhook
     await logWebhook(payload, false)
 
-    // Verify webhook signature (optional but recommended)
     const signature = req.headers.get('x-affiliatewp-signature')
     const webhookSecret = Deno.env.get('AFFILIATEWP_WEBHOOK_SECRET')
     
@@ -289,57 +347,90 @@ Deno.serve(async (req) => {
       }
     }
 
-    // Validate required fields
-    const requiredFields = [
-      'referral_id', 'affiliate_id', 'customer_name', 'customer_email',
-      'product_name', 'product_id', 'order_total', 'commission_amount', 'commission_rate'
-    ]
+    const action = payload.action?.toLowerCase() || 'unknown';
+    console.log('Webhook action:', action);
 
-    const missingFields = requiredFields.filter(field => !payload[field])
-    if (missingFields.length > 0) {
-      const errorMessage = `Missing required fields: ${missingFields.join(', ')}`
-      await logWebhook(payload, false, errorMessage)
-      return new Response(
-        JSON.stringify({ error: errorMessage }),
-        { 
-          status: 400, 
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
-        }
-      )
-    }
-
-    // Process the commission entry
     try {
-      await processCommissionEntry(payload)
-      
-      // Mark webhook as processed
-      await logWebhook(payload, true)
+      if (action.includes('affiliate') && (action.includes('created') || action.includes('updated') || action.includes('status'))) {
+        console.log('Processing affiliate status change');
+        await syncAffiliateStatus(payload);
+        await logWebhook(payload, true);
+
+        return new Response(
+          JSON.stringify({
+            success: true,
+            message: 'Affiliate status synced successfully',
+            affiliate_id: payload.affiliate_id
+          }),
+          {
+            status: 200,
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+          }
+        );
+      } else if (action.includes('referral') || action.includes('commission')) {
+        console.log('Processing commission entry');
+
+        const requiredFields = [
+          'referral_id', 'affiliate_id', 'commission_amount'
+        ];
+
+        const missingFields = requiredFields.filter(field => !payload[field]);
+        if (missingFields.length > 0) {
+          const errorMessage = `Missing required fields: ${missingFields.join(', ')}`;
+          await logWebhook(payload, false, errorMessage);
+          return new Response(
+            JSON.stringify({ error: errorMessage }),
+            {
+              status: 400,
+              headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+            }
+          );
+        }
+
+        await processCommissionEntry(payload);
+        await logWebhook(payload, true);
+
+        return new Response(
+          JSON.stringify({
+            success: true,
+            message: 'Commission processed successfully',
+            referral_id: payload.referral_id
+          }),
+          {
+            status: 200,
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+          }
+        );
+      } else {
+        console.log('Unknown webhook action, logging only:', action);
+        await logWebhook(payload, true);
+
+        return new Response(
+          JSON.stringify({
+            success: true,
+            message: 'Webhook received and logged',
+            action: action
+          }),
+          {
+            status: 200,
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+          }
+        );
+      }
+    } catch (processingError) {
+      const errorMessage = processingError instanceof Error ? processingError.message : 'Processing failed';
+      await logWebhook(payload, false, errorMessage);
 
       return new Response(
-        JSON.stringify({ 
-          success: true, 
-          message: 'Commission processed successfully',
-          referral_id: payload.referral_id 
+        JSON.stringify({
+          error: 'Failed to process webhook',
+          details: errorMessage
         }),
-        { 
-          status: 200, 
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+        {
+          status: 500,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
         }
-      )
-    } catch (processingError) {
-      const errorMessage = processingError instanceof Error ? processingError.message : 'Processing failed'
-      await logWebhook(payload, false, errorMessage)
-      
-      return new Response(
-        JSON.stringify({ 
-          error: 'Failed to process commission', 
-          details: errorMessage 
-        }),
-        { 
-          status: 500, 
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
-        }
-      )
+      );
     }
 
   } catch (error) {
