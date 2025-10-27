@@ -189,6 +189,7 @@ async function createAffiliateInWordPress(
     user_id: wpUserId,
     payment_email: email,
     status: 'active',
+    rate: '10',
     rate_type: 'percentage',
     flat_rate_basis: 'per_product',
     dynamic_coupon: 0,

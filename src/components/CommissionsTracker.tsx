@@ -189,7 +189,8 @@ const CommissionsTracker: React.FC = () => {
           const hasCommission = existingCommissions.some(c => c.deal_id === deal.id);
           
           if (!hasCommission) {
-            const commissionRate = 15; // Default rate
+            // Use actual commission rate from AffiliateWP sync, fallback to 10% default
+            const commissionRate = profile.commission_rate ?? 10;
             const commissionAmount = deal.value * (commissionRate / 100);
             const quarter = `Q${Math.ceil((new Date().getMonth() + 1) / 3)} ${new Date().getFullYear()}`;
 
@@ -266,7 +267,8 @@ const CommissionsTracker: React.FC = () => {
     totalReferrals: currentRep.referrals ?? 0,
     commissionRate: currentRep.commission_rate ?? 0,
     totalEarnings: (currentRep.paid_earnings ?? 0) + (currentRep.unpaid_earnings ?? 0),
-    hasSyncedData: currentRep.last_sync !== null && currentRep.last_sync !== undefined
+    hasSyncedData: currentRep.last_sync !== null && currentRep.last_sync !== undefined,
+    lastSync: currentRep.last_sync
   } : {
     // Manager view - show totals across all reps
     totalPaidEarnings: salesReps.reduce((sum, rep) => sum + (rep.paid_earnings ?? 0), 0),
@@ -276,7 +278,8 @@ const CommissionsTracker: React.FC = () => {
     commissionRate: salesReps.length > 0 ?
       salesReps.reduce((sum, rep) => sum + (rep.commission_rate ?? 0), 0) / salesReps.length : 0,
     totalEarnings: salesReps.reduce((sum, rep) => sum + (rep.paid_earnings ?? 0) + (rep.unpaid_earnings ?? 0), 0),
-    hasSyncedData
+    hasSyncedData,
+    lastSync: salesReps.length > 0 ? salesReps[0]?.last_sync : null
   };
 
   // Monthly commission data for chart - only use affiliate commissions
