@@ -100,8 +100,11 @@ const CommissionsTracker: React.FC = () => {
 
   useEffect(() => {
     if (profile) {
-      loadCommissionsData(profile.id);
-      loadSalesReps();
+      // Auto-sync metrics on load, then load data
+      syncAffiliateMetrics().then(() => {
+        loadCommissionsData(profile.id);
+        loadSalesReps();
+      });
     }
   }, [profile, loadCommissionsData]);
 
@@ -132,18 +135,19 @@ const CommissionsTracker: React.FC = () => {
           id: rep.id,
           name: rep.company_name || rep.full_name,
           territory: rep.territory || 'Unassigned',
-          commission_rate: rep.commission_rate || 15,
-          ytd_revenue: ytdRevenue,
-          ytd_commission: ytdCommission,
-          deals_closed: repDeals,
-          avg_deal_size: avgDealSize,
-          quota_attainment: 0, // Cannot calculate without quota data
-          // AffiliateWP metrics
+          // AffiliateWP metrics - use real commission rate from AffiliateWP
+          commission_rate: rep.commission_rate || 0,
           paid_earnings: rep.affiliatewp_earnings || 0,
           unpaid_earnings: rep.affiliatewp_unpaid_earnings || 0,
           referrals: rep.affiliatewp_referrals || 0,
           visits: rep.affiliatewp_visits || 0,
-          last_sync: rep.last_metrics_sync
+          last_sync: rep.last_metrics_sync,
+          // Legacy internal tracking (not used anymore)
+          ytd_revenue: ytdRevenue,
+          ytd_commission: ytdCommission,
+          deals_closed: repDeals,
+          avg_deal_size: avgDealSize,
+          quota_attainment: 0
         };
       });
 
@@ -766,14 +770,12 @@ const CommissionsTracker: React.FC = () => {
             <div className="space-y-6">
               <div className="flex items-center justify-between mb-4">
                 <h3 className="text-lg font-semibold text-gray-900">Sales Rep Performance</h3>
-                <button
-                  onClick={syncAffiliateMetrics}
-                  disabled={syncingMetrics}
-                  className="bg-red-600 text-white px-4 py-2 rounded-lg flex items-center space-x-2 hover:bg-red-700 transition-colors disabled:opacity-50"
-                >
-                  <TrendingUp className="w-4 h-4" />
-                  <span>{syncingMetrics ? 'Syncing...' : 'Sync AffiliateWP Metrics'}</span>
-                </button>
+                {syncingMetrics && (
+                  <div className="flex items-center space-x-2 text-sm text-gray-500">
+                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-red-600"></div>
+                    <span>Syncing metrics...</span>
+                  </div>
+                )}
               </div>
               <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 md:gap-6">
                 {salesReps.map(rep => (
