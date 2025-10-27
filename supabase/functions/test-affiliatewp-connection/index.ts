@@ -1,0 +1,167 @@
+import 'jsr:@supabase/functions-js/edge-runtime.d.ts';
+
+const corsHeaders = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+  'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-Client-Info, Apikey',
+};
+
+Deno.serve(async (req: Request) => {
+  if (req.method === 'OPTIONS') {
+    return new Response(null, { status: 200, headers: corsHeaders });
+  }
+
+  try {
+    const wpUrl = Deno.env.get('AFFILIATEWP_SITE_URL');
+    const wpUsername = Deno.env.get('AFFILIATEWP_API_USERNAME');
+    const wpAppPassword = Deno.env.get('AFFILIATEWP_API_PASSWORD');
+
+    console.log('Testing AffiliateWP connection...');
+    console.log('WordPress URL:', wpUrl);
+    console.log('Username:', wpUsername);
+    console.log('Password configured:', wpAppPassword ? 'Yes' : 'No');
+
+    if (!wpUrl || !wpUsername || !wpAppPassword) {
+      return new Response(
+        JSON.stringify({
+          success: false,
+          error: 'Missing credentials',
+          details: {
+            url_configured: !!wpUrl,
+            username_configured: !!wpUsername,
+            password_configured: !!wpAppPassword,
+          },
+          instructions: 'Add AFFILIATEWP_SITE_URL, AFFILIATEWP_API_USERNAME, and AFFILIATEWP_API_PASSWORD to your Supabase secrets'
+        }),
+        {
+          status: 400,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        }
+      );
+    }
+
+    // Test 1: Check if WordPress REST API is accessible
+    console.log('Test 1: Checking WordPress REST API...');
+    const apiUrl = `${wpUrl}/wp-json/wp/v2`;
+    const testResponse = await fetch(apiUrl);
+    
+    if (!testResponse.ok) {
+      return new Response(
+        JSON.stringify({
+          success: false,
+          error: 'WordPress REST API not accessible',
+          url: apiUrl,
+          status: testResponse.status,
+          instructions: 'Make sure your WordPress site is accessible and REST API is enabled'
+        }),
+        {
+          status: 500,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        }
+      );
+    }
+    console.log('✓ WordPress REST API is accessible');
+
+    // Test 2: Check authentication
+    console.log('Test 2: Testing authentication...');
+    const credentials = btoa(`${wpUsername}:${wpAppPassword}`);
+    const authTestUrl = `${wpUrl}/wp-json/wp/v2/users/me`;
+    
+    const authResponse = await fetch(authTestUrl, {
+      headers: {
+        'Authorization': `Basic ${credentials}`,
+      },
+    });
+
+    if (!authResponse.ok) {
+      const errorText = await authResponse.text();
+      return new Response(
+        JSON.stringify({
+          success: false,
+          error: 'Authentication failed',
+          status: authResponse.status,
+          details: errorText,
+          instructions: 'Check your username and Application Password are correct'
+        }),
+        {
+          status: 401,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        }
+      );
+    }
+
+    const userData = await authResponse.json();
+    console.log('✓ Authentication successful');
+    console.log('Logged in as:', userData.name);
+
+    // Test 3: Check AffiliateWP REST API
+    console.log('Test 3: Testing AffiliateWP REST API...');
+    const affwpUrl = `${wpUrl}/wp-json/affwp/v2/affiliates`;
+    
+    const affwpResponse = await fetch(affwpUrl, {
+      headers: {
+        'Authorization': `Basic ${credentials}`,
+      },
+    });
+
+    if (!affwpResponse.ok) {
+      const errorText = await affwpResponse.text();
+      return new Response(
+        JSON.stringify({
+          success: false,
+          error: 'AffiliateWP REST API not accessible',
+          status: affwpResponse.status,
+          details: errorText,
+          instructions: 'Make sure AffiliateWP REST API is enabled in AffiliateWP → Settings → Advanced'
+        }),
+        {
+          status: 500,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        }
+      );
+    }
+
+    const affiliates = await affwpResponse.json();
+    console.log('✓ AffiliateWP REST API is accessible');
+    console.log('Found', affiliates.length, 'existing affiliates');
+
+    // All tests passed!
+    return new Response(
+      JSON.stringify({
+        success: true,
+        message: '✓ All tests passed! AffiliateWP integration is ready.',
+        details: {
+          wordpress_url: wpUrl,
+          authenticated_as: userData.name,
+          user_roles: userData.roles,
+          affiliatewp_accessible: true,
+          existing_affiliates: affiliates.length,
+        },
+        next_steps: [
+          'Integration is configured correctly',
+          'Test by signing up a new rep in the portal',
+          'Check WordPress → AffiliateWP → Affiliates to see the new account',
+          'Set up webhooks for bi-directional sync'
+        ]
+      }),
+      {
+        status: 200,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      }
+    );
+
+  } catch (error) {
+    console.error('Test error:', error);
+    return new Response(
+      JSON.stringify({
+        success: false,
+        error: error instanceof Error ? error.message : String(error),
+        instructions: 'Check the error message above and verify your configuration'
+      }),
+      {
+        status: 500,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      }
+    );
+  }
+});
