@@ -75,10 +75,16 @@ export const useAuthStore = create<AuthState>((set, get) => ({
           }
 
           if (profile) {
+            console.log('[AuthStore] Real profile loaded:', {
+              id: profile.id,
+              affiliatewp_id: profile.affiliatewp_id,
+              affiliate_referral_url: profile.affiliate_referral_url
+            });
             set({ profile });
           }
         } catch (profileError) {
           // Using mock profile as fallback
+          console.log('[AuthStore] Using mock profile as fallback');
         }
       }
     } catch (error) {
