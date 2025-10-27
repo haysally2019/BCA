@@ -109,8 +109,8 @@ const CommissionsTracker: React.FC = () => {
     }
   };
 
-  // Check if user has management access
-  const isManagement = profile?.subscription_plan === 'enterprise';
+  // Check if user has management access - allow managers and sales managers to sync
+  const isManagement = profile?.user_role === 'manager' || profile?.user_role === 'sales_manager' || profile?.subscription_plan === 'enterprise';
 
   useEffect(() => {
     if (profile) {
@@ -344,16 +344,14 @@ const CommissionsTracker: React.FC = () => {
             <option value="ytd">Year to Date</option>
             <option value="last_year">Last Year</option>
           </select>
-          {isManagement && (
-            <button
-              onClick={() => syncAffiliateMetrics(false)}
-              disabled={syncingMetrics}
-              className="w-full sm:w-auto bg-red-600 text-white px-4 py-2.5 rounded-lg flex items-center justify-center space-x-2 hover:bg-red-700 transition-colors min-h-[44px] disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              <Settings className={`w-4 h-4 ${syncingMetrics ? 'animate-spin' : ''}`} />
-              <span>{syncingMetrics ? 'Syncing...' : 'Sync Metrics'}</span>
-            </button>
-          )}
+          <button
+            onClick={() => syncAffiliateMetrics(false)}
+            disabled={syncingMetrics}
+            className="w-full sm:w-auto bg-red-600 text-white px-4 py-2.5 rounded-lg flex items-center justify-center space-x-2 hover:bg-red-700 transition-colors min-h-[44px] disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            <Settings className={`w-4 h-4 ${syncingMetrics ? 'animate-spin' : ''}`} />
+            <span>{syncingMetrics ? 'Syncing...' : 'Sync Metrics'}</span>
+          </button>
           <button className="w-full sm:w-auto bg-gray-100 text-gray-700 px-4 py-2.5 rounded-lg flex items-center justify-center space-x-2 hover:bg-gray-200 transition-colors min-h-[44px]">
             <Download className="w-4 h-4" />
             <span>Export</span>
@@ -362,7 +360,7 @@ const CommissionsTracker: React.FC = () => {
       </div>
 
       {/* Sync Status Notice */}
-      {!hasSyncedData && isManagement && (
+      {!hasSyncedData && (
         <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
           <div className="flex items-start space-x-3">
             <AlertCircle className="w-5 h-5 text-yellow-600 mt-0.5 flex-shrink-0" />
