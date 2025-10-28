@@ -13,14 +13,17 @@ import {
   User,
   Link as LinkIcon,
   Copy,
-  CheckCheck
+  CheckCheck,
+  RefreshCw
 } from 'lucide-react';
 import { useAuthStore } from '../store/authStore';
+import { supabase } from '../lib/supabaseClient';
 import toast from 'react-hot-toast';
 
 const Settings: React.FC = () => {
   const [activeTab, setActiveTab] = useState('profile');
   const [loading, setLoading] = useState(false);
+  const [syncing, setSyncing] = useState(false);
   const [copied, setCopied] = useState(false);
   const [profileData, setProfileData] = useState({
     full_name: '',
@@ -30,7 +33,7 @@ const Settings: React.FC = () => {
     affiliatewp_id: ''
   });
 
-  const { profile, user, signOut, updateProfile } = useAuthStore();
+  const { profile, user, signOut, updateProfile, refreshProfile } = useAuthStore();
 
   const copyAffiliateUrl = async () => {
     const url = profile?.affiliate_referral_url || 'https://bluecollaracademy.info/?ref=3';
@@ -41,6 +44,39 @@ const Settings: React.FC = () => {
       setTimeout(() => setCopied(false), 2000);
     } catch (error) {
       toast.error('Failed to copy URL');
+    }
+  };
+
+  const syncAffiliateMetrics = async () => {
+    if (!profile?.affiliatewp_id) {
+      toast.error('No AffiliateWP ID found. Please add your AffiliateWP ID first.');
+      return;
+    }
+
+    setSyncing(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('fetch-affiliatewp-metrics');
+
+      if (error) {
+        throw error;
+      }
+
+      if (data?.credentials_missing) {
+        toast.error('AffiliateWP credentials not configured. Please contact your administrator.');
+        return;
+      }
+
+      if (data?.success) {
+        await refreshProfile();
+        toast.success(`Synced ${data.updated_count} affiliate metrics successfully!`);
+      } else {
+        throw new Error(data?.error || 'Failed to sync metrics');
+      }
+    } catch (error: any) {
+      console.error('Error syncing affiliate metrics:', error);
+      toast.error(error?.message || 'Failed to sync affiliate metrics');
+    } finally {
+      setSyncing(false);
     }
   };
 
@@ -258,6 +294,48 @@ const Settings: React.FC = () => {
                     Link your profile to AffiliateWP for commission tracking
                   </p>
                 </div>
+
+                {/* AffiliateWP Metrics Sync */}
+                {profile?.affiliatewp_id && (
+                  <div className="bg-gradient-to-br from-blue-50 to-cyan-50 rounded-lg p-4 border border-blue-100">
+                    <div className="flex items-start justify-between">
+                      <div className="flex-1">
+                        <h4 className="font-medium text-gray-900 mb-1">AffiliateWP Metrics</h4>
+                        <p className="text-sm text-gray-600 mb-3">
+                          Sync your commission rate, earnings, and referral data from AffiliateWP
+                        </p>
+                        {profile.last_metrics_sync && (
+                          <p className="text-xs text-gray-500">
+                            Last synced: {new Date(profile.last_metrics_sync).toLocaleString()}
+                          </p>
+                        )}
+                      </div>
+                      <button
+                        type="button"
+                        onClick={syncAffiliateMetrics}
+                        disabled={syncing}
+                        className="ml-4 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center space-x-2"
+                      >
+                        <RefreshCw className={`w-4 h-4 ${syncing ? 'animate-spin' : ''}`} />
+                        <span>{syncing ? 'Syncing...' : 'Sync Now'}</span>
+                      </button>
+                    </div>
+                    {profile.commission_rate > 0 && (
+                      <div className="mt-3 pt-3 border-t border-blue-200">
+                        <div className="grid grid-cols-2 gap-3 text-sm">
+                          <div>
+                            <span className="text-gray-600">Commission Rate:</span>
+                            <span className="ml-2 font-semibold text-gray-900">{profile.commission_rate}%</span>
+                          </div>
+                          <div>
+                            <span className="text-gray-600">Total Earnings:</span>
+                            <span className="ml-2 font-semibold text-gray-900">${profile.affiliatewp_earnings || 0}</span>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
 
                 <button
                   type="submit"

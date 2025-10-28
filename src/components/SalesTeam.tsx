@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import { Users, Search, Filter, Mail, MapPin, DollarSign, Award, Star, CreditCard as Edit, Eye, MoreVertical, UserPlus, Settings, Target, TrendingUp, Trash2 } from 'lucide-react';
+import { Users, Search, Filter, Mail, MapPin, DollarSign, Award, Star, CreditCard as Edit, Eye, MoreVertical, UserPlus, Settings, Target, TrendingUp, Trash2, RefreshCw } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { teamService, type TeamMember } from '../lib/teamService';
 import { supabaseService } from '../lib/supabaseService';
+import { supabase } from '../lib/supabaseClient';
 import { useAuthStore } from '../store/authStore';
 import AddTeamMemberModal from './modals/AddTeamMemberModal';
 import EditTeamMemberModal from './modals/EditTeamMemberModal';
@@ -38,6 +39,7 @@ const SalesTeam: React.FC = () => {
   const [teamMembers, setTeamMembers] = useState<TeamMember[]>([]);
   const [memberStats, setMemberStats] = useState<Map<string, any>>(new Map());
   const [loading, setLoading] = useState(true);
+  const [syncing, setSyncing] = useState(false);
   const { profile } = useAuthStore();
 
   useEffect(() => {
@@ -85,6 +87,34 @@ const SalesTeam: React.FC = () => {
       toast.error('Failed to load team data');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const syncAllAffiliateMetrics = async () => {
+    setSyncing(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('fetch-affiliatewp-metrics');
+
+      if (error) {
+        throw error;
+      }
+
+      if (data?.credentials_missing) {
+        toast.error('AffiliateWP credentials not configured. Please configure in Settings.');
+        return;
+      }
+
+      if (data?.success) {
+        await loadTeamData();
+        toast.success(`Successfully synced ${data.updated_count} affiliate accounts!`);
+      } else {
+        throw new Error(data?.error || 'Failed to sync metrics');
+      }
+    } catch (error: any) {
+      console.error('Error syncing affiliate metrics:', error);
+      toast.error(error?.message || 'Failed to sync affiliate metrics');
+    } finally {
+      setSyncing(false);
     }
   };
 
@@ -173,13 +203,23 @@ const SalesTeam: React.FC = () => {
           <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">Sales Team Management</h1>
           <p className="text-sm sm:text-base text-gray-600 mt-1">Manage your sales team and track performance</p>
         </div>
-        <button
-          onClick={() => setShowAddModal(true)}
-          className="bg-red-600 text-white px-3 py-2 rounded-lg flex items-center space-x-2 hover:bg-red-700 transition-colors text-sm"
-        >
-          <UserPlus className="w-4 h-4" />
-          <span>Add Member</span>
-        </button>
+        <div className="flex items-center space-x-2">
+          <button
+            onClick={syncAllAffiliateMetrics}
+            disabled={syncing}
+            className="bg-blue-600 text-white px-3 py-2 rounded-lg flex items-center space-x-2 hover:bg-blue-700 transition-colors text-sm disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            <RefreshCw className={`w-4 h-4 ${syncing ? 'animate-spin' : ''}`} />
+            <span>{syncing ? 'Syncing...' : 'Sync Affiliates'}</span>
+          </button>
+          <button
+            onClick={() => setShowAddModal(true)}
+            className="bg-red-600 text-white px-3 py-2 rounded-lg flex items-center space-x-2 hover:bg-red-700 transition-colors text-sm"
+          >
+            <UserPlus className="w-4 h-4" />
+            <span>Add Member</span>
+          </button>
+        </div>
       </div>
 
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 sm:gap-4">

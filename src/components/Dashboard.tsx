@@ -22,6 +22,7 @@ import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContai
 import { useAuthStore } from '../store/authStore';
 import { useDataStore } from '../store/dataStore';
 import { supabaseService, type AnalyticsData } from '../lib/supabaseService';
+import { supabase } from '../lib/supabaseClient';
 import toast from 'react-hot-toast';
 
 const Dashboard: React.FC = () => {
@@ -45,8 +46,31 @@ const Dashboard: React.FC = () => {
         affiliate_referral_url: profile.affiliate_referral_url
       });
       loadDashboardData();
+
+      const shouldAutoSync = profile.affiliatewp_id && (
+        !profile.last_metrics_sync ||
+        (Date.now() - new Date(profile.last_metrics_sync).getTime()) > 24 * 60 * 60 * 1000
+      );
+
+      if (shouldAutoSync) {
+        console.log('[Dashboard] Auto-syncing affiliate metrics (24h elapsed or never synced)');
+        syncAffiliateMetricsQuietly();
+      }
     }
   }, [profile, timeRange, loadDashboardData]);
+
+  const syncAffiliateMetricsQuietly = async () => {
+    try {
+      const { data, error } = await supabase.functions.invoke('fetch-affiliatewp-metrics');
+
+      if (!error && data?.success) {
+        await refreshProfile();
+        console.log('[Dashboard] Auto-sync completed:', data.updated_count, 'affiliates updated');
+      }
+    } catch (error) {
+      console.log('[Dashboard] Auto-sync failed silently:', error);
+    }
+  };
 
   const copyAffiliateUrl = async () => {
     if (profile?.affiliate_referral_url) {
