@@ -409,6 +409,9 @@ export const supabaseService = {
     try {
       console.log('updateLead called with:', { leadId, updates });
 
+      const { data: currentUser } = await supabase.auth.getUser();
+      console.log('Current auth user:', currentUser?.user?.id);
+
       const { data, error } = await supabase
         .from('leads')
         .update({
@@ -422,7 +425,12 @@ export const supabaseService = {
       console.log('Supabase update response:', { data, error });
 
       if (error) {
-        console.error('Supabase error details:', error);
+        console.error('Supabase error details:', {
+          message: error.message,
+          details: error.details,
+          hint: error.hint,
+          code: error.code
+        });
         throw error;
       }
 
@@ -430,12 +438,17 @@ export const supabaseService = {
         throw new Error('No data returned from update operation');
       }
 
-      // Log status change activity if status was updated
+      console.log('Lead updated successfully:', data);
+
       if (updates.status) {
-        await this.logLeadActivity(leadId, data.company_id, 'status_change', {
-          subject: 'Status Updated',
-          description: `Lead status changed to ${updates.status}`,
-        });
+        try {
+          await this.logLeadActivity(leadId, data.company_id, 'status_change', {
+            subject: 'Status Updated',
+            description: `Lead status changed to ${updates.status}`,
+          });
+        } catch (activityError) {
+          console.warn('Failed to log activity, but update succeeded:', activityError);
+        }
       }
 
       return data;
@@ -444,6 +457,8 @@ export const supabaseService = {
       console.error('Error type:', typeof error);
       console.error('Error message:', error?.message);
       console.error('Error code:', error?.code);
+      console.error('Error details:', error?.details);
+      console.error('Error hint:', error?.hint);
       throw error;
     }
   },

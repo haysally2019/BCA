@@ -191,20 +191,39 @@ const LeadManagement: React.FC = () => {
   };
 
   const handleUpdateLeadStatus = async (leadId: string, updates: Partial<Lead> | string) => {
-    console.log('Attempting to update lead:', leadId, 'with updates:', updates);
+    if (!profile) {
+      toast.error('Please log in to update leads');
+      return;
+    }
 
-    // Handle both string (just status) and object (full updates) formats
+    console.log('Attempting to update lead:', leadId, 'with updates:', updates);
+    console.log('Current user profile ID:', profile.id);
+    console.log('Current user auth ID:', profile.user_id);
+
     const updateData = typeof updates === 'string' ? { status: updates } : updates;
 
     try {
       const updatedLead = await supabaseService.updateLead(leadId, updateData);
       console.log('Lead updated successfully:', updatedLead);
+
       setLeads(prev => prev.map(lead => lead.id === leadId ? updatedLead : lead));
-      toast.success('Lead updated successfully!');
+
+      const statusText = updateData.status ? updateData.status.replace('_', ' ').charAt(0).toUpperCase() + updateData.status.replace('_', ' ').slice(1) : 'updated';
+      toast.success(`Lead status changed to ${statusText}!`);
     } catch (error: any) {
       console.error('Error updating lead:', error);
-      console.error('Error details:', error.message, error.details, error.hint);
-      toast.error(`Failed to update lead: ${error.message || 'Unknown error'}`);
+      console.error('Error details:', {
+        message: error.message,
+        details: error.details,
+        hint: error.hint,
+        code: error.code
+      });
+
+      if (error.message?.includes('permission') || error.message?.includes('policy')) {
+        toast.error('Permission denied. Please contact your administrator.');
+      } else {
+        toast.error(`Failed to update lead: ${error.message || 'Unknown error'}`);
+      }
     }
   };
 
