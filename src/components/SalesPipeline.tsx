@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { Target, DollarSign, TrendingUp, Users, BarChart3, Clock, CheckCircle, ArrowRight, Phone, ThumbsUp, FileText, Trophy, X } from 'lucide-react';
+import { Target, DollarSign, TrendingUp, Users, BarChart3, Clock, CheckCircle, ArrowRight, Phone, ThumbsUp, FileText, Trophy, X, Award, Eye, MousePointerClick } from 'lucide-react';
 import { supabaseService, Lead } from '../lib/supabaseService';
 import { useAuthStore } from '../store/authStore';
 import LoadingSpinner from './LoadingSpinner';
@@ -145,6 +145,55 @@ const SalesPipeline: React.FC = () => {
           <option value="current_year">Current Year</option>
         </select>
       </div>
+
+      {/* AffiliateWP Performance Banner */}
+      {profile?.affiliatewp_id && (
+        <div className="bg-gradient-to-r from-emerald-600 to-green-700 rounded-xl p-6 text-white shadow-lg">
+          <div className="flex items-center justify-between mb-4">
+            <div>
+              <h2 className="text-xl font-bold mb-1">Affiliate Performance Summary</h2>
+              <p className="text-emerald-100 text-sm">Your conversion metrics from AffiliateWP</p>
+            </div>
+            <Award className="w-10 h-10 text-emerald-200" />
+          </div>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <div className="bg-white/10 rounded-lg p-4 backdrop-blur-sm">
+              <div className="flex items-center space-x-2 mb-2">
+                <Eye className="w-4 h-4 text-emerald-200" />
+                <span className="text-sm text-emerald-100">Visits</span>
+              </div>
+              <div className="text-2xl font-bold">{profile.affiliatewp_visits || 0}</div>
+            </div>
+            <div className="bg-white/10 rounded-lg p-4 backdrop-blur-sm">
+              <div className="flex items-center space-x-2 mb-2">
+                <MousePointerClick className="w-4 h-4 text-emerald-200" />
+                <span className="text-sm text-emerald-100">Referrals</span>
+              </div>
+              <div className="text-2xl font-bold">{profile.affiliatewp_referrals || 0}</div>
+              <div className="text-xs text-emerald-200 mt-1">
+                {profile.affiliatewp_visits ?
+                  `${((profile.affiliatewp_referrals || 0) / profile.affiliatewp_visits * 100).toFixed(1)}% conversion` :
+                  '0% conversion'}
+              </div>
+            </div>
+            <div className="bg-white/10 rounded-lg p-4 backdrop-blur-sm">
+              <div className="flex items-center space-x-2 mb-2">
+                <DollarSign className="w-4 h-4 text-emerald-200" />
+                <span className="text-sm text-emerald-100">Unpaid</span>
+              </div>
+              <div className="text-2xl font-bold">${(profile.affiliatewp_unpaid_earnings || 0).toLocaleString()}</div>
+            </div>
+            <div className="bg-white/10 rounded-lg p-4 backdrop-blur-sm">
+              <div className="flex items-center space-x-2 mb-2">
+                <Trophy className="w-4 h-4 text-emerald-200" />
+                <span className="text-sm text-emerald-100">Total Earned</span>
+              </div>
+              <div className="text-2xl font-bold">${(profile.affiliatewp_earnings || 0).toLocaleString()}</div>
+              <div className="text-xs text-emerald-200 mt-1">{profile.commission_rate || 0}% rate</div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Pipeline Metrics */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-4">

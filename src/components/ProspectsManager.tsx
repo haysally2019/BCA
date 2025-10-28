@@ -367,8 +367,8 @@ const ProspectsManager: React.FC = () => {
         })}
       </div>
 
-      {/* Pipeline Value Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+      {/* Pipeline Value Cards & Affiliate Metrics */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         <div className="bg-gradient-to-r from-blue-600 to-blue-700 rounded-xl p-6 text-white">
           <div className="flex items-center justify-between mb-4">
             <h3 className="text-lg font-semibold">Total Pipeline Value</h3>
@@ -385,6 +385,16 @@ const ProspectsManager: React.FC = () => {
           <div className="text-3xl font-bold mb-2">${prospectStats.weightedValue.toLocaleString()}</div>
           <p className="text-green-100 text-sm">Probability-adjusted value</p>
         </div>
+        {profile?.affiliatewp_id && (
+          <div className="bg-gradient-to-r from-emerald-600 to-emerald-700 rounded-xl p-6 text-white">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-semibold">Affiliate Earnings</h3>
+              <Award className="w-6 h-6 text-emerald-200" />
+            </div>
+            <div className="text-3xl font-bold mb-2">${(profile.affiliatewp_unpaid_earnings || 0).toLocaleString()}</div>
+            <p className="text-emerald-100 text-sm">{profile.affiliatewp_referrals || 0} referrals tracked</p>
+          </div>
+        )}
       </div>
 
       {/* Filters and Search */}

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { TrendingUp, Users, DollarSign, Plus, Calendar, FileText, BarChart3, Building2, UserPlus, Briefcase, PhoneCall, Target, Award, CheckCircle, Activity } from 'lucide-react';
+import { TrendingUp, Users, DollarSign, Plus, Calendar, FileText, BarChart3, Building2, UserPlus, Briefcase, PhoneCall, Target, Award, CheckCircle, Activity, ExternalLink, Eye, MousePointerClick } from 'lucide-react';
 import { XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, LineChart, Line } from 'recharts';
 import { useAuthStore } from '../store/authStore';
 import { useDataStore } from '../store/dataStore';
@@ -156,6 +156,19 @@ const AgencyDashboard: React.FC = () => {
     pipelineValue: analyticsData.pipelineValue,
   };
 
+  // AffiliateWP metrics from profile
+  const affiliateMetrics = {
+    totalEarnings: profile?.affiliatewp_earnings || 0,
+    unpaidEarnings: profile?.affiliatewp_unpaid_earnings || 0,
+    referrals: profile?.affiliatewp_referrals || 0,
+    visits: profile?.affiliatewp_visits || 0,
+    commissionRate: profile?.commission_rate || 0,
+    conversionRate: profile?.affiliatewp_visits ?
+      ((profile?.affiliatewp_referrals || 0) / profile.affiliatewp_visits * 100).toFixed(1) : '0',
+    hasAffiliateAccount: !!profile?.affiliatewp_id,
+    referralUrl: profile?.affiliate_referral_url
+  };
+
   return (
     <div className="space-y-3 sm:space-y-4 lg:space-y-6">
       {/* Header */}
@@ -184,40 +197,103 @@ const AgencyDashboard: React.FC = () => {
         </div>
       </div>
 
+      {/* AffiliateWP Metrics - Primary */}
+      {affiliateMetrics.hasAffiliateAccount && (
+        <div className="bg-gradient-to-r from-green-600 to-emerald-700 rounded-xl p-4 sm:p-5 lg:p-6 text-white shadow-lg">
+          <div className="flex items-center justify-between mb-4">
+            <div>
+              <h2 className="text-lg sm:text-xl font-bold mb-1">Affiliate Performance</h2>
+              <p className="text-green-100 text-xs sm:text-sm">Your earnings from AffiliateWP</p>
+            </div>
+            <Award className="w-8 h-8 sm:w-10 sm:h-10 text-green-200" />
+          </div>
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+            <div className="bg-white/10 rounded-lg p-3 backdrop-blur-sm">
+              <div className="text-xs sm:text-sm text-green-100 mb-1">Total Earnings</div>
+              <div className="text-xl sm:text-2xl lg:text-3xl font-bold">${affiliateMetrics.totalEarnings.toLocaleString()}</div>
+            </div>
+            <div className="bg-white/10 rounded-lg p-3 backdrop-blur-sm">
+              <div className="text-xs sm:text-sm text-green-100 mb-1">Unpaid Balance</div>
+              <div className="text-xl sm:text-2xl lg:text-3xl font-bold">${affiliateMetrics.unpaidEarnings.toLocaleString()}</div>
+            </div>
+            <div className="bg-white/10 rounded-lg p-3 backdrop-blur-sm">
+              <div className="text-xs sm:text-sm text-green-100 mb-1">Referrals</div>
+              <div className="text-xl sm:text-2xl lg:text-3xl font-bold">{affiliateMetrics.referrals}</div>
+              <div className="text-xs text-green-200 mt-1">{affiliateMetrics.conversionRate}% conversion</div>
+            </div>
+            <div className="bg-white/10 rounded-lg p-3 backdrop-blur-sm">
+              <div className="text-xs sm:text-sm text-green-100 mb-1">Visits</div>
+              <div className="text-xl sm:text-2xl lg:text-3xl font-bold">{affiliateMetrics.visits}</div>
+              <div className="text-xs text-green-200 mt-1">{affiliateMetrics.commissionRate}% rate</div>
+            </div>
+          </div>
+          {affiliateMetrics.referralUrl && (
+            <div className="mt-4 pt-4 border-t border-white/20">
+              <div className="text-xs sm:text-sm text-green-100 mb-2">Your Referral Link</div>
+              <div className="flex items-center space-x-2">
+                <input
+                  type="text"
+                  value={affiliateMetrics.referralUrl}
+                  readOnly
+                  className="flex-1 bg-white/10 border border-white/20 rounded-lg px-3 py-2 text-white text-sm backdrop-blur-sm"
+                />
+                <button
+                  onClick={() => {
+                    navigator.clipboard.writeText(affiliateMetrics.referralUrl!);
+                    toast.success('Referral link copied!');
+                  }}
+                  className="bg-white/20 hover:bg-white/30 px-4 py-2 rounded-lg text-sm font-medium transition-colors"
+                >
+                  Copy
+                </button>
+                <a
+                  href={affiliateMetrics.referralUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="bg-white/20 hover:bg-white/30 p-2 rounded-lg transition-colors"
+                >
+                  <ExternalLink className="w-5 h-5" />
+                </a>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
       {/* Key Metrics */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-2 sm:gap-3 lg:gap-4">
         {[
-          { 
-            title: 'Active Prospects', 
-            value: agencyMetrics.totalClients, 
-            icon: Building2, 
-            color: 'bg-blue-500', 
-            change: '+12%', 
-            subtitle: `${agencyMetrics.activeTrials} qualified` 
+          {
+            title: 'Active Prospects',
+            value: agencyMetrics.totalClients,
+            icon: Building2,
+            color: 'bg-blue-500',
+            change: '+12%',
+            subtitle: `${agencyMetrics.activeTrials} qualified`
           },
-          { 
-            title: 'Monthly Revenue', 
-            value: `$${agencyMetrics.monthlyRevenue.toLocaleString()}`, 
-            icon: DollarSign, 
-            color: 'bg-green-500', 
-            change: '+23%', 
-            subtitle: `$${agencyMetrics.avgDealSize} avg` 
+          {
+            title: affiliateMetrics.hasAffiliateAccount ? 'Pipeline Revenue' : 'Monthly Revenue',
+            value: `$${agencyMetrics.monthlyRevenue.toLocaleString()}`,
+            icon: DollarSign,
+            color: 'bg-green-500',
+            change: '+23%',
+            subtitle: `$${agencyMetrics.avgDealSize} avg`
           },
-          { 
-            title: 'Pipeline Value', 
-            value: `$${agencyMetrics.pipelineValue.toLocaleString()}`, 
-            icon: Target, 
-            color: 'bg-purple-500', 
-            change: '+18%', 
-            subtitle: `${analyticsData.totalDeals} deals` 
+          {
+            title: 'Pipeline Value',
+            value: `$${agencyMetrics.pipelineValue.toLocaleString()}`,
+            icon: Target,
+            color: 'bg-purple-500',
+            change: '+18%',
+            subtitle: `${analyticsData.totalDeals} deals`
           },
-          { 
-            title: 'Conversion Rate', 
-            value: `${agencyMetrics.conversionRate}%`, 
-            icon: TrendingUp, 
-            color: 'bg-emerald-500', 
-            change: '+5%', 
-            subtitle: 'industry leading' 
+          {
+            title: affiliateMetrics.hasAffiliateAccount ? 'Lead Conversion' : 'Conversion Rate',
+            value: `${agencyMetrics.conversionRate}%`,
+            icon: TrendingUp,
+            color: 'bg-emerald-500',
+            change: '+5%',
+            subtitle: affiliateMetrics.hasAffiliateAccount ? `${affiliateMetrics.referrals} referrals` : 'industry leading'
           }
         ].map((metric, index) => {
           const Icon = metric.icon;
