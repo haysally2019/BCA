@@ -310,30 +310,6 @@ const AgencyDashboard: React.FC = () => {
         })}
       </div>
 
-      {/* Charts Row */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-3 sm:gap-4">
-        {/* Revenue Chart */}
-        <div className="lg:col-span-2 bg-white rounded-lg p-3 sm:p-4 lg:p-5 shadow-sm border border-gray-100">
-          <h3 className="text-sm sm:text-base lg:text-lg font-semibold text-gray-900 mb-3 sm:mb-4">Revenue & Growth</h3>
-          <ResponsiveContainer width="100%" height={200}>
-            <LineChart data={analyticsData.revenueByMonth}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
-              <XAxis dataKey="month" stroke="#6b7280" fontSize={12} />
-              <YAxis stroke="#6b7280" fontSize={12} />
-              <Tooltip 
-                contentStyle={{ 
-                  backgroundColor: 'white', 
-                  border: '1px solid #e5e7eb', 
-                  borderRadius: '8px' 
-                }} 
-              />
-              <Line type="monotone" dataKey="revenue" stroke="#10b981" strokeWidth={2} name="Revenue ($)" />
-              <Line type="monotone" dataKey="deals" stroke="#ef4444" strokeWidth={2} name="Deals Closed" />
-            </LineChart>
-          </ResponsiveContainer>
-        </div>
-      </div>
-
       {/* Activity and Quick Actions */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 sm:gap-4">
         {/* Recent Activity */}
