@@ -37,8 +37,7 @@ const MobileNav: React.FC<MobileNavProps> = ({ isOpen, onClose }) => {
       if (isManager) {
         return [
           { path: '/agency-dashboard', label: 'Dashboard', icon: Home },
-          { path: '/prospects', label: 'Leads', icon: Users },
-          { path: '/sales-pipeline', label: 'Pipeline', icon: Target },
+          { path: '/prospects', label: 'Leads & Pipeline', icon: Target },
           { path: '/team', label: 'Team Management', icon: Building2 },
           { path: '/commissions', label: 'Commissions', icon: DollarSign },
           { path: '/reports', label: 'Reports & Analytics', icon: FileText },
@@ -49,8 +48,7 @@ const MobileNav: React.FC<MobileNavProps> = ({ isOpen, onClose }) => {
 
       return [
         { path: '/agency-dashboard', label: 'Dashboard', icon: Home },
-        { path: '/prospects', label: 'Leads', icon: Users },
-        { path: '/sales-pipeline', label: 'Pipeline', icon: Target },
+        { path: '/prospects', label: 'Leads & Pipeline', icon: Target },
         { path: '/commissions', label: 'Commissions', icon: DollarSign },
         { path: '/sales-tools', label: 'Tools', icon: Briefcase },
         { path: '/reports', label: 'My Reports', icon: FileText },
