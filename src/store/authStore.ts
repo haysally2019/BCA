@@ -38,6 +38,7 @@ interface AuthState {
   updateProfile: (updates: Partial<Profile>) => Promise<void>;
   refreshProfile: () => Promise<void>;
   setInitialized: (value: boolean) => void;
+  silentSessionRefresh: () => Promise<void>;
 }
 
 const createMockProfile = (user: User, name?: string): Profile => ({
@@ -196,14 +197,18 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   },
 
   initialize: async () => {
-    const { user: currentUser, initialized } = get();
-    if (currentUser === null && get().loading === false) {
+    const { user: currentUser, initialized, loading } = get();
+
+    if (initialized && currentUser && get().profile) {
+      console.log('[AuthStore] Already initialized with valid user and profile, skipping');
+      if (loading) {
+        set({ loading: false });
+      }
       return null;
     }
 
-    if (initialized && currentUser && get().profile) {
-      console.log('[AuthStore] Already initialized, skipping');
-      set({ loading: false });
+    if (currentUser === null && loading === false && initialized) {
+      console.log('[AuthStore] No user and already initialized, skipping');
       return null;
     }
 
@@ -431,6 +436,43 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       }
     } catch (error) {
       console.error('[AuthStore] Exception refreshing profile:', error);
+    }
+  },
+
+  silentSessionRefresh: async () => {
+    const { user, profile, initialized } = get();
+
+    if (!user || !initialized) {
+      console.log('[AuthStore] Silent refresh skipped - not initialized or no user');
+      return;
+    }
+
+    try {
+      console.log('[AuthStore] Silent session refresh - validating session');
+
+      const { data: { session }, error } = await supabase.auth.getSession();
+
+      if (error) {
+        console.error('[AuthStore] Silent session refresh error:', error);
+        if (error.message.includes('Invalid Refresh Token') ||
+            error.message.includes('Invalid login credentials')) {
+          console.log('[AuthStore] Invalid token during silent refresh - signing out');
+          await get().signOut();
+        }
+        return;
+      }
+
+      if (session?.user) {
+        console.log('[AuthStore] Silent session refresh successful');
+        if (session.user.id !== user.id) {
+          console.warn('[AuthStore] User ID mismatch during silent refresh');
+          set({ user: session.user });
+        }
+      } else {
+        console.log('[AuthStore] No active session during silent refresh');
+      }
+    } catch (error) {
+      console.error('[AuthStore] Exception during silent session refresh:', error);
     }
   },
 }));

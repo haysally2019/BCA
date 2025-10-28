@@ -129,27 +129,10 @@ function AppContent() {
         sessionStorage.setItem('currentRoute', location.pathname);
       }
 
-      if (document.visibilityState === 'visible' && user) {
-        console.log('[App] Tab became visible - silently refreshing session');
-
-        try {
-          const { data: { session }, error } = await supabase.auth.getSession();
-
-          if (error) {
-            console.error('[App] Session refresh error:', error);
-            if (error.message.includes('Invalid Refresh Token') || error.message.includes('Invalid login credentials')) {
-              console.log('[App] Invalid token - signing out');
-              await useAuthStore.getState().signOut();
-              navigate('/');
-            }
-          } else if (session?.user) {
-            console.log('[App] Session refreshed successfully - staying on current page');
-          } else {
-            console.log('[App] No active session - user will be redirected to login');
-          }
-        } catch (error) {
-          console.error('[App] Error checking session:', error);
-        }
+      if (document.visibilityState === 'visible' && user && initialized) {
+        console.log('[App] Tab became visible - performing silent session refresh');
+        const authStore = useAuthStore.getState();
+        await authStore.silentSessionRefresh();
       }
     };
 
@@ -158,7 +141,7 @@ function AppContent() {
     return () => {
       document.removeEventListener('visibilitychange', handleVisibilityChange);
     };
-  }, [user, profile, location.pathname, navigate]);
+  }, [user, profile, location.pathname, navigate, initialized]);
 
   useEffect(() => {
     const checkPasswordChange = async () => {
