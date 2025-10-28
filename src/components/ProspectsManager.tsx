@@ -23,6 +23,10 @@ const ProspectsManager: React.FC = () => {
   const { prospects, loadDashboardData } = useDataStore();
 
   useEffect(() => {
+    console.log('[ProspectsManager] showAddModal state changed:', showAddModal);
+  }, [showAddModal]);
+
+  useEffect(() => {
     if (profile) {
       loadDashboardData(profile.id);
     }
@@ -85,17 +89,24 @@ const ProspectsManager: React.FC = () => {
   };
 
   const handleAddProspect = async (prospectData: any) => {
-    if (!profile) return;
+    console.log('[ProspectsManager] handleAddProspect called with data:', prospectData);
+    if (!profile) {
+      console.error('[ProspectsManager] No profile found');
+      toast.error('No profile found');
+      return;
+    }
 
     try {
+      console.log('[ProspectsManager] Creating prospect for profile:', profile.id);
       const newProspect = await supabaseService.createProspect(profile.id, prospectData);
+      console.log('[ProspectsManager] Prospect created successfully:', newProspect);
       // Invalidate cache and reload
       useDataStore.getState().invalidateCache([`dashboard_${profile.id}_30d`]);
       await loadDashboardData(profile.id);
       setShowAddModal(false);
       toast.success('Prospect added successfully!');
     } catch (error) {
-      console.error('Error adding prospect:', error);
+      console.error('[ProspectsManager] Error adding prospect:', error);
       toast.error('Failed to add prospect');
     }
   };
@@ -252,7 +263,11 @@ const ProspectsManager: React.FC = () => {
             <p className="text-gray-600 mt-1">Manage your Blue Collar Academy training prospects</p>
           </div>
           <button
-            onClick={() => setShowAddModal(true)}
+            onClick={() => {
+              console.log('[ProspectsManager] Add Prospect button clicked (empty state)');
+              setShowAddModal(true);
+            }}
+            type="button"
             className="bg-red-700 text-white px-4 py-2 rounded-lg flex items-center space-x-2 hover:bg-red-800 transition-colors"
           >
             <Plus className="w-4 h-4" />
@@ -266,8 +281,12 @@ const ProspectsManager: React.FC = () => {
           </div>
           <h3 className="text-lg font-medium text-gray-900 mb-2">No prospects yet</h3>
           <p className="text-gray-500 mb-4">Start by adding your first prospect to track training opportunities.</p>
-          <button 
-            onClick={() => setShowAddModal(true)}
+          <button
+            onClick={() => {
+              console.log('[ProspectsManager] Add Your First Prospect button clicked');
+              setShowAddModal(true);
+            }}
+            type="button"
             className="bg-red-700 text-white px-4 py-2 rounded-lg hover:bg-red-800 transition-all duration-200 shadow-sm"
           >
             Add Your First Prospect
@@ -304,13 +323,18 @@ const ProspectsManager: React.FC = () => {
           </button>
           <button
             onClick={() => toast.info('Export feature coming soon')}
+            type="button"
             className="hidden md:flex bg-gray-100 text-gray-700 px-4 py-2 rounded-lg items-center space-x-2 hover:bg-gray-200 transition-colors"
           >
             <Download className="w-4 h-4" />
             <span>Export</span>
           </button>
           <button
-            onClick={() => setShowAddModal(true)}
+            onClick={() => {
+              console.log('[ProspectsManager] Add Prospect button clicked (has prospects)');
+              setShowAddModal(true);
+            }}
+            type="button"
             className="bg-red-700 text-white px-4 py-2 rounded-lg flex items-center space-x-2 hover:bg-red-800 transition-colors"
           >
             <Plus className="w-4 h-4" />
@@ -585,6 +609,8 @@ interface AddProspectModalProps {
 }
 
 const AddProspectModal: React.FC<AddProspectModalProps> = ({ onClose, onSave }) => {
+  console.log('[AddProspectModal] Modal component rendered');
+
   const [formData, setFormData] = useState({
     company_name: '',
     contact_name: '',
@@ -605,11 +631,13 @@ const AddProspectModal: React.FC<AddProspectModalProps> = ({ onClose, onSave }) 
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    console.log('[AddProspectModal] Form submitted with data:', formData);
 
     // Validate form
     const validationErrors = validateForm(formData, prospectValidationSchema);
+    console.log('[AddProspectModal] Validation errors:', validationErrors);
     setErrors(validationErrors);
-    
+
     if (Object.keys(validationErrors).length > 0) {
       toast.error('Please fix the errors below');
       return;
@@ -621,12 +649,15 @@ const AddProspectModal: React.FC<AddProspectModalProps> = ({ onClose, onSave }) 
       ? formData.pain_points.split(',').map(point => point.trim()).filter(point => point)
       : [];
 
-    onSave({
+    const prospectToSave = {
       ...formData,
       pain_points: painPointsArray,
       next_follow_up_date: formData.next_follow_up_date || undefined,
-    });
-    
+    };
+
+    console.log('[AddProspectModal] Calling onSave with:', prospectToSave);
+    onSave(prospectToSave);
+
     setLoading(false);
   };
 
