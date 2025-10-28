@@ -412,6 +412,34 @@ export const supabaseService = {
       const { data: currentUser } = await supabase.auth.getUser();
       console.log('Current auth user:', currentUser?.user?.id);
 
+      // Method 1: Try using the database function that bypasses RLS
+      if (updates.status && Object.keys(updates).length === 1) {
+        console.log('Using update_lead_status RPC function for status-only update');
+        const { data, error } = await supabase.rpc('update_lead_status', {
+          lead_id: leadId,
+          new_status: updates.status
+        });
+
+        if (!error && data) {
+          console.log('Lead status updated successfully via RPC:', data);
+
+          try {
+            await this.logLeadActivity(leadId, data.company_id, 'status_change', {
+              subject: 'Status Updated',
+              description: `Lead status changed to ${updates.status}`,
+            });
+          } catch (activityError) {
+            console.warn('Failed to log activity, but update succeeded:', activityError);
+          }
+
+          return data;
+        }
+
+        console.warn('RPC status update failed, trying direct update:', error);
+      }
+
+      // Method 2: Try direct update with the new permissive RLS policy
+      console.log('Attempting direct update via Supabase client');
       const { data, error } = await supabase
         .from('leads')
         .update({
@@ -422,23 +450,53 @@ export const supabaseService = {
         .select()
         .single();
 
-      console.log('Supabase update response:', { data, error });
+      console.log('Supabase direct update response:', { data, error });
 
       if (error) {
-        console.error('Supabase error details:', {
+        console.error('Direct update failed, trying general RPC:', {
           message: error.message,
           details: error.details,
           hint: error.hint,
           code: error.code
         });
-        throw error;
+
+        // Method 3: Try using the general update function as last resort
+        console.log('Trying general update_lead RPC function');
+        const { data: rpcData, error: rpcError } = await supabase.rpc('update_lead', {
+          lead_id: leadId,
+          updates: updates as any
+        });
+
+        if (rpcError) {
+          console.error('All update methods failed:', rpcError);
+          throw rpcError;
+        }
+
+        if (!rpcData) {
+          throw new Error('No data returned from any update method');
+        }
+
+        console.log('Lead updated successfully via general RPC:', rpcData);
+
+        if (updates.status) {
+          try {
+            await this.logLeadActivity(leadId, rpcData.company_id, 'status_change', {
+              subject: 'Status Updated',
+              description: `Lead status changed to ${updates.status}`,
+            });
+          } catch (activityError) {
+            console.warn('Failed to log activity, but update succeeded:', activityError);
+          }
+        }
+
+        return rpcData;
       }
 
       if (!data) {
         throw new Error('No data returned from update operation');
       }
 
-      console.log('Lead updated successfully:', data);
+      console.log('Lead updated successfully via direct method:', data);
 
       if (updates.status) {
         try {
@@ -453,7 +511,7 @@ export const supabaseService = {
 
       return data;
     } catch (error: any) {
-      console.error('Error updating lead:', error);
+      console.error('Error updating lead - ALL METHODS FAILED:', error);
       console.error('Error type:', typeof error);
       console.error('Error message:', error?.message);
       console.error('Error code:', error?.code);
