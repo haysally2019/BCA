@@ -116,13 +116,19 @@ function AppContent() {
   }, [loading]);
 
   useEffect(() => {
-    if (location.pathname !== '/' && user) {
+    if (location.pathname !== '/' && user && profile) {
+      console.log('[App] Saving current route to sessionStorage:', location.pathname);
       sessionStorage.setItem('currentRoute', location.pathname);
     }
-  }, [location.pathname, user]);
+  }, [location.pathname, user, profile]);
 
   useEffect(() => {
     const handleVisibilityChange = async () => {
+      if (document.visibilityState === 'hidden' && user && profile && location.pathname !== '/') {
+        console.log('[App] Tab becoming hidden - saving current route:', location.pathname);
+        sessionStorage.setItem('currentRoute', location.pathname);
+      }
+
       if (document.visibilityState === 'visible' && user) {
         console.log('[App] Tab became visible - silently refreshing session');
 
@@ -152,7 +158,7 @@ function AppContent() {
     return () => {
       document.removeEventListener('visibilitychange', handleVisibilityChange);
     };
-  }, [user, navigate]);
+  }, [user, profile, location.pathname, navigate]);
 
   useEffect(() => {
     const checkPasswordChange = async () => {
@@ -202,8 +208,11 @@ function AppContent() {
   }, [user, profile]);
 
   useEffect(() => {
-    if (profile && initialized && location.pathname === '/') {
+    if (!profile || !initialized) return;
+
+    if (location.pathname === '/') {
       const savedRoute = sessionStorage.getItem('currentRoute');
+      console.log('[App] On root path, checking for saved route:', savedRoute);
 
       if (savedRoute && savedRoute !== '/') {
         console.log('[App] Restoring saved route:', savedRoute);
@@ -216,6 +225,7 @@ function AppContent() {
                           profile?.subscription_plan === 'enterprise' ||
                           profile?.subscription_plan === 'professional';
 
+      console.log('[App] No saved route, navigating to default dashboard');
       if (isAgencyUser) {
         navigate('/agency-dashboard', { replace: true });
       } else {
