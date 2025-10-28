@@ -11,7 +11,6 @@ import Analytics from './components/Analytics';
 import Settings from './components/Settings';
 import AgencyDashboard from './components/AgencyDashboard';
 import ProspectsManager from './components/ProspectsManager';
-import SalesPipeline from './components/SalesPipeline';
 import CommissionsTracker from './components/CommissionsTracker';
 import SalesTools from './components/SalesTools';
 import AgencyReports from './components/AgencyReports';
@@ -322,7 +321,6 @@ function AppContent() {
                   {/* Agency/Sales Routes */}
                   <Route path="/agency-dashboard" element={<AgencyDashboard />} />
                   <Route path="/prospects" element={<ProspectsManager />} />
-                  <Route path="/sales-pipeline" element={<SalesPipeline />} />
                   <Route path="/commissions" element={<CommissionsTracker />} />
                   <Route path="/sales-tools" element={<SalesTools />} />
                   <Route path="/reports" element={<AgencyReports />} />
@@ -331,7 +329,6 @@ function AppContent() {
                   {/* Client Routes */}
                   <Route path="/dashboard" element={<Dashboard />} />
                   <Route path="/leads" element={<LeadManagement />} />
-                  <Route path="/pipeline" element={<SalesPipeline />} />
                   <Route path="/calendar" element={<Calendar />} />
                   <Route path="/analytics" element={<Analytics />} />
 

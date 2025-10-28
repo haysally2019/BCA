@@ -13,7 +13,7 @@ const ProspectsManager: React.FC = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [filterStatus, setFilterStatus] = useState('all');
   const [filterRep, setFilterRep] = useState('all');
-  const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
+  const [viewMode, setViewMode] = useState<'grid' | 'list' | 'pipeline'>('grid');
   const [selectedProspects, setSelectedProspects] = useState<string[]>([]);
   const [showAddModal, setShowAddModal] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
@@ -441,33 +441,116 @@ const ProspectsManager: React.FC = () => {
             <div className="flex items-center bg-gray-100 rounded-lg p-1">
               <button
                 onClick={() => setViewMode('grid')}
-                className={`p-2 rounded ${viewMode === 'grid' ? 'bg-white shadow-sm' : ''}`}
+                className={`px-3 py-2 rounded text-sm font-medium transition-colors ${viewMode === 'grid' ? 'bg-white shadow-sm text-gray-900' : 'text-gray-600 hover:text-gray-900'}`}
               >
-                <div className="w-4 h-4 grid grid-cols-2 gap-0.5">
-                  <div className="bg-gray-400 rounded-sm"></div>
-                  <div className="bg-gray-400 rounded-sm"></div>
-                  <div className="bg-gray-400 rounded-sm"></div>
-                  <div className="bg-gray-400 rounded-sm"></div>
-                </div>
+                Grid
               </button>
               <button
                 onClick={() => setViewMode('list')}
-                className={`p-2 rounded ${viewMode === 'list' ? 'bg-white shadow-sm' : ''}`}
+                className={`px-3 py-2 rounded text-sm font-medium transition-colors ${viewMode === 'list' ? 'bg-white shadow-sm text-gray-900' : 'text-gray-600 hover:text-gray-900'}`}
               >
-                <div className="w-4 h-4 flex flex-col space-y-1">
-                  <div className="bg-gray-400 h-0.5 rounded"></div>
-                  <div className="bg-gray-400 h-0.5 rounded"></div>
-                  <div className="bg-gray-400 h-0.5 rounded"></div>
-                </div>
+                List
+              </button>
+              <button
+                onClick={() => setViewMode('pipeline')}
+                className={`px-3 py-2 rounded text-sm font-medium transition-colors ${viewMode === 'pipeline' ? 'bg-white shadow-sm text-gray-900' : 'text-gray-600 hover:text-gray-900'}`}
+              >
+                <Target className="w-4 h-4 inline mr-1" />
+                Pipeline
               </button>
             </div>
           </div>
         </div>
       </div>
 
-      {/* Prospects Grid */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6">
-        {filteredProspects.map((prospect) => (
+      {/* Prospects Views */}
+      {viewMode === 'pipeline' ? (
+        /* Pipeline Kanban View */
+        <div className="grid grid-cols-6 gap-4 overflow-x-auto">
+          {['new', 'contacted', 'qualified', 'proposal_sent', 'won', 'lost'].map((status) => {
+            const stageProspects = filteredProspects.filter(p => p.status === status);
+            const stageValue = stageProspects.reduce((sum, p) => sum + (p.deal_value || 0), 0);
+            const statusLabels: Record<string, string> = {
+              new: 'New',
+              contacted: 'Contacted',
+              qualified: 'Qualified',
+              proposal_sent: 'Proposal Sent',
+              won: 'Won',
+              lost: 'Lost'
+            };
+            const statusColors: Record<string, string> = {
+              new: 'bg-red-100 border-red-300',
+              contacted: 'bg-yellow-100 border-yellow-300',
+              qualified: 'bg-green-100 border-green-300',
+              proposal_sent: 'bg-purple-100 border-purple-300',
+              won: 'bg-emerald-100 border-emerald-300',
+              lost: 'bg-gray-100 border-gray-300'
+            };
+
+            return (
+              <div key={status} className="flex flex-col min-w-[280px]">
+                <div className={`${statusColors[status]} border-2 rounded-lg p-3 mb-3`}>
+                  <h3 className="font-semibold text-gray-900 mb-1">{statusLabels[status]}</h3>
+                  <div className="text-sm text-gray-600">
+                    {stageProspects.length} leads • ${stageValue}/mo
+                  </div>
+                </div>
+                <div className="space-y-3 flex-1">
+                  {stageProspects.map((prospect) => (
+                    <div key={prospect.id} className="bg-white rounded-lg p-4 shadow-sm border border-gray-200 hover:shadow-md transition-shadow">
+                      <div className="flex items-start justify-between mb-2">
+                        <div>
+                          <h4 className="font-semibold text-sm text-gray-900">{prospect.company_name}</h4>
+                          <p className="text-xs text-gray-600">{prospect.contact_name}</p>
+                        </div>
+                        <button className="p-1 text-gray-400 hover:text-gray-600">
+                          <MoreVertical className="w-4 h-4" />
+                        </button>
+                      </div>
+                      <div className="flex items-center justify-between text-xs mb-2">
+                        <span className="font-semibold text-gray-900">${prospect.deal_value}/mo</span>
+                        <span className={`font-semibold ${getProbabilityColor(prospect.probability)}`}>{prospect.probability}%</span>
+                      </div>
+                      <div className="flex items-center space-x-1 text-xs text-gray-600 mb-2">
+                        <Mail className="w-3 h-3" />
+                        <span className="truncate">{prospect.email}</span>
+                      </div>
+                      <div className="flex space-x-1">
+                        <button
+                          onClick={() => handleProspectAction(prospect.id, 'call')}
+                          className="flex-1 bg-academy-blue-600 text-white py-1 px-2 rounded text-xs hover:bg-academy-blue-700 transition-colors flex items-center justify-center"
+                        >
+                          <PhoneCall className="w-3 h-3" />
+                        </button>
+                        <button
+                          onClick={() => handleProspectAction(prospect.id, 'email')}
+                          className="flex-1 bg-academy-red-600 text-white py-1 px-2 rounded text-xs hover:bg-academy-red-700 transition-colors flex items-center justify-center"
+                        >
+                          <Mail className="w-3 h-3" />
+                        </button>
+                        <button
+                          onClick={() => handleProspectAction(prospect.id, 'proposal')}
+                          className="flex-1 bg-gray-100 text-gray-700 py-1 px-2 rounded text-xs hover:bg-gray-200 transition-colors flex items-center justify-center"
+                        >
+                          <FileText className="w-3 h-3" />
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                  {stageProspects.length === 0 && (
+                    <div className="text-center text-gray-400 text-sm py-8">
+                      No leads in this stage
+                    </div>
+                  )}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      ) : (
+        /* Grid/List View */
+        <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6">
+          {filteredProspects.map((prospect) => (
           <div key={prospect.id} className="bg-white rounded-xl p-6 shadow-sm border border-gray-100 hover:shadow-md transition-shadow">
             <div className="flex items-start justify-between mb-4">
               <div className="flex items-center space-x-3">
@@ -580,7 +663,8 @@ const ProspectsManager: React.FC = () => {
             </div>
           </div>
         ))}
-      </div>
+        </div>
+      )}
 
       {/* Add Prospect Modal */}
       {showAddModal && (
