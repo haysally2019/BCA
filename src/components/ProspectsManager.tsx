@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Search, Filter, Plus, Phone, Mail, MapPin, Star, Calendar, Users, CreditCard as Edit3, Trash2, Eye, MessageSquare, DollarSign, Clock, Tag, Download, Upload, MoreVertical, CheckCircle, AlertCircle, TrendingUp, FileText, PhoneCall, Building2, Target, Zap } from 'lucide-react';
+import { Search, Filter, Plus, Phone, Mail, MapPin, Star, Calendar, Users, CreditCard as Edit3, Trash2, Eye, MessageSquare, DollarSign, Clock, Tag, Download, Upload, MoreVertical, CheckCircle, AlertCircle, TrendingUp, FileText, PhoneCall, Building2, Target, Zap, Award } from 'lucide-react';
 import { supabaseService, type Prospect } from '../lib/supabaseService';
 import { useAuthStore } from '../store/authStore';
 import { useDataStore } from '../store/dataStore';
