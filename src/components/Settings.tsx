@@ -13,8 +13,7 @@ import {
   User,
   Link as LinkIcon,
   Copy,
-  CheckCheck,
-  RefreshCw
+  CheckCheck
 } from 'lucide-react';
 import { useAuthStore } from '../store/authStore';
 import { supabase } from '../lib/supabaseClient';
