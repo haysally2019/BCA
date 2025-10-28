@@ -115,17 +115,8 @@ const CommissionsTracker: React.FC = () => {
     if (profile) {
       loadCommissionsData(profile.id);
       loadSalesReps();
-      // Auto-sync metrics on mount (silent)
-      syncAffiliateMetrics(true);
-
-      // Set up periodic sync every 5 minutes
-      const syncInterval = setInterval(() => {
-        syncAffiliateMetrics(true);
-      }, 5 * 60 * 1000);
-
-      return () => clearInterval(syncInterval);
     }
-  }, [profile, loadCommissionsData]);
+  }, [profile?.id]);
 
   useEffect(() => {
     if (profile && commissions.length > 0) {
