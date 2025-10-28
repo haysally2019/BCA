@@ -111,9 +111,6 @@ const AgencyDashboard: React.FC = () => {
       case 'Commission Report':
         toast.success('Loading commission report...');
         break;
-      case 'My Pipeline':
-        toast.success('Opening pipeline view...');
-        break;
       case 'My Commissions':
         toast.success('Loading commission details...');
         break;
@@ -335,40 +332,6 @@ const AgencyDashboard: React.FC = () => {
             </LineChart>
           </ResponsiveContainer>
         </div>
-
-        {/* Pipeline Stages */}
-        <div className="bg-white rounded-lg p-3 sm:p-4 lg:p-5 shadow-sm border border-gray-100">
-          <h3 className="text-sm sm:text-base lg:text-lg font-semibold text-gray-900 mb-3 sm:mb-4">
-            {isManagement ? 'Pipeline Stages' : 'My Pipeline'}
-          </h3>
-          <div className="space-y-4">
-            {analyticsData.dealsByStage.slice(0, 4).map((stage, index) => (
-              <div key={index} className="flex items-center justify-between p-2.5 sm:p-3 bg-gray-50 rounded-lg">
-                <div className="flex items-center space-x-3">
-                  <div className={`w-8 h-8 rounded-full flex items-center justify-center ${
-                    index === 0 ? 'bg-blue-100 text-blue-600' :
-                    index === 1 ? 'bg-yellow-100 text-yellow-600' :
-                    index === 2 ? 'bg-orange-100 text-orange-600' :
-                    'bg-green-100 text-green-600'
-                  }`}>
-                    {index === 0 ? <Users className="w-4 h-4" /> :
-                     index === 1 ? <PhoneCall className="w-4 h-4" /> :
-                     index === 2 ? <FileText className="w-4 h-4" /> :
-                     <CheckCircle className="w-4 h-4" />}
-                  </div>
-                  <div>
-                    <div className="font-medium text-gray-900">{stage.stage}</div>
-                    <div className="text-sm text-gray-500">{stage.count} deals</div>
-                  </div>
-                </div>
-                <div className="text-right">
-                  <div className="font-semibold text-gray-900">${stage.value.toLocaleString()}</div>
-                  <div className="text-sm text-gray-500">value</div>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
       </div>
 
       {/* Activity and Quick Actions */}
@@ -430,7 +393,6 @@ const AgencyDashboard: React.FC = () => {
             ] : [
               { title: 'Add Prospect', icon: UserPlus, color: 'bg-blue-500', description: 'New potential client' },
               { title: 'Schedule Demo', icon: Calendar, color: 'bg-green-500', description: 'Book product demo' },
-              { title: 'My Pipeline', icon: Target, color: 'bg-purple-500', description: 'View my deals' },
               { title: 'My Commissions', icon: DollarSign, color: 'bg-emerald-500', description: 'Track earnings' },
               { title: 'ROI Calculator', icon: BarChart3, color: 'bg-yellow-500', description: 'Show client value' },
               { title: 'Sales Tools', icon: Briefcase, color: 'bg-red-500', description: 'Access tools' }
