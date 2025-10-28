@@ -38,7 +38,7 @@ function AppContent() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [showRecoveryUI, setShowRecoveryUI] = useState(false);
   const [recoveryAttempts, setRecoveryAttempts] = useState(0);
-  const { user, profile, loading, initialize, refreshProfile } = useAuthStore();
+  const { user, profile, loading, initialized, initialize, refreshProfile } = useAuthStore();
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -49,6 +49,11 @@ function AppContent() {
 
     const initializeAuth = async () => {
       if (!mounted) return;
+
+      if (initialized && user && profile) {
+        console.log('[App] Already initialized, skipping auth initialization');
+        return;
+      }
 
       try {
         const initPromise = initialize();
@@ -86,7 +91,7 @@ function AppContent() {
         authSubscription.unsubscribe();
       }
     };
-  }, [initialize]);
+  }, [initialize, initialized, user, profile]);
 
   useEffect(() => {
     let recoveryTimeout: NodeJS.Timeout | null = null;
@@ -111,9 +116,15 @@ function AppContent() {
   }, [loading]);
 
   useEffect(() => {
+    if (location.pathname !== '/' && user) {
+      sessionStorage.setItem('currentRoute', location.pathname);
+    }
+  }, [location.pathname, user]);
+
+  useEffect(() => {
     const handleVisibilityChange = async () => {
       if (document.visibilityState === 'visible' && user) {
-        console.log('[App] Tab became visible - refreshing session');
+        console.log('[App] Tab became visible - silently refreshing session');
 
         try {
           const { data: { session }, error } = await supabase.auth.getSession();
@@ -126,17 +137,12 @@ function AppContent() {
               navigate('/');
             }
           } else if (session?.user) {
-            console.log('[App] Session refreshed successfully');
+            console.log('[App] Session refreshed successfully - staying on current page');
           } else {
             console.log('[App] No active session - user will be redirected to login');
           }
         } catch (error) {
           console.error('[App] Error checking session:', error);
-        }
-
-        if (loading) {
-          console.warn('[App] Detected stuck loading state on tab visibility change');
-          setShowRecoveryUI(true);
         }
       }
     };
@@ -146,7 +152,7 @@ function AppContent() {
     return () => {
       document.removeEventListener('visibilitychange', handleVisibilityChange);
     };
-  }, [loading, user, navigate]);
+  }, [user, navigate]);
 
   useEffect(() => {
     const checkPasswordChange = async () => {
@@ -196,7 +202,15 @@ function AppContent() {
   }, [user, profile]);
 
   useEffect(() => {
-    if (profile && location.pathname === '/') {
+    if (profile && initialized && location.pathname === '/') {
+      const savedRoute = sessionStorage.getItem('currentRoute');
+
+      if (savedRoute && savedRoute !== '/') {
+        console.log('[App] Restoring saved route:', savedRoute);
+        navigate(savedRoute, { replace: true });
+        return;
+      }
+
       const isAgencyUser = profile?.company_name === 'Blue Collar Academy' ||
                           profile?.company_name === 'Tartan Builders Inc' ||
                           profile?.subscription_plan === 'enterprise' ||
@@ -208,7 +222,7 @@ function AppContent() {
         navigate('/dashboard', { replace: true });
       }
     }
-  }, [profile, location.pathname, navigate]);
+  }, [profile, initialized, location.pathname, navigate]);
 
   const isAgencyUser = profile?.company_name === 'Blue Collar Academy' ||
                       profile?.company_name === 'Tartan Builders Inc' ||
@@ -237,7 +251,7 @@ function AppContent() {
     window.location.reload();
   };
 
-  if (loading) {
+  if (loading && !initialized) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
         <div className="text-center">

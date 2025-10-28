@@ -30,12 +30,14 @@ interface AuthState {
   user: User | null;
   profile: Profile | null;
   loading: boolean;
+  initialized: boolean;
   signIn: (email: string, password: string) => Promise<void>;
   signUp: (email: string, password: string, name: string, userType?: 'sales_rep', affiliatewpId?: number) => Promise<void>;
   signOut: () => Promise<void>;
   initialize: () => Promise<{ unsubscribe: () => void } | null>;
   updateProfile: (updates: Partial<Profile>) => Promise<void>;
   refreshProfile: () => Promise<void>;
+  setInitialized: (value: boolean) => void;
 }
 
 const createMockProfile = (user: User, name?: string): Profile => ({
@@ -53,6 +55,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   user: null,
   profile: null,
   loading: true,
+  initialized: false,
 
   signIn: async (email: string, password: string) => {
     try {
@@ -179,31 +182,35 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   },
 
   signOut: async () => {
-    // Clear local state immediately and ensure it stays cleared
-    set({ user: null, profile: null, loading: false });
-    
-    // Try to sign out from server in background
+    sessionStorage.removeItem('currentRoute');
+
+    set({ user: null, profile: null, loading: false, initialized: false });
+
     try {
       await supabase.auth.signOut();
     } catch (error) {
       // Sign out error occurred
     }
-    
-    // Force state to remain cleared
-    set({ user: null, profile: null, loading: false });
+
+    set({ user: null, profile: null, loading: false, initialized: false });
   },
 
   initialize: async () => {
-    // Don't initialize if user was just signed out
-    const { user: currentUser } = get();
+    const { user: currentUser, initialized } = get();
     if (currentUser === null && get().loading === false) {
+      return null;
+    }
+
+    if (initialized && currentUser && get().profile) {
+      console.log('[AuthStore] Already initialized, skipping');
+      set({ loading: false });
       return null;
     }
 
     const initTimeout = new Promise<null>((resolve) => {
       setTimeout(() => {
         console.warn('[AuthStore] Initialize timeout - forcing completion');
-        set({ loading: false });
+        set({ loading: false, initialized: true });
         resolve(null);
       }, 8000);
     });
@@ -227,7 +234,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
 
         if (session?.user) {
           const mockProfile = createMockProfile(session.user);
-          set({ user: session.user, profile: mockProfile, loading: false });
+          set({ user: session.user, profile: mockProfile, loading: false, initialized: true });
 
           try {
             const { data: profile, error: profileError } = await supabase
@@ -242,13 +249,13 @@ export const useAuthStore = create<AuthState>((set, get) => ({
                 affiliatewp_id: profile.affiliatewp_id,
                 affiliate_referral_url: profile.affiliate_referral_url
               });
-              set({ profile });
+              set({ profile, initialized: true });
             }
           } catch (profileError) {
             console.log('[AuthStore] Using mock profile as fallback');
           }
         } else {
-          set({ user: null, profile: null, loading: false });
+          set({ user: null, profile: null, loading: false, initialized: true });
         }
 
         const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
@@ -337,14 +344,18 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       return await Promise.race([initPromise, initTimeout]);
     } catch (error) {
       console.error('[AuthStore] Auth initialization error:', error);
-      set({ user: null, profile: null, loading: false });
+      set({ user: null, profile: null, loading: false, initialized: true });
       return null;
     } finally {
       const currentState = get();
       if (currentState.loading) {
-        set({ loading: false });
+        set({ loading: false, initialized: true });
       }
     }
+  },
+
+  setInitialized: (value: boolean) => {
+    set({ initialized: value });
   },
 
   updateProfile: async (updates: Partial<Profile>) => {
