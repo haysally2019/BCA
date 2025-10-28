@@ -58,7 +58,6 @@ const Sidebar: React.FC = () => {
       return [
         { path: '/dashboard', label: 'Dashboard', icon: Home },
         { path: '/leads', label: 'Leads', icon: Users },
-        { path: '/pipeline', label: 'Pipeline', icon: Target },
         { path: '/calendar', label: 'Calendar', icon: Calendar },
         { path: '/analytics', label: 'Analytics', icon: BarChart3 },
         { path: '/settings', label: 'Settings', icon: Settings },
