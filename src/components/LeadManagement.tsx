@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Search, Filter, Plus, MapPin, Star, Users, DollarSign, Tag, Upload, MoreVertical, CheckCircle, AlertCircle, TrendingUp, Calendar, CreditCard as Edit3, Trash2, Eye, Phone, Mail, ArrowRight, ThumbsUp, FileText, Trophy, X } from 'lucide-react';
+import { Search, Filter, Plus, MapPin, Star, Users, DollarSign, Tag, Upload, MoreVertical, CheckCircle, AlertCircle, TrendingUp, Calendar, CreditCard as Edit3, Trash2, Eye, Phone, Mail, ArrowRight, ThumbsUp, FileText, Trophy, X, RefreshCw } from 'lucide-react';
 import { supabaseService } from '../lib/supabaseService';
 import { useAuthStore } from '../store/authStore';
 import BaseModal from './modals/BaseModal';
@@ -53,6 +53,7 @@ const LeadManagement: React.FC = () => {
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [showImportModal, setShowImportModal] = useState(false);
   const [leadToDelete, setLeadToDelete] = useState<Lead | null>(null);
+  const [statusDropdownOpen, setStatusDropdownOpen] = useState<string | null>(null);
   const { profile } = useAuthStore();
 
   useEffect(() => {
@@ -60,6 +61,22 @@ const LeadManagement: React.FC = () => {
       loadLeads();
     }
   }, [profile]);
+
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      const target = event.target as HTMLElement;
+      if (!target.closest('.relative')) {
+        setStatusDropdownOpen(null);
+      }
+    };
+
+    if (statusDropdownOpen) {
+      document.addEventListener('mousedown', handleClickOutside);
+      return () => {
+        document.removeEventListener('mousedown', handleClickOutside);
+      };
+    }
+  }, [statusDropdownOpen]);
 
   const loadLeads = async () => {
     if (!profile) {
@@ -696,9 +713,81 @@ const LeadManagement: React.FC = () => {
 
               <div className="border-t pt-3 sm:pt-4">
                 <div className="flex items-center justify-between mb-2.5 sm:mb-3">
-                  <span className={`px-2 sm:px-2.5 py-0.5 sm:py-1 rounded-full text-xs font-medium border ${getStatusColor(lead.status)}`}>
-                    {lead.status.replace('_', ' ').charAt(0).toUpperCase() + lead.status.replace('_', ' ').slice(1)}
-                  </span>
+                  <div className="flex items-center space-x-2">
+                    <span className={`px-2 sm:px-2.5 py-0.5 sm:py-1 rounded-full text-xs font-medium border ${getStatusColor(lead.status)}`}>
+                      {lead.status.replace('_', ' ').charAt(0).toUpperCase() + lead.status.replace('_', ' ').slice(1)}
+                    </span>
+                    <div className="relative">
+                      <button
+                        onClick={() => setStatusDropdownOpen(statusDropdownOpen === lead.id ? null : lead.id)}
+                        className="flex items-center space-x-1 px-2 py-1 text-xs font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors touch-manipulation"
+                        title="Update Stage"
+                      >
+                        <RefreshCw className="w-3 h-3" />
+                        <span className="hidden sm:inline">Update</span>
+                      </button>
+                      {statusDropdownOpen === lead.id && (
+                        <div className="absolute left-0 mt-1 w-48 bg-white rounded-lg shadow-lg border border-gray-200 z-50">
+                          <div className="py-1">
+                            <button
+                              onClick={() => {
+                                handleUpdateLeadStatus(lead.id, 'new');
+                                setStatusDropdownOpen(null);
+                              }}
+                              className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 transition-colors"
+                            >
+                              New
+                            </button>
+                            <button
+                              onClick={() => {
+                                handleUpdateLeadStatus(lead.id, 'contacted');
+                                setStatusDropdownOpen(null);
+                              }}
+                              className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 transition-colors"
+                            >
+                              Contacted
+                            </button>
+                            <button
+                              onClick={() => {
+                                handleUpdateLeadStatus(lead.id, 'qualified');
+                                setStatusDropdownOpen(null);
+                              }}
+                              className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 transition-colors"
+                            >
+                              Qualified
+                            </button>
+                            <button
+                              onClick={() => {
+                                handleUpdateLeadStatus(lead.id, 'proposal_sent');
+                                setStatusDropdownOpen(null);
+                              }}
+                              className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 transition-colors"
+                            >
+                              Proposal Sent
+                            </button>
+                            <button
+                              onClick={() => {
+                                handleUpdateLeadStatus(lead.id, 'won');
+                                setStatusDropdownOpen(null);
+                              }}
+                              className="w-full text-left px-4 py-2 text-sm text-emerald-600 hover:bg-emerald-50 transition-colors font-medium"
+                            >
+                              Won
+                            </button>
+                            <button
+                              onClick={() => {
+                                handleUpdateLeadStatus(lead.id, 'lost');
+                                setStatusDropdownOpen(null);
+                              }}
+                              className="w-full text-left px-4 py-2 text-sm text-gray-500 hover:bg-gray-100 transition-colors"
+                            >
+                              Lost
+                            </button>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  </div>
                   <div className="flex items-center space-x-0.5 sm:space-x-1 text-xs sm:text-sm text-gray-600">
                     <DollarSign className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
                     <span className="font-medium">
@@ -862,9 +951,80 @@ const LeadManagement: React.FC = () => {
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="flex flex-col space-y-2">
-                        <span className={`px-2 py-1 text-xs font-semibold rounded-full border ${getStatusColor(lead.status)} inline-block text-center`}>
-                          {lead.status.replace('_', ' ').charAt(0).toUpperCase() + lead.status.replace('_', ' ').slice(1)}
-                        </span>
+                        <div className="flex items-center space-x-2">
+                          <span className={`px-2 py-1 text-xs font-semibold rounded-full border ${getStatusColor(lead.status)} inline-block text-center`}>
+                            {lead.status.replace('_', ' ').charAt(0).toUpperCase() + lead.status.replace('_', ' ').slice(1)}
+                          </span>
+                          <div className="relative">
+                            <button
+                              onClick={() => setStatusDropdownOpen(statusDropdownOpen === lead.id ? null : lead.id)}
+                              className="flex items-center space-x-1 px-2 py-1 text-xs font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors"
+                              title="Update Stage"
+                            >
+                              <RefreshCw className="w-3 h-3" />
+                            </button>
+                            {statusDropdownOpen === lead.id && (
+                              <div className="absolute left-0 mt-1 w-48 bg-white rounded-lg shadow-lg border border-gray-200 z-50">
+                                <div className="py-1">
+                                  <button
+                                    onClick={() => {
+                                      handleUpdateLeadStatus(lead.id, 'new');
+                                      setStatusDropdownOpen(null);
+                                    }}
+                                    className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 transition-colors"
+                                  >
+                                    New
+                                  </button>
+                                  <button
+                                    onClick={() => {
+                                      handleUpdateLeadStatus(lead.id, 'contacted');
+                                      setStatusDropdownOpen(null);
+                                    }}
+                                    className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 transition-colors"
+                                  >
+                                    Contacted
+                                  </button>
+                                  <button
+                                    onClick={() => {
+                                      handleUpdateLeadStatus(lead.id, 'qualified');
+                                      setStatusDropdownOpen(null);
+                                    }}
+                                    className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 transition-colors"
+                                  >
+                                    Qualified
+                                  </button>
+                                  <button
+                                    onClick={() => {
+                                      handleUpdateLeadStatus(lead.id, 'proposal_sent');
+                                      setStatusDropdownOpen(null);
+                                    }}
+                                    className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 transition-colors"
+                                  >
+                                    Proposal Sent
+                                  </button>
+                                  <button
+                                    onClick={() => {
+                                      handleUpdateLeadStatus(lead.id, 'won');
+                                      setStatusDropdownOpen(null);
+                                    }}
+                                    className="w-full text-left px-4 py-2 text-sm text-emerald-600 hover:bg-emerald-50 transition-colors font-medium"
+                                  >
+                                    Won
+                                  </button>
+                                  <button
+                                    onClick={() => {
+                                      handleUpdateLeadStatus(lead.id, 'lost');
+                                      setStatusDropdownOpen(null);
+                                    }}
+                                    className="w-full text-left px-4 py-2 text-sm text-gray-500 hover:bg-gray-100 transition-colors"
+                                  >
+                                    Lost
+                                  </button>
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                        </div>
                         {getQuickActions(lead.status).length > 0 && (
                           <div className="flex space-x-1">
                             {getQuickActions(lead.status).map((action) => {
