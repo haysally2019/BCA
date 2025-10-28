@@ -9,7 +9,6 @@ import {
   Target,
   BarChart3,
   Users,
-  Settings,
   Copy,
   Link
 } from 'lucide-react';
@@ -116,6 +115,15 @@ const CommissionsTracker: React.FC = () => {
     if (profile) {
       loadCommissionsData(profile.id);
       loadSalesReps();
+      // Auto-sync metrics on mount (silent)
+      syncAffiliateMetrics(true);
+
+      // Set up periodic sync every 5 minutes
+      const syncInterval = setInterval(() => {
+        syncAffiliateMetrics(true);
+      }, 5 * 60 * 1000);
+
+      return () => clearInterval(syncInterval);
     }
   }, [profile, loadCommissionsData]);
 
@@ -344,14 +352,6 @@ const CommissionsTracker: React.FC = () => {
             <option value="ytd">Year to Date</option>
             <option value="last_year">Last Year</option>
           </select>
-          <button
-            onClick={() => syncAffiliateMetrics(false)}
-            disabled={syncingMetrics}
-            className="w-full sm:w-auto bg-red-600 text-white px-4 py-2.5 rounded-lg flex items-center justify-center space-x-2 hover:bg-red-700 transition-colors min-h-[44px] disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            <Settings className={`w-4 h-4 ${syncingMetrics ? 'animate-spin' : ''}`} />
-            <span>{syncingMetrics ? 'Syncing...' : 'Sync Metrics'}</span>
-          </button>
           <button className="w-full sm:w-auto bg-gray-100 text-gray-700 px-4 py-2.5 rounded-lg flex items-center justify-center space-x-2 hover:bg-gray-200 transition-colors min-h-[44px]">
             <Download className="w-4 h-4" />
             <span>Export</span>
@@ -359,20 +359,6 @@ const CommissionsTracker: React.FC = () => {
         </div>
       </div>
 
-      {/* Sync Status Notice */}
-      {!hasSyncedData && (
-        <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
-          <div className="flex items-start space-x-3">
-            <AlertCircle className="w-5 h-5 text-yellow-600 mt-0.5 flex-shrink-0" />
-            <div className="flex-1">
-              <h3 className="text-sm font-semibold text-yellow-900 mb-1">Metrics Not Synced</h3>
-              <p className="text-sm text-yellow-800 mb-2">
-                AffiliateWP metrics have not been synced yet. Click "Sync Metrics" to fetch the latest data from AffiliateWP.
-              </p>
-            </div>
-          </div>
-        </div>
-      )}
 
       {/* Commission Summary */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4">
