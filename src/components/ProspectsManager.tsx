@@ -30,7 +30,6 @@ const ProspectsManager: React.FC = () => {
     if (profile) {
       loadDashboardData(profile.id);
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [profile?.id]);
 
   const createSampleProspects = async () => {
@@ -80,8 +79,7 @@ const ProspectsManager: React.FC = () => {
         await supabaseService.createProspect(profile.id, prospectData);
       }
 
-      // Reload prospects
-      await loadDashboardData(profile.id);
+      useDataStore.getState().invalidateCache([`dashboard_${profile.id}_30d`]);
       toast.success('Sample prospects created!');
     } catch (error) {
       console.error('Error creating sample prospects:', error);
@@ -101,9 +99,7 @@ const ProspectsManager: React.FC = () => {
       console.log('[ProspectsManager] Creating prospect for profile:', profile.id);
       const newProspect = await supabaseService.createProspect(profile.id, prospectData);
       console.log('[ProspectsManager] Prospect created successfully:', newProspect);
-      // Invalidate cache and reload
       useDataStore.getState().invalidateCache([`dashboard_${profile.id}_30d`]);
-      await loadDashboardData(profile.id);
       setShowAddModal(false);
       toast.success('Prospect added successfully!');
     } catch (error) {
@@ -117,10 +113,8 @@ const ProspectsManager: React.FC = () => {
 
     try {
       await supabaseService.deleteProspect(prospectToDelete.id);
-      // Invalidate cache and reload
       if (profile) {
         useDataStore.getState().invalidateCache([`dashboard_${profile.id}_30d`]);
-        await loadDashboardData(profile.id);
       }
       setProspectToDelete(null);
       setShowDeleteConfirm(false);
@@ -162,7 +156,6 @@ const ProspectsManager: React.FC = () => {
 
       if (result.success.length > 0) {
         useDataStore.getState().invalidateCache([`dashboard_${profile.id}_30d`]);
-        await loadDashboardData(profile.id);
       }
 
       return {
@@ -205,10 +198,8 @@ const ProspectsManager: React.FC = () => {
   const handleUpdateProspectStatus = async (prospectId: string, newStatus: Prospect['status']) => {
     try {
       const updatedProspect = await supabaseService.updateProspect(prospectId, { status: newStatus });
-      // Invalidate cache and reload
       if (profile) {
         useDataStore.getState().invalidateCache([`dashboard_${profile.id}_30d`]);
-        await loadDashboardData(profile.id);
       }
       toast.success('Prospect status updated!');
     } catch (error) {

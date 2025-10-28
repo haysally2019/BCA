@@ -45,19 +45,21 @@ const Dashboard: React.FC = () => {
         affiliatewp_id: profile.affiliatewp_id,
         affiliate_referral_url: profile.affiliate_referral_url
       });
-      loadDashboardData();
-
-      const shouldAutoSync = profile.affiliatewp_id && (
-        !profile.last_metrics_sync ||
-        (Date.now() - new Date(profile.last_metrics_sync).getTime()) > 24 * 60 * 60 * 1000
-      );
-
-      if (shouldAutoSync) {
-        console.log('[Dashboard] Auto-syncing affiliate metrics (24h elapsed or never synced)');
-        syncAffiliateMetricsQuietly();
-      }
+      loadDashboardData(profile.id, timeRange);
     }
-  }, [profile, timeRange, loadDashboardData]);
+  }, [profile?.id, timeRange]);
+
+  useEffect(() => {
+    if (!profile?.affiliatewp_id) return;
+
+    const shouldAutoSync = !profile.last_metrics_sync ||
+      (Date.now() - new Date(profile.last_metrics_sync).getTime()) > 24 * 60 * 60 * 1000;
+
+    if (shouldAutoSync) {
+      console.log('[Dashboard] Auto-syncing affiliate metrics (24h elapsed or never synced)');
+      syncAffiliateMetricsQuietly();
+    }
+  }, [profile?.affiliatewp_id]);
 
   const syncAffiliateMetricsQuietly = async () => {
     try {

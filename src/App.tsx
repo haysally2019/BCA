@@ -49,7 +49,7 @@ function AppContent() {
     const initializeAuth = async () => {
       if (!mounted) return;
 
-      if (initialized && user && profile) {
+      if (initialized) {
         console.log('[App] Already initialized, skipping auth initialization');
         return;
       }
@@ -90,7 +90,7 @@ function AppContent() {
         authSubscription.unsubscribe();
       }
     };
-  }, [initialize, initialized, user, profile]);
+  }, []);
 
   useEffect(() => {
     let recoveryTimeout: NodeJS.Timeout | null = null;
@@ -127,12 +127,6 @@ function AppContent() {
         console.log('[App] Tab becoming hidden - saving current route:', location.pathname);
         sessionStorage.setItem('currentRoute', location.pathname);
       }
-
-      if (document.visibilityState === 'visible' && user && initialized) {
-        console.log('[App] Tab became visible - performing silent session refresh');
-        const authStore = useAuthStore.getState();
-        await authStore.silentSessionRefresh();
-      }
     };
 
     document.addEventListener('visibilitychange', handleVisibilityChange);
@@ -140,54 +134,18 @@ function AppContent() {
     return () => {
       document.removeEventListener('visibilitychange', handleVisibilityChange);
     };
-  }, [user, profile, location.pathname, navigate, initialized]);
+  }, [user, profile, location.pathname]);
 
   useEffect(() => {
-    const checkPasswordChange = async () => {
-      if (!user) {
-        console.log('[Password Check] No user, clearing must_change_password flag');
-        setMustChangePassword(false);
-        return;
-      }
+    if (!user || !profile) {
+      setMustChangePassword(false);
+      return;
+    }
 
-      try {
-        console.log('[Password Check] Checking must_change_password flag for user:', user.id);
-
-        const timestamp = new Date().getTime();
-        const { data: profileData, error: profileError } = await supabase
-          .from('profiles')
-          .select('must_change_password')
-          .eq('user_id', user.id)
-          .maybeSingle();
-
-        if (profileError) {
-          console.error('[Password Check] Error fetching profile:', profileError);
-          setMustChangePassword(false);
-          return;
-        }
-
-        if (!profileData) {
-          console.warn('[Password Check] No profile found for user');
-          setMustChangePassword(false);
-          return;
-        }
-
-        const mustChange = profileData?.must_change_password === true;
-        console.log('[Password Check] Profile data:', {
-          must_change_password: profileData?.must_change_password,
-          mustChange,
-          timestamp
-        });
-
-        setMustChangePassword(mustChange);
-      } catch (err) {
-        console.error('[Password Check] Exception:', err);
-        setMustChangePassword(false);
-      }
-    };
-
-    checkPasswordChange();
-  }, [user, profile]);
+    const mustChange = profile.must_change_password === true;
+    console.log('[Password Check] Profile must_change_password:', mustChange);
+    setMustChangePassword(mustChange);
+  }, [user?.id, profile?.must_change_password]);
 
   useEffect(() => {
     if (!profile || !initialized) return;

@@ -52,24 +52,49 @@ export const useDataStore = create<DataState>((set, get) => ({
     const cached = cache.get(cacheKey);
     const now = Date.now();
 
-    // Return cached data if valid and not forced
+    // Return cached data immediately if valid and not forced
     if (!force && cached && now < cached.expiry) {
-      set({ 
+      set({
         analyticsData: cached.data.analytics,
-        prospects: cached.data.prospects || []
+        prospects: cached.data.prospects || [],
+        dashboardLoading: false
       });
       return;
     }
 
-    // Use stale data while revalidating
+    // Use stale data while revalidating (but don't trigger loading state)
     if (!force && cached && now < cached.timestamp + STALE_WHILE_REVALIDATE) {
-      set({ 
+      set({
         analyticsData: cached.data.analytics,
-        prospects: cached.data.prospects || []
+        prospects: cached.data.prospects || [],
+        dashboardLoading: false
       });
-      
-      // Revalidate in background
-      setTimeout(() => get().loadDashboardData(companyId, timeRange, true), 100);
+
+      // Revalidate in background without showing loading state
+      setTimeout(async () => {
+        try {
+          const [analytics, prospects] = await Promise.all([
+            supabaseService.getAnalyticsData(companyId, timeRange),
+            supabaseService.getProspects(companyId)
+          ]);
+
+          const data = { analytics, prospects };
+          const newCache = new Map(get().cache);
+          newCache.set(cacheKey, {
+            data,
+            timestamp: Date.now(),
+            expiry: Date.now() + CACHE_DURATION
+          });
+
+          set({
+            cache: newCache,
+            analyticsData: analytics,
+            prospects: prospects
+          });
+        } catch (error) {
+          console.error('Background revalidation failed:', error);
+        }
+      }, 100);
       return;
     }
 
@@ -99,10 +124,10 @@ export const useDataStore = create<DataState>((set, get) => ({
       });
 
     } catch (error) {
-      // Error loading dashboard data
+      console.error('Error loading dashboard data:', error);
       // Use cached data if available on error
       if (cached) {
-        set({ 
+        set({
           analyticsData: cached.data.analytics,
           prospects: cached.data.prospects || []
         });

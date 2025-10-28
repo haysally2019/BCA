@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { TrendingUp, Users, DollarSign, Plus, Calendar, FileText, BarChart3, Building2, UserPlus, Briefcase, PhoneCall, Target, Award, CheckCircle, Activity, ExternalLink, Eye, MousePointerClick } from 'lucide-react';
 import { XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, LineChart, Line } from 'recharts';
 import { useAuthStore } from '../store/authStore';
@@ -19,15 +19,7 @@ const AgencyDashboard: React.FC = () => {
   
   const isManagement = profile?.subscription_plan === 'enterprise';
 
-  useEffect(() => {
-    if (profile) {
-      loadDashboardData(profile.id, timeRange);
-      loadSalesRepsCount();
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [profile?.id, timeRange]);
-
-  const loadSalesRepsCount = async () => {
+  const loadSalesRepsCount = useCallback(async () => {
     if (!profile) return;
 
     try {
@@ -36,7 +28,14 @@ const AgencyDashboard: React.FC = () => {
     } catch (error) {
       // Error loading sales reps count
     }
-  };
+  }, [profile?.id]);
+
+  useEffect(() => {
+    if (profile) {
+      loadDashboardData(profile.id, timeRange);
+      loadSalesRepsCount();
+    }
+  }, [profile?.id, timeRange, loadSalesRepsCount]);
 
   const createAgencySampleData = async () => {
     if (!profile) return;
