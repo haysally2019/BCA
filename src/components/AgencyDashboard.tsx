@@ -310,51 +310,8 @@ const AgencyDashboard: React.FC = () => {
         })}
       </div>
 
-      {/* Activity and Quick Actions */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 sm:gap-4">
-        {/* Recent Activity */}
-        <div className="bg-white rounded-lg p-3 sm:p-4 lg:p-5 shadow-sm border border-gray-100">
-          <h3 className="text-sm sm:text-base lg:text-lg font-semibold text-gray-900 mb-3 sm:mb-4">
-            {isManagement ? 'Team Activity' : 'My Recent Activity'}
-          </h3>
-          <div className="space-y-4">
-            {analyticsData.recentActivities.length === 0 ? (
-              <div className="text-center py-8">
-                <Activity className="w-12 h-12 text-gray-300 mx-auto mb-4" />
-                <p className="text-gray-500">No recent activity</p>
-              </div>
-            ) : (
-              analyticsData.recentActivities.slice(0, 5).map((activity) => (
-                <div key={activity.id} className="flex items-start space-x-2.5 p-2.5 sm:p-3 bg-gray-50 rounded-lg">
-                  <div className={`w-8 h-8 rounded-full flex items-center justify-center ${
-                    activity.type === 'lead_created' ? 'bg-blue-100 text-blue-600' :
-                    activity.type === 'deal_created' ? 'bg-green-100 text-green-600' :
-                    activity.type === 'stage_change' ? 'bg-purple-100 text-purple-600' :
-                    activity.type === 'call' ? 'bg-yellow-100 text-yellow-600' :
-                    'bg-emerald-100 text-emerald-600'
-                  }`}>
-                    {activity.type === 'lead_created' && <Users className="w-4 h-4" />}
-                    {activity.type === 'deal_created' && <Target className="w-4 h-4" />}
-                    {activity.type === 'stage_change' && <TrendingUp className="w-4 h-4" />}
-                    {activity.type === 'call' && <PhoneCall className="w-4 h-4" />}
-                    {!['lead_created', 'deal_created', 'stage_change', 'call'].includes(activity.type) && 
-                      <Activity className="w-4 h-4" />}
-                  </div>
-                  <div className="flex-1">
-                    <p className="text-sm text-gray-900">{activity.message}</p>
-                    <div className="flex items-center justify-between mt-1">
-                      <span className="text-xs text-gray-500">{activity.time}</span>
-                      {activity.success && (
-                        <span className="text-xs font-medium text-green-600">Success</span>
-                      )}
-                    </div>
-                  </div>
-                </div>
-              ))
-            )}
-          </div>
-        </div>
-
+      {/* Quick Actions */}
+      <div className="max-w-4xl">
         {/* Quick Actions */}
         <div className="bg-white rounded-lg p-3 sm:p-4 lg:p-5 shadow-sm border border-gray-100">
           <h3 className="text-sm sm:text-base lg:text-lg font-semibold text-gray-900 mb-3 sm:mb-4">Quick Actions</h3>
