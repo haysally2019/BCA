@@ -24,6 +24,7 @@ const Settings: React.FC = () => {
   const [activeTab, setActiveTab] = useState('profile');
   const [loading, setLoading] = useState(false);
   const [syncing, setSyncing] = useState(false);
+  const [bulkUpdating, setBulkUpdating] = useState(false);
   const [copied, setCopied] = useState(false);
   const [profileData, setProfileData] = useState({
     full_name: '',
@@ -77,6 +78,33 @@ const Settings: React.FC = () => {
       toast.error(error?.message || 'Failed to sync affiliate metrics');
     } finally {
       setSyncing(false);
+    }
+  };
+
+  const bulkUpdateRatesTo30 = async () => {
+    if (!confirm('This will update ALL affiliate rates in AffiliateWP to 30%. Continue?')) {
+      return;
+    }
+
+    setBulkUpdating(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('update-all-affiliate-rates');
+
+      if (error) {
+        throw error;
+      }
+
+      if (data?.success) {
+        toast.success(`Updated ${data.results.updated_to_30_percent} affiliates to 30%! (${data.results.already_at_30_percent} already at 30%)`);
+        await refreshProfile();
+      } else {
+        throw new Error(data?.error || 'Failed to update rates');
+      }
+    } catch (error: any) {
+      console.error('Error updating affiliate rates:', error);
+      toast.error(error?.message || 'Failed to update affiliate rates');
+    } finally {
+      setBulkUpdating(false);
     }
   };
 
@@ -334,6 +362,32 @@ const Settings: React.FC = () => {
                         </div>
                       </div>
                     )}
+                  </div>
+                )}
+
+                {/* Admin: Bulk Update All Rates */}
+                {profile?.role === 'manager' && (
+                  <div className="bg-gradient-to-br from-orange-50 to-red-50 rounded-lg p-4 border border-orange-200">
+                    <div className="flex items-start justify-between">
+                      <div className="flex-1">
+                        <h4 className="font-medium text-gray-900 mb-1">Admin: Bulk Rate Update</h4>
+                        <p className="text-sm text-gray-600 mb-2">
+                          Update ALL affiliate commission rates in AffiliateWP to 30%
+                        </p>
+                        <p className="text-xs text-orange-700 bg-orange-100 px-2 py-1 rounded inline-block">
+                          Warning: This affects all affiliates in WordPress
+                        </p>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={bulkUpdateRatesTo30}
+                        disabled={bulkUpdating}
+                        className="ml-4 bg-orange-600 text-white px-4 py-2 rounded-lg hover:bg-orange-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center space-x-2"
+                      >
+                        <RefreshCw className={`w-4 h-4 ${bulkUpdating ? 'animate-spin' : ''}`} />
+                        <span>{bulkUpdating ? 'Updating...' : 'Update All to 30%'}</span>
+                      </button>
+                    </div>
                   </div>
                 )}
 
