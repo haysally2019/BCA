@@ -138,41 +138,25 @@ const CommissionsTracker: React.FC = () => {
     if (!profile) return;
 
     try {
-      const [profiles, commissionsData] = await Promise.all([
-        supabaseService.getProfilesByCompany(profile.id),
-        supabaseService.getCommissions(profile.id)
-      ]);
+      const profiles = await supabaseService.getProfilesByCompany(profile.id);
 
       const repsData = profiles.filter(p => p.user_type === 'sales_rep').map(rep => {
-        const repCommissions = commissionsData.filter(c => c.rep_id === rep.id);
-        const repDeals = repCommissions.length;
-        const ytdCommission = repCommissions.reduce((sum, c) => sum + c.commission_amount, 0);
-        const ytdRevenue = repCommissions.reduce((sum, c) => sum + c.deal_value, 0);
-        const avgDealSize = repDeals > 0 ? Math.round(ytdRevenue / repDeals) : 0;
-
         return {
           id: rep.id,
           name: rep.company_name || rep.full_name,
           territory: rep.territory || 'Unassigned',
-          // AffiliateWP metrics - use real commission rate from AffiliateWP
           commission_rate: rep.commission_rate ?? 0,
           paid_earnings: rep.affiliatewp_earnings ?? 0,
           unpaid_earnings: rep.affiliatewp_unpaid_earnings ?? 0,
           referrals: rep.affiliatewp_referrals ?? 0,
           visits: rep.affiliatewp_visits ?? 0,
-          last_sync: rep.last_metrics_sync,
-          // Legacy internal tracking (not used anymore)
-          ytd_revenue: ytdRevenue,
-          ytd_commission: ytdCommission,
-          deals_closed: repDeals,
-          avg_deal_size: avgDealSize,
-          quota_attainment: 0
+          last_sync: rep.last_metrics_sync
         };
       });
 
       setSalesReps(repsData);
     } catch (error) {
-      // Error loading sales reps
+      console.error('Error loading sales reps:', error);
     }
   };
 
@@ -290,11 +274,10 @@ const CommissionsTracker: React.FC = () => {
     lastSync: salesReps.length > 0 ? salesReps[0]?.last_sync : null
   };
 
-  // Monthly commission data for chart - only use affiliate commissions
+  // Monthly commission data for chart - AffiliateWP commissions only
   const monthlyData: MonthlyDataPoint[] = (() => {
     const monthMap = new Map<string, { commissions: number; deals: number }>();
 
-    // Process affiliate commissions from AffiliateWP
     affiliateCommissions.forEach(commission => {
       const date = new Date(commission.created_at);
       const monthKey = date.toLocaleDateString('en-US', { month: 'short' });
@@ -305,7 +288,6 @@ const CommissionsTracker: React.FC = () => {
       });
     });
 
-    // Generate last 4 months
     const result = [];
     for (let i = 3; i >= 0; i--) {
       const date = new Date();

@@ -207,21 +207,21 @@ const Dashboard: React.FC = () => {
       value: `$${affiliateMetrics.paidEarnings.toLocaleString()}`,
       icon: CheckCircle,
       color: 'bg-emerald-500',
-      description: 'From AffiliateWP'
+      description: 'Received from AffiliateWP'
     },
     {
       title: 'Referrals',
       value: affiliateMetrics.referrals.toString(),
       icon: Target,
       color: 'bg-purple-500',
-      description: `${affiliateMetrics.visits} total visits`
+      description: `${affiliateMetrics.visits.toLocaleString()} total visits`
     },
     {
-      title: 'Total Leads',
-      value: analyticsData.totalLeads.toString(),
-      icon: Users,
-      color: 'bg-blue-500',
-      description: `${analyticsData.totalLeads - Math.floor(analyticsData.totalLeads * 0.2)} active leads`
+      title: 'Unpaid Earnings',
+      value: `$${affiliateMetrics.unpaidEarnings.toLocaleString()}`,
+      icon: Clock,
+      color: 'bg-yellow-500',
+      description: 'Pending payment'
     },
   ];
 

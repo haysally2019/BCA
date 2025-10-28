@@ -1060,17 +1060,16 @@ export const supabaseService = {
       const filteredAppointments = appointments.filter(a => new Date(a.created_at) >= startDate);
       const filteredAffiliateCommissions = affiliateCommissions.filter(c => new Date(c.created_at) >= startDate);
 
-      // Calculate metrics
-      const totalRevenue = deals
+      // Calculate metrics - prioritize AffiliateWP data
+      const affiliateRevenue = filteredAffiliateCommissions
+        .filter(commission => commission.status === 'paid' || commission.status === 'approved')
+        .reduce((sum, commission) => sum + commission.order_total, 0);
+
+      const legacyRevenue = deals
         .filter(deal => deal.status === 'won')
         .reduce((sum, deal) => sum + deal.value, 0);
 
-      // Include affiliate commission revenue
-      const affiliateRevenue = filteredAffiliateCommissions
-        .filter(commission => commission.status === 'paid')
-        .reduce((sum, commission) => sum + commission.order_total, 0);
-
-      const combinedRevenue = totalRevenue + affiliateRevenue;
+      const combinedRevenue = affiliateRevenue + legacyRevenue;
 
       const wonDeals = deals.filter(d => d.status === 'won');
       const conversionRate = leads.length > 0
@@ -1089,9 +1088,8 @@ export const supabaseService = {
         ? Math.round((appointments.filter(a => a.status === 'completed').length / appointments.length) * 100)
         : 0;
 
-      // Calculate total commissions including affiliate commissions
-      const totalCommissions = commissions.reduce((sum, c) => sum + c.commission_amount, 0) +
-                              affiliateCommissions.reduce((sum, c) => sum + c.commission_amount, 0);
+      // Calculate total commissions from AffiliateWP (primary source)
+      const totalCommissions = affiliateCommissions.reduce((sum, c) => sum + c.commission_amount, 0);
 
       // Lead sources analysis
       const leadsBySource = this.calculateLeadsBySource(filteredLeads);
@@ -1205,15 +1203,15 @@ export const supabaseService = {
       });
     });
 
-    // Add affiliate commission revenue
+    // Add affiliate commission revenue (primary revenue source)
     affiliateCommissions.forEach(commission => {
-      if (commission.status === 'paid') {
+      if (commission.status === 'paid' || commission.status === 'approved') {
         const date = new Date(commission.payment_date || commission.created_at);
         const monthKey = date.toLocaleDateString('en-US', { month: 'short', year: '2-digit' });
         const current = monthMap.get(monthKey) || { revenue: 0, deals: 0 };
         monthMap.set(monthKey, {
           revenue: current.revenue + commission.order_total,
-          deals: current.deals
+          deals: current.deals + 1
         });
       }
     });
