@@ -30,7 +30,8 @@ const ProspectsManager: React.FC = () => {
     if (profile) {
       loadDashboardData(profile.id);
     }
-  }, [profile, loadDashboardData]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [profile?.id]);
 
   const createSampleProspects = async () => {
     if (!profile) return;

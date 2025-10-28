@@ -38,7 +38,8 @@ const SalesPipeline: React.FC = () => {
 
   useEffect(() => {
     loadPipelineDataLocal();
-  }, [loadPipelineDataLocal]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [profile?.id]);
 
 
   // Calculate pipeline metrics based on leads

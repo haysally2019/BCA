@@ -24,7 +24,8 @@ const AgencyDashboard: React.FC = () => {
       loadDashboardData(profile.id, timeRange);
       loadSalesRepsCount();
     }
-  }, [profile, timeRange, loadDashboardData]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [profile?.id, timeRange]);
 
   const loadSalesRepsCount = async () => {
     if (!profile) return;

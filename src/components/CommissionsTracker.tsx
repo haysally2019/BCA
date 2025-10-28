@@ -122,7 +122,8 @@ const CommissionsTracker: React.FC = () => {
     if (profile && commissions.length > 0) {
       loadSalesReps();
     }
-  }, [profile, commissions]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [profile?.id, commissions.length]);
 
 
   const loadSalesReps = async () => {
