@@ -33,6 +33,7 @@ interface LeadStats {
   contacted: number;
   qualified: number;
   won: number;
+  lost: number;
   avgScore: number;
   totalValue: number;
 }
@@ -385,7 +386,6 @@ const LeadManagement: React.FC = () => {
     try {
       switch (action) {
       case 'schedule':
-        // Simulate scheduling
         toast.success(`Appointment scheduled with ${lead.name}`);
         await handleUpdateLeadStatus(leadId, 'qualified');
         break;
@@ -402,7 +402,6 @@ const LeadManagement: React.FC = () => {
         setShowDeleteConfirm(true);
         break;
       case 'call':
-        // Simulate call action
         toast.success(`Calling ${lead.name} at ${lead.phone}`);
         await handleUpdateLeadStatus(leadId, 'contacted');
         break;
@@ -413,6 +412,14 @@ const LeadManagement: React.FC = () => {
         } else {
           toast.error('No email address available');
         }
+        break;
+      case 'won':
+        await handleUpdateLeadStatus(leadId, 'won');
+        toast.success(`${lead.name} marked as WON! 🎉`);
+        break;
+      case 'lost':
+        await handleUpdateLeadStatus(leadId, 'lost');
+        toast.info(`${lead.name} marked as lost`);
         break;
       }
     } catch (error) {
@@ -457,6 +464,7 @@ const LeadManagement: React.FC = () => {
     contacted: leads.filter(l => l.status === 'contacted').length,
     qualified: leads.filter(l => l.status === 'qualified').length,
     won: leads.filter(l => l.status === 'won').length,
+    lost: leads.filter(l => l.status === 'lost').length,
     avgScore: leads.length > 0 ? Math.round(leads.reduce((sum, l) => sum + l.score, 0) / leads.length) : 0,
     totalValue: leads.reduce((sum, l) => sum + (l.estimated_value || 0), 0)
   };
@@ -489,13 +497,14 @@ const LeadManagement: React.FC = () => {
       </div>
 
       {/* Stats Cards */}
-      <div className="grid grid-cols-3 sm:grid-cols-3 lg:grid-cols-6 gap-2 sm:gap-3">
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-7 gap-2 sm:gap-3">
         {[
           { title: 'Total Leads', value: leadStats.total, icon: Users, color: 'bg-blue-500' },
           { title: 'New', value: leadStats.new, icon: AlertCircle, color: 'bg-red-500' },
           { title: 'Contacted', value: leadStats.contacted, icon: CheckCircle, color: 'bg-yellow-500' },
           { title: 'Qualified', value: leadStats.qualified, icon: CheckCircle, color: 'bg-green-500' },
-          { title: 'Won', value: leadStats.won, icon: TrendingUp, color: 'bg-emerald-500' },
+          { title: 'Won', value: leadStats.won, icon: Trophy, color: 'bg-emerald-500' },
+          { title: 'Lost', value: leadStats.lost, icon: X, color: 'bg-gray-500' },
           { title: 'Avg Score', value: leadStats.avgScore, icon: Star, color: 'bg-purple-500' }
         ].map((stat, index) => {
           const Icon = stat.icon;
@@ -722,6 +731,24 @@ const LeadManagement: React.FC = () => {
                 )}
 
                 <div className="space-y-1.5 sm:space-y-2">
+                  {lead.status !== 'won' && lead.status !== 'lost' && (
+                    <div className="flex space-x-1.5 sm:space-x-2">
+                      <button
+                        onClick={() => handleLeadAction(lead.id, 'won')}
+                        className="flex-1 bg-emerald-600 text-white py-2 sm:py-2.5 px-2 sm:px-3 rounded-lg text-xs sm:text-sm font-semibold hover:bg-emerald-700 transition-all duration-200 flex items-center justify-center space-x-1.5 shadow-md touch-manipulation"
+                      >
+                        <Trophy className="w-4 h-4" />
+                        <span>Mark as WON</span>
+                      </button>
+                      <button
+                        onClick={() => handleLeadAction(lead.id, 'lost')}
+                        className="flex-1 bg-gray-500 text-white py-2 sm:py-2.5 px-2 sm:px-3 rounded-lg text-xs sm:text-sm font-semibold hover:bg-gray-600 transition-all duration-200 flex items-center justify-center space-x-1.5 shadow-md touch-manipulation"
+                      >
+                        <X className="w-4 h-4" />
+                        <span>Mark as LOST</span>
+                      </button>
+                    </div>
+                  )}
                   <div className="flex space-x-1.5 sm:space-x-2">
                     <button
                       onClick={() => handleLeadAction(lead.id, 'call')}
@@ -870,6 +897,25 @@ const LeadManagement: React.FC = () => {
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
                       <div className="flex items-center space-x-2">
+                        {lead.status !== 'won' && lead.status !== 'lost' && (
+                          <>
+                            <button
+                              onClick={() => handleLeadAction(lead.id, 'won')}
+                              className="text-emerald-600 hover:text-emerald-900 font-semibold"
+                              title="Mark as WON"
+                            >
+                              <Trophy className="w-5 h-5" />
+                            </button>
+                            <button
+                              onClick={() => handleLeadAction(lead.id, 'lost')}
+                              className="text-gray-500 hover:text-gray-700"
+                              title="Mark as LOST"
+                            >
+                              <X className="w-5 h-5" />
+                            </button>
+                            <div className="h-4 w-px bg-gray-300"></div>
+                          </>
+                        )}
                         <button
                           onClick={() => handleLeadAction(lead.id, 'view')}
                           className="text-blue-600 hover:text-blue-900"
