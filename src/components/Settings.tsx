@@ -23,6 +23,12 @@ const Settings: React.FC = () => {
   const [activeTab, setActiveTab] = useState('profile');
   const [loading, setLoading] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [showPasswordModal, setShowPasswordModal] = useState(false);
+  const [passwordData, setPasswordData] = useState({
+    currentPassword: '',
+    newPassword: '',
+    confirmPassword: ''
+  });
   const [profileData, setProfileData] = useState({
     full_name: '',
     personal_phone: '',
@@ -90,14 +96,44 @@ const Settings: React.FC = () => {
     toast.success('Signed out successfully');
   };
 
-  const handleChangePassword = () => {
-    // Simulate password change
-    toast.success('Password change feature coming soon!');
+  const handleChangePassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+
+    if (passwordData.newPassword !== passwordData.confirmPassword) {
+      toast.error('New passwords do not match');
+      return;
+    }
+
+    if (passwordData.newPassword.length < 6) {
+      toast.error('Password must be at least 6 characters long');
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const { error } = await supabase.auth.updateUser({
+        password: passwordData.newPassword
+      });
+
+      if (error) throw error;
+
+      toast.success('Password updated successfully!');
+      setShowPasswordModal(false);
+      setPasswordData({
+        currentPassword: '',
+        newPassword: '',
+        confirmPassword: ''
+      });
+    } catch (error: any) {
+      console.error('Error changing password:', error);
+      toast.error(error.message || 'Failed to change password');
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleEnable2FA = () => {
-    // Simulate 2FA setup
-    toast.success('Two-factor authentication setup coming soon!');
+    toast.info('Two-factor authentication setup coming soon!');
   };
 
   const tabs = [
@@ -318,12 +354,65 @@ const Settings: React.FC = () => {
                 <div className="p-4 border border-gray-200 rounded-lg">
                   <h4 className="font-medium text-gray-900 mb-2">Change Password</h4>
                   <p className="text-sm text-gray-600 mb-4">Update your account password</p>
-                  <button
-                    onClick={handleChangePassword}
-                    className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors"
-                  >
-                    Change Password
-                  </button>
+
+                  {!showPasswordModal ? (
+                    <button
+                      onClick={() => setShowPasswordModal(true)}
+                      className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors"
+                    >
+                      Change Password
+                    </button>
+                  ) : (
+                    <form onSubmit={handleChangePassword} className="space-y-3 mt-4">
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                          New Password
+                        </label>
+                        <input
+                          type="password"
+                          value={passwordData.newPassword}
+                          onChange={(e) => setPasswordData(prev => ({ ...prev, newPassword: e.target.value }))}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                          placeholder="Enter new password"
+                          required
+                          minLength={6}
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                          Confirm New Password
+                        </label>
+                        <input
+                          type="password"
+                          value={passwordData.confirmPassword}
+                          onChange={(e) => setPasswordData(prev => ({ ...prev, confirmPassword: e.target.value }))}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                          placeholder="Confirm new password"
+                          required
+                          minLength={6}
+                        />
+                      </div>
+                      <div className="flex space-x-2">
+                        <button
+                          type="submit"
+                          disabled={loading}
+                          className="flex-1 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50"
+                        >
+                          {loading ? 'Updating...' : 'Update Password'}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setShowPasswordModal(false);
+                            setPasswordData({ currentPassword: '', newPassword: '', confirmPassword: '' });
+                          }}
+                          className="flex-1 bg-gray-200 text-gray-700 px-4 py-2 rounded-lg hover:bg-gray-300 transition-colors"
+                        >
+                          Cancel
+                        </button>
+                      </div>
+                    </form>
+                  )}
                 </div>
 
                 <div className="p-4 border border-gray-200 rounded-lg">

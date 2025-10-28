@@ -18,6 +18,7 @@ import {
   CheckCheck,
   RefreshCw
 } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar } from 'recharts';
 import { useAuthStore } from '../store/authStore';
 import { useDataStore } from '../store/dataStore';
@@ -26,6 +27,7 @@ import { supabase } from '../lib/supabaseClient';
 import toast from 'react-hot-toast';
 
 const Dashboard: React.FC = () => {
+  const navigate = useNavigate();
   const [timeRange, setTimeRange] = useState('30d');
   const [chartData, setChartData] = useState<any>(null);
   const [copied, setCopied] = useState(false);
@@ -102,16 +104,16 @@ const Dashboard: React.FC = () => {
   const handleQuickAction = async (action: string) => {
     switch (action) {
       case 'add_lead':
-        toast.success('Opening lead form...');
+        navigate('/leads');
         break;
       case 'schedule_appointment':
-        toast.success('Opening calendar...');
+        navigate('/calendar');
         break;
       case 'send_sms':
-        toast.success('Opening SMS campaign...');
+        navigate('/sales-tools');
         break;
       case 'generate_report':
-        toast.success('Generating report...');
+        navigate('/analytics');
         break;
       default:
         toast.info('Feature coming soon!');

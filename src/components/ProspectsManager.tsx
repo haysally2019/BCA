@@ -125,6 +125,51 @@ const ProspectsManager: React.FC = () => {
     }
   };
 
+  const handleExportProspects = () => {
+    if (filteredProspects.length === 0) {
+      toast.error('No prospects to export');
+      return;
+    }
+
+    try {
+      const csvHeaders = ['Company Name', 'Contact Name', 'Email', 'Phone', 'Status', 'Deal Value', 'Probability', 'Source', 'Company Size', 'Current CRM', 'Decision Maker', 'Notes'];
+      const csvData = filteredProspects.map(prospect => [
+        prospect.company_name,
+        prospect.contact_name,
+        prospect.email || '',
+        prospect.phone,
+        prospect.status,
+        prospect.deal_value,
+        prospect.probability,
+        prospect.source,
+        prospect.company_size || '',
+        prospect.current_crm || '',
+        prospect.decision_maker ? 'Yes' : 'No',
+        prospect.notes || ''
+      ]);
+
+      const csvContent = [
+        csvHeaders.join(','),
+        ...csvData.map(row => row.map(cell => `"${cell}"`).join(','))
+      ].join('\n');
+
+      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+      const link = document.createElement('a');
+      const url = URL.createObjectURL(blob);
+      link.setAttribute('href', url);
+      link.setAttribute('download', `prospects_${new Date().toISOString().split('T')[0]}.csv`);
+      link.style.visibility = 'hidden';
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+
+      toast.success(`Exported ${filteredProspects.length} prospects to CSV`);
+    } catch (error) {
+      console.error('Error exporting prospects:', error);
+      toast.error('Failed to export prospects');
+    }
+  };
+
   const handleImportProspects = async (importedData: any[]): Promise<{ success: number; failed: number; duplicates: number; dbDuplicates: number }> => {
     if (!profile) {
       throw new Error('No profile found');
@@ -314,7 +359,7 @@ const ProspectsManager: React.FC = () => {
             <span>Import</span>
           </button>
           <button
-            onClick={() => toast.info('Export feature coming soon')}
+            onClick={handleExportProspects}
             type="button"
             className="hidden md:flex bg-gray-100 text-gray-700 px-4 py-2 rounded-lg items-center space-x-2 hover:bg-gray-200 transition-colors"
           >

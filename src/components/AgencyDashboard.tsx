@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { TrendingUp, Users, DollarSign, Plus, Calendar, FileText, BarChart3, Building2, UserPlus, Briefcase, PhoneCall, Target, Award, CheckCircle, Activity, ExternalLink, Eye, MousePointerClick } from 'lucide-react';
 import { XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, LineChart, Line } from 'recharts';
+import { useNavigate } from 'react-router-dom';
 import { useAuthStore } from '../store/authStore';
 import { useDataStore } from '../store/dataStore';
 import { supabaseService, type AnalyticsData } from '../lib/supabaseService';
@@ -8,6 +9,7 @@ import LoadingSpinner from './LoadingSpinner';
 import toast from 'react-hot-toast';
 
 const AgencyDashboard: React.FC = () => {
+  const navigate = useNavigate();
   const { profile } = useAuthStore();
   const {
     analyticsData,
@@ -16,7 +18,7 @@ const AgencyDashboard: React.FC = () => {
   } = useDataStore();
   const [timeRange, setTimeRange] = useState('30d');
   const [totalSalesReps, setTotalSalesReps] = useState(0);
-  
+
   const isManagement = profile?.subscription_plan === 'enterprise';
 
   const loadSalesRepsCount = useCallback(async () => {
@@ -94,28 +96,28 @@ const AgencyDashboard: React.FC = () => {
   const handleQuickAction = (actionTitle: string) => {
     switch (actionTitle) {
       case 'Add Prospect':
-        toast.success('Opening prospect form...');
+        navigate('/prospects');
         break;
       case 'Schedule Demo':
-        toast.success('Opening demo scheduler...');
+        navigate('/calendar');
         break;
       case 'Generate Report':
-        toast.success('Generating sales report...');
+        navigate('/reports');
         break;
       case 'Team Meeting':
-        toast.success('Scheduling team meeting...');
+        navigate('/calendar');
         break;
       case 'ROI Calculator':
-        toast.success('Opening ROI calculator...');
+        navigate('/sales-tools');
         break;
       case 'Commission Report':
-        toast.success('Loading commission report...');
+        navigate('/commissions');
         break;
       case 'My Commissions':
-        toast.success('Loading commission details...');
+        navigate('/commissions');
         break;
       case 'Sales Tools':
-        toast.success('Opening sales tools...');
+        navigate('/sales-tools');
         break;
       default:
         toast.info(`${actionTitle} feature coming soon!`);
@@ -123,7 +125,7 @@ const AgencyDashboard: React.FC = () => {
   };
 
   const handleAddLead = () => {
-    toast.success('Opening lead form...');
+    navigate('/leads');
   };
 
   if (loading) {
