@@ -19,6 +19,9 @@ const ProspectsManager: React.FC = () => {
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [showImportModal, setShowImportModal] = useState(false);
   const [prospectToDelete, setProspectToDelete] = useState<Prospect | null>(null);
+  const [openMenuId, setOpenMenuId] = useState<string | null>(null);
+  const [prospectToEdit, setProspectToEdit] = useState<Prospect | null>(null);
+  const [showEditModal, setShowEditModal] = useState(false);
   const { profile } = useAuthStore();
   const { prospects, loadDashboardData } = useDataStore();
 
@@ -219,7 +222,16 @@ const ProspectsManager: React.FC = () => {
     const prospect = prospects.find(p => p.id === prospectId);
     if (!prospect) return;
 
+    setOpenMenuId(null); // Close menu after action
+
     switch (action) {
+      case 'view':
+        toast.info(`Viewing details for ${prospect.company_name}`);
+        break;
+      case 'edit':
+        setProspectToEdit(prospect);
+        setShowEditModal(true);
+        break;
       case 'delete':
         setProspectToDelete(prospect);
         setShowDeleteConfirm(true);
@@ -237,6 +249,23 @@ const ProspectsManager: React.FC = () => {
       case 'proposal':
         toast.success(`Generating proposal for ${prospect.company_name}`);
         break;
+    }
+  };
+
+  const handleEditProspect = async (prospectData: any) => {
+    if (!prospectToEdit) return;
+
+    try {
+      await supabaseService.updateProspect(prospectToEdit.id, prospectData);
+      if (profile) {
+        useDataStore.getState().invalidateCache([`dashboard_${profile.id}_30d`]);
+      }
+      setShowEditModal(false);
+      setProspectToEdit(null);
+      toast.success('Prospect updated successfully!');
+    } catch (error) {
+      console.error('Error updating prospect:', error);
+      toast.error('Failed to update prospect');
     }
   };
 
@@ -539,9 +568,39 @@ const ProspectsManager: React.FC = () => {
                           <h4 className="font-semibold text-sm text-gray-900">{prospect.company_name}</h4>
                           <p className="text-xs text-gray-600">{prospect.contact_name}</p>
                         </div>
-                        <button className="p-1 text-gray-400 hover:text-gray-600">
-                          <MoreVertical className="w-4 h-4" />
-                        </button>
+                        <div className="relative">
+                          <button
+                            onClick={() => setOpenMenuId(openMenuId === prospect.id ? null : prospect.id)}
+                            className="p-1 text-gray-400 hover:text-gray-600"
+                          >
+                            <MoreVertical className="w-4 h-4" />
+                          </button>
+                          {openMenuId === prospect.id && (
+                            <div className="absolute right-0 mt-1 w-36 bg-white rounded-lg shadow-lg border border-gray-200 z-10">
+                              <button
+                                onClick={() => handleProspectAction(prospect.id, 'view')}
+                                className="w-full text-left px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 flex items-center space-x-2"
+                              >
+                                <Eye className="w-3 h-3" />
+                                <span>View</span>
+                              </button>
+                              <button
+                                onClick={() => handleProspectAction(prospect.id, 'edit')}
+                                className="w-full text-left px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 flex items-center space-x-2"
+                              >
+                                <Edit3 className="w-3 h-3" />
+                                <span>Edit</span>
+                              </button>
+                              <button
+                                onClick={() => handleProspectAction(prospect.id, 'delete')}
+                                className="w-full text-left px-3 py-2 text-sm text-red-600 hover:bg-red-50 flex items-center space-x-2 rounded-b-lg"
+                              >
+                                <Trash2 className="w-3 h-3" />
+                                <span>Delete</span>
+                              </button>
+                            </div>
+                          )}
+                        </div>
                       </div>
                       <div className="flex items-center justify-between text-xs mb-2">
                         <span className="font-semibold text-gray-900">${prospect.deal_value}/mo</span>
@@ -602,9 +661,39 @@ const ProspectsManager: React.FC = () => {
                 <span className={`px-2 py-1 rounded-full text-xs font-medium border ${getStatusColor(prospect.status)}`}>
                   {prospect.status.replace('_', ' ')}
                 </span>
-                <button className="p-1 text-gray-400 hover:text-gray-600">
-                  <MoreVertical className="w-4 h-4" />
-                </button>
+                <div className="relative">
+                  <button
+                    onClick={() => setOpenMenuId(openMenuId === prospect.id ? null : prospect.id)}
+                    className="p-1 text-gray-400 hover:text-gray-600"
+                  >
+                    <MoreVertical className="w-4 h-4" />
+                  </button>
+                  {openMenuId === prospect.id && (
+                    <div className="absolute right-0 mt-1 w-36 bg-white rounded-lg shadow-lg border border-gray-200 z-10">
+                      <button
+                        onClick={() => handleProspectAction(prospect.id, 'view')}
+                        className="w-full text-left px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 flex items-center space-x-2 rounded-t-lg"
+                      >
+                        <Eye className="w-3 h-3" />
+                        <span>View</span>
+                      </button>
+                      <button
+                        onClick={() => handleProspectAction(prospect.id, 'edit')}
+                        className="w-full text-left px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 flex items-center space-x-2"
+                      >
+                        <Edit3 className="w-3 h-3" />
+                        <span>Edit</span>
+                      </button>
+                      <button
+                        onClick={() => handleProspectAction(prospect.id, 'delete')}
+                        className="w-full text-left px-3 py-2 text-sm text-red-600 hover:bg-red-50 flex items-center space-x-2 rounded-b-lg"
+                      >
+                        <Trash2 className="w-3 h-3" />
+                        <span>Delete</span>
+                      </button>
+                    </div>
+                  )}
+                </div>
               </div>
             </div>
 
@@ -730,6 +819,18 @@ const ProspectsManager: React.FC = () => {
         onClose={() => setShowImportModal(false)}
         onImport={handleImportProspects}
       />
+
+      {/* Edit Prospect Modal */}
+      {showEditModal && prospectToEdit && (
+        <EditProspectModal
+          prospect={prospectToEdit}
+          onClose={() => {
+            setShowEditModal(false);
+            setProspectToEdit(null);
+          }}
+          onSave={handleEditProspect}
+        />
+      )}
     </div>
   );
 };
@@ -973,6 +1074,264 @@ const AddProspectModal: React.FC<AddProspectModalProps> = ({ onClose, onSave }) 
             className="flex-1 bg-red-700 text-white py-2 px-4 rounded-lg hover:bg-red-800 transition-all duration-200 shadow-sm disabled:opacity-50"
           >
             {loading ? 'Adding...' : 'Add Prospect'}
+          </button>
+        </div>
+      </form>
+    </BaseModal>
+  );
+};
+
+interface EditProspectModalProps {
+  prospect: Prospect;
+  onClose: () => void;
+  onSave: (prospectData: any) => void;
+}
+
+const EditProspectModal: React.FC<EditProspectModalProps> = ({ prospect, onClose, onSave }) => {
+  const [formData, setFormData] = useState({
+    company_name: prospect.company_name,
+    contact_name: prospect.contact_name,
+    email: prospect.email || '',
+    phone: prospect.phone,
+    source: prospect.source,
+    deal_value: prospect.deal_value,
+    probability: prospect.probability,
+    company_size: prospect.company_size || '',
+    current_crm: prospect.current_crm || '',
+    pain_points: Array.isArray(prospect.pain_points) ? prospect.pain_points.join(', ') : '',
+    decision_maker: prospect.decision_maker || false,
+    notes: prospect.notes || '',
+    next_follow_up_date: prospect.next_follow_up_date || '',
+    status: prospect.status,
+  });
+  const [errors, setErrors] = useState<ValidationErrors>({});
+  const [loading, setLoading] = useState(false);
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+
+    const validationErrors = validateForm(formData, prospectValidationSchema);
+    setErrors(validationErrors);
+
+    if (Object.keys(validationErrors).length > 0) {
+      toast.error('Please fix the errors below');
+      return;
+    }
+
+    setLoading(true);
+
+    const painPointsArray = formData.pain_points
+      ? formData.pain_points.split(',').map(point => point.trim()).filter(point => point)
+      : [];
+
+    const prospectToSave = {
+      ...formData,
+      pain_points: painPointsArray,
+      next_follow_up_date: formData.next_follow_up_date || undefined,
+    };
+
+    onSave(prospectToSave);
+    setLoading(false);
+  };
+
+  const handleFieldChange = (name: string, value: any) => {
+    setFormData(prev => ({ ...prev, [name]: value }));
+
+    if (errors[name]) {
+      setErrors(prev => ({ ...prev, [name]: '' }));
+    }
+  };
+
+  return (
+    <BaseModal
+      isOpen={true}
+      onClose={onClose}
+      title="Edit Prospect"
+      size="lg"
+    >
+      <form onSubmit={handleSubmit} className="space-y-4">
+        <div className="grid grid-cols-2 gap-4">
+          <FormField
+            label="Company Name"
+            name="company_name"
+            value={formData.company_name}
+            onChange={handleFieldChange}
+            error={errors.company_name}
+            placeholder="Elite Roofing Co."
+            required
+          />
+
+          <FormField
+            label="Contact Name"
+            name="contact_name"
+            value={formData.contact_name}
+            onChange={handleFieldChange}
+            error={errors.contact_name}
+            placeholder="John Smith"
+            required
+          />
+        </div>
+
+        <div className="grid grid-cols-2 gap-4">
+          <FormField
+            label="Email"
+            name="email"
+            type="email"
+            value={formData.email}
+            onChange={handleFieldChange}
+            error={errors.email}
+            placeholder="john@eliteroofing.com"
+          />
+
+          <FormField
+            label="Phone"
+            name="phone"
+            type="tel"
+            value={formData.phone}
+            onChange={handleFieldChange}
+            error={errors.phone}
+            placeholder="(555) 123-4567"
+            required
+          />
+        </div>
+
+        <div className="grid grid-cols-2 gap-4">
+          <FormField
+            label="Status"
+            name="status"
+            type="select"
+            value={formData.status}
+            onChange={handleFieldChange}
+            options={[
+              { value: 'lead', label: 'Lead' },
+              { value: 'qualified', label: 'Qualified' },
+              { value: 'proposal_sent', label: 'Proposal Sent' },
+              { value: 'negotiating', label: 'Negotiating' },
+              { value: 'closed_won', label: 'Closed Won' },
+              { value: 'closed_lost', label: 'Closed Lost' }
+            ]}
+          />
+
+          <FormField
+            label="Deal Value (Monthly)"
+            name="deal_value"
+            type="number"
+            value={formData.deal_value}
+            onChange={handleFieldChange}
+            error={errors.deal_value}
+            placeholder="199"
+            min={0}
+          />
+        </div>
+
+        <div className="grid grid-cols-2 gap-4">
+          <FormField
+            label="Probability"
+            name="probability"
+            type="number"
+            value={formData.probability}
+            onChange={handleFieldChange}
+            error={errors.probability}
+            placeholder="50"
+            min={0}
+            max={100}
+          />
+
+          <FormField
+            label="Source"
+            name="source"
+            type="select"
+            value={formData.source}
+            onChange={handleFieldChange}
+            options={[
+              { value: 'website', label: 'Website' },
+              { value: 'referral', label: 'Referral' },
+              { value: 'cold_call', label: 'Cold Call' },
+              { value: 'linkedin', label: 'LinkedIn' },
+              { value: 'trade_show', label: 'Trade Show' }
+            ]}
+          />
+        </div>
+
+        <div className="grid grid-cols-2 gap-4">
+          <FormField
+            label="Company Size"
+            name="company_size"
+            type="select"
+            value={formData.company_size}
+            onChange={handleFieldChange}
+            options={[
+              { value: '1-10 employees', label: '1-10 employees' },
+              { value: '11-50 employees', label: '11-50 employees' },
+              { value: '51-200 employees', label: '51-200 employees' },
+              { value: '200+ employees', label: '200+ employees' }
+            ]}
+            placeholder="Select company size"
+          />
+
+          <FormField
+            label="Current CRM"
+            name="current_crm"
+            value={formData.current_crm}
+            onChange={handleFieldChange}
+            placeholder="None, Salesforce, HubSpot, etc."
+          />
+        </div>
+
+        <FormField
+          label="Pain Points"
+          name="pain_points"
+          value={formData.pain_points}
+          onChange={handleFieldChange}
+          placeholder="Lead management, Follow-up tracking (comma separated)"
+        />
+
+        <div className="flex items-center space-x-2">
+          <input
+            type="checkbox"
+            id="decision_maker_edit"
+            checked={formData.decision_maker}
+            onChange={(e) => setFormData(prev => ({ ...prev, decision_maker: e.target.checked }))}
+            className="rounded border-gray-300 text-red-600 focus:ring-red-500"
+          />
+          <label htmlFor="decision_maker_edit" className="text-sm font-medium text-gray-700">
+            Decision Maker
+          </label>
+        </div>
+
+        <FormField
+          label="Notes"
+          name="notes"
+          type="textarea"
+          value={formData.notes}
+          onChange={handleFieldChange}
+          placeholder="Additional notes about this prospect..."
+          rows={3}
+        />
+
+        <FormField
+          label="Next Follow-up Date"
+          name="next_follow_up_date"
+          type="date"
+          value={formData.next_follow_up_date}
+          onChange={handleFieldChange}
+        />
+
+        <div className="flex space-x-3 pt-4">
+          <button
+            type="button"
+            onClick={onClose}
+            disabled={loading}
+            className="flex-1 bg-gray-100 text-gray-700 py-2 px-4 rounded-lg hover:bg-gray-200 transition-all duration-200 disabled:opacity-50"
+          >
+            Cancel
+          </button>
+          <button
+            type="submit"
+            disabled={loading}
+            className="flex-1 bg-red-700 text-white py-2 px-4 rounded-lg hover:bg-red-800 transition-all duration-200 shadow-sm disabled:opacity-50"
+          >
+            {loading ? 'Saving...' : 'Save Changes'}
           </button>
         </div>
       </form>
