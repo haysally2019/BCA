@@ -365,9 +365,35 @@ const Dashboard: React.FC = () => {
           Use this URL when promoting Blue Collar Academy to track your referrals
         </p>
         {!profile?.affiliate_referral_url && (
-          <p className="mt-2 text-xs text-orange-600 font-medium">
-            Note: Using default URL. Click the Refresh button above to load your actual URL.
-          </p>
+          <div className="mt-3 p-3 bg-orange-50 border border-orange-200 rounded-lg">
+            <p className="text-xs text-orange-800 font-medium mb-2">
+              Your affiliate account hasn't been created yet.
+            </p>
+            <button
+              onClick={async () => {
+                toast.loading('Creating your affiliate account...', { id: 'create-affiliate' });
+                try {
+                  const { data, error } = await supabase.functions.invoke('create-affiliatewp-account', {
+                    body: { profile_id: profile.id }
+                  });
+
+                  if (error) throw error;
+
+                  if (data?.success) {
+                    toast.success('Affiliate account created! Refreshing...', { id: 'create-affiliate' });
+                    await refreshProfile();
+                  } else {
+                    throw new Error(data?.error || 'Failed to create affiliate account');
+                  }
+                } catch (error: any) {
+                  toast.error(error.message || 'Failed to create affiliate account', { id: 'create-affiliate' });
+                }
+              }}
+              className="px-3 py-1.5 bg-orange-600 text-white rounded-md text-xs font-medium hover:bg-orange-700 transition-colors"
+            >
+              Create My Affiliate Account
+            </button>
+          </div>
         )}
       </div>
 

@@ -36,10 +36,14 @@ Deno.serve(async (req: Request) => {
 
     const { data: profiles, error: profilesError } = await supabase
       .from('profiles')
-      .select('id, full_name, company_email, personal_phone')
+      .select(`
+        id,
+        full_name,
+        personal_phone,
+        user_id
+      `)
       .is('affiliatewp_id', null)
-      .eq('user_role', 'sales_rep')
-      .not('company_email', 'is', null)
+      .eq('user_type', 'sales_rep')
       .not('full_name', 'is', null);
 
     if (profilesError) {
@@ -57,7 +61,22 @@ Deno.serve(async (req: Request) => {
     };
 
     for (const profile of profiles) {
-      console.log(`\n--- Processing: ${profile.full_name} (${profile.company_email}) ---`);
+      const { data: authUser } = await supabase.auth.admin.getUserById(profile.user_id);
+      const email = authUser?.user?.email;
+
+      if (!email) {
+        console.log(`✗ Skipped: ${profile.full_name} - No email found`);
+        results.skipped++;
+        results.details.push({
+          name: profile.full_name,
+          email: 'No email',
+          status: 'skipped',
+          error: 'No email found',
+        });
+        continue;
+      }
+
+      console.log(`\n--- Processing: ${profile.full_name} (${email}) ---`);
 
       try {
         const createUrl = `${supabaseUrl}/functions/v1/create-affiliatewp-account`;
@@ -70,7 +89,7 @@ Deno.serve(async (req: Request) => {
           },
           body: JSON.stringify({
             profile_id: profile.id,
-            email: profile.company_email,
+            email: email,
             name: profile.full_name,
             phone: profile.personal_phone || null,
           }),
@@ -89,7 +108,7 @@ Deno.serve(async (req: Request) => {
 
           results.details.push({
             name: profile.full_name,
-            email: profile.company_email,
+            email: email,
             status: result.skipped ? 'skipped' : 'success',
             affiliatewp_id: result.affiliatewp_id,
           });
@@ -99,7 +118,7 @@ Deno.serve(async (req: Request) => {
 
           results.details.push({
             name: profile.full_name,
-            email: profile.company_email,
+            email: email,
             status: 'failed',
             error: result.error,
           });
@@ -111,7 +130,7 @@ Deno.serve(async (req: Request) => {
 
         results.details.push({
           name: profile.full_name,
-          email: profile.company_email,
+          email: email,
           status: 'failed',
           error: errorMsg,
         });

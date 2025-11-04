@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { Users, Search, Filter, Plus, CreditCard as Edit3, Trash2, DollarSign, TrendingUp, Award, CheckCircle, Clock } from 'lucide-react';
+import { Users, Search, Filter, Plus, CreditCard as Edit3, Trash2, DollarSign, TrendingUp, Award, CheckCircle, Clock, Zap } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
 import { commissionService, type Affiliate, type CommissionEntry, type CommissionRateTemplate } from '../lib/commissionService';
+import { supabase } from '../lib/supabaseClient';
 import toast from 'react-hot-toast';
 
 interface AffiliateStats {
@@ -86,13 +87,38 @@ const AffiliateManagement: React.FC = () => {
     }
   };
 
+  const handleBatchCreateAffiliates = async () => {
+    const confirmCreate = window.confirm('This will create AffiliateWP accounts for all sales reps who don\'t have one. Continue?');
+    if (!confirmCreate) return;
+
+    toast.loading('Creating affiliate accounts...', { id: 'batch-create' });
+    try {
+      const { data, error } = await supabase.functions.invoke('batch-create-affiliates');
+
+      if (error) throw error;
+
+      if (data?.success) {
+        const { results } = data;
+        toast.success(
+          `Batch creation complete! Success: ${results.successful}, Skipped: ${results.skipped}, Failed: ${results.failed}`,
+          { id: 'batch-create', duration: 5000 }
+        );
+        await loadData();
+      } else {
+        throw new Error(data?.error || 'Failed to create affiliate accounts');
+      }
+    } catch (error: any) {
+      toast.error(error.message || 'Failed to create affiliate accounts', { id: 'batch-create' });
+    }
+  };
+
   const handleBulkRateUpdate = async (updates: { upfront_rate?: number; residual_rate?: number; tier_level?: string; reason: string }) => {
     try {
       await commissionService.bulkUpdateRates({
         affiliate_ids: selectedAffiliates,
         ...updates
       });
-      
+
       // Reload data to reflect changes
       await loadData();
       setSelectedAffiliates([]);
@@ -197,6 +223,13 @@ const AffiliateManagement: React.FC = () => {
           >
             <Settings className="w-4 h-4" />
             <span>Templates</span>
+          </button>
+          <button
+            onClick={handleBatchCreateAffiliates}
+            className="bg-orange-600 text-white px-4 py-2 rounded-lg flex items-center space-x-2 hover:bg-orange-700 transition-colors"
+          >
+            <Zap className="w-4 h-4" />
+            <span>Batch Create Affiliates</span>
           </button>
           <button
             onClick={() => setShowAddModal(true)}
