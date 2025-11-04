@@ -81,24 +81,45 @@ Deno.serve(async (req: Request) => {
 
     console.log("Fetching all affiliates from AffiliateWP...");
 
-    // Fetch all affiliates from AffiliateWP
-    const affiliateResponse = await fetch(
-      `${credentials.wordpress_site_url}/wp-json/affwp/v1/affiliates`,
-      {
-        method: "GET",
-        headers: {
-          "Authorization": `Basic ${btoa(`${credentials.consumer_key}:${credentials.consumer_secret}`)}`,
-          "Content-Type": "application/json",
-        },
-      }
-    );
+    // Fetch all affiliates from AffiliateWP with pagination
+    const allAffiliates = [];
+    let page = 1;
+    const perPage = 100;
 
-    if (!affiliateResponse.ok) {
-      throw new Error(`AffiliateWP API error: ${affiliateResponse.status}`);
+    while (true) {
+      const affiliateResponse = await fetch(
+        `${credentials.wordpress_site_url}/wp-json/affwp/v1/affiliates?number=${perPage}&offset=${(page - 1) * perPage}`,
+        {
+          method: "GET",
+          headers: {
+            "Authorization": `Basic ${btoa(`${credentials.consumer_key}:${credentials.consumer_secret}`)}`,
+            "Content-Type": "application/json",
+          },
+        }
+      );
+
+      if (!affiliateResponse.ok) {
+        throw new Error(`AffiliateWP API error: ${affiliateResponse.status}`);
+      }
+
+      const pageAffiliates = await affiliateResponse.json();
+      console.log(`Page ${page}: Found ${pageAffiliates.length} affiliates`);
+
+      if (pageAffiliates.length === 0) {
+        break;
+      }
+
+      allAffiliates.push(...pageAffiliates);
+
+      if (pageAffiliates.length < perPage) {
+        break;
+      }
+
+      page++;
     }
 
-    const affiliates = await affiliateResponse.json();
-    console.log(`Found ${affiliates.length} affiliates to update`);
+    const affiliates = allAffiliates;
+    console.log(`Found ${affiliates.length} total affiliates to update`);
 
     const results = {
       total: affiliates.length,
