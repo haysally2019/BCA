@@ -278,6 +278,29 @@ const Dashboard: React.FC = () => {
         </div>
       </div>
 
+      {/* Admin Notice - Batch Create Affiliates */}
+      {profile?.user_role === 'owner' && (
+        <div className="bg-gradient-to-r from-orange-50 to-red-50 border border-orange-200 rounded-lg p-4">
+          <div className="flex items-start justify-between">
+            <div className="flex items-start space-x-3">
+              <AlertCircle className="w-5 h-5 text-orange-600 mt-0.5 flex-shrink-0" />
+              <div className="flex-1">
+                <h3 className="text-sm font-semibold text-orange-900 mb-1">Admin: Affiliate Accounts</h3>
+                <p className="text-sm text-orange-800">
+                  Some sales reps may not have AffiliateWP accounts yet. Go to Commissions → Affiliate Management to batch create them.
+                </p>
+              </div>
+            </div>
+            <button
+              onClick={() => navigate('/commissions')}
+              className="px-3 py-1 bg-orange-600 text-white text-xs rounded hover:bg-orange-700 transition-colors"
+            >
+              Go to Commissions
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Sync Status Notice */}
       {!affiliateMetrics.hasSyncedData && (
         <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
