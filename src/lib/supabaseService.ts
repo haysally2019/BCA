@@ -239,7 +239,7 @@ export const supabaseService = {
           .select('*')
           .order('created_at', { ascending: false });
 
-        if (!viewError && viewData && viewData.length > 0) {
+        if (!viewError && viewData !== null) {
           console.log('[supabaseService] ✓ Method 1 SUCCESS: Fetched', viewData.length, 'leads via view');
           return viewData;
         }
