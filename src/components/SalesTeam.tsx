@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Users, Search, Filter, Mail, MapPin, DollarSign, Award, Star, CreditCard as Edit, Eye, MoreVertical, UserPlus, Settings, Target, TrendingUp, Trash2, RefreshCw } from 'lucide-react';
+import { Users, Search, Filter, Mail, MapPin, DollarSign, Award, Star, CreditCard as Edit, Eye, MoreVertical, UserPlus, Settings, Target, TrendingUp, Trash2, RefreshCw, Upload } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { teamService, type TeamMember } from '../lib/teamService';
 import { supabaseService } from '../lib/supabaseService';
@@ -8,6 +8,7 @@ import { useAuthStore } from '../store/authStore';
 import AddTeamMemberModal from './modals/AddTeamMemberModal';
 import EditTeamMemberModal from './modals/EditTeamMemberModal';
 import TeamMemberDetailModal from './modals/TeamMemberDetailModal';
+import ManagerImportLeadsModal from './modals/ManagerImportLeadsModal';
 import toast from 'react-hot-toast';
 
 interface PerformanceDataPoint {
@@ -35,6 +36,7 @@ const SalesTeam: React.FC = () => {
   const [showAddModal, setShowAddModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
   const [showDetailModal, setShowDetailModal] = useState(false);
+  const [showImportModal, setShowImportModal] = useState(false);
   const [selectedMember, setSelectedMember] = useState<TeamMember | null>(null);
   const [teamMembers, setTeamMembers] = useState<TeamMember[]>([]);
   const [memberStats, setMemberStats] = useState<Map<string, any>>(new Map());
@@ -204,6 +206,15 @@ const SalesTeam: React.FC = () => {
           <p className="text-sm sm:text-base text-gray-600 mt-1">Manage your sales team and track performance</p>
         </div>
         <div className="flex items-center space-x-2">
+          {(profile?.user_role === 'sales_manager' || profile?.user_role === 'admin') && (
+            <button
+              onClick={() => setShowImportModal(true)}
+              className="bg-green-600 text-white px-3 py-2 rounded-lg flex items-center space-x-2 hover:bg-green-700 transition-colors text-sm"
+            >
+              <Upload className="w-4 h-4" />
+              <span>Import Leads</span>
+            </button>
+          )}
           <button
             onClick={syncAllAffiliateMetrics}
             disabled={syncing}
@@ -573,6 +584,14 @@ const SalesTeam: React.FC = () => {
           setSelectedMember(null);
         }}
         member={selectedMember}
+      />
+
+      <ManagerImportLeadsModal
+        isOpen={showImportModal}
+        onClose={() => setShowImportModal(false)}
+        companyId={profile?.id || ''}
+        teamMembers={teamMembers}
+        onSuccess={loadTeamData}
       />
     </div>
   );
