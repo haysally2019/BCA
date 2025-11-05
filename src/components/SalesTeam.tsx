@@ -205,16 +205,14 @@ const SalesTeam: React.FC = () => {
           <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">Sales Team Management</h1>
           <p className="text-sm sm:text-base text-gray-600 mt-1">Manage your sales team and track performance</p>
         </div>
-        <div className="flex items-center space-x-2">
-          {(profile?.user_role === 'sales_manager' || profile?.user_role === 'admin') && (
-            <button
-              onClick={() => setShowImportModal(true)}
-              className="bg-green-600 text-white px-3 py-2 rounded-lg flex items-center space-x-2 hover:bg-green-700 transition-colors text-sm"
-            >
-              <Upload className="w-4 h-4" />
-              <span>Import Leads</span>
-            </button>
-          )}
+        <div className="flex items-center flex-wrap gap-2">
+          <button
+            onClick={() => setShowImportModal(true)}
+            className="bg-green-600 text-white px-3 py-2 rounded-lg flex items-center space-x-2 hover:bg-green-700 transition-colors text-sm"
+          >
+            <Upload className="w-4 h-4" />
+            <span>Import Leads</span>
+          </button>
           <button
             onClick={syncAllAffiliateMetrics}
             disabled={syncing}
