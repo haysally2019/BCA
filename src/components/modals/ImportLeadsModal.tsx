@@ -29,23 +29,15 @@ interface ImportResult {
 
 const FIELD_OPTIONS = [
   { value: '', label: 'Skip this column' },
-  { value: 'name', label: 'Name / Contact Name (Required)', required: true },
-  { value: 'company_name', label: 'Company Name' },
-  { value: 'contact_name', label: 'Contact Name' },
+  { value: 'name', label: 'Name (Required)', required: true },
   { value: 'phone', label: 'Phone (Required)', required: true },
   { value: 'email', label: 'Email' },
   { value: 'address', label: 'Address' },
   { value: 'status', label: 'Status' },
-  { value: 'score', label: 'Score / Probability' },
-  { value: 'probability', label: 'Probability' },
-  { value: 'estimated_value', label: 'Estimated Value / Deal Value' },
-  { value: 'deal_value', label: 'Deal Value' },
+  { value: 'score', label: 'Score' },
+  { value: 'estimated_value', label: 'Estimated Value' },
   { value: 'roof_type', label: 'Roof Type' },
   { value: 'source', label: 'Source' },
-  { value: 'company_size', label: 'Company Size' },
-  { value: 'current_crm', label: 'Current CRM' },
-  { value: 'pain_points', label: 'Pain Points' },
-  { value: 'decision_maker', label: 'Decision Maker' },
   { value: 'notes', label: 'Notes' },
 ];
 
@@ -165,23 +157,16 @@ export const ImportLeadsModal: React.FC<ImportLeadsModalProps> = ({ isOpen, onCl
   const detectFieldMapping = (header: string): string | null => {
     const normalized = header.toLowerCase().trim();
 
-    if (normalized.includes('company') && normalized.includes('name')) return 'company_name';
-    if (normalized.includes('contact') && normalized.includes('name')) return 'contact_name';
-    if (normalized.includes('name') && !normalized.includes('company')) return 'name';
+    // Map to actual leads table fields only
+    if (normalized.includes('name')) return 'name';
     if (normalized.includes('phone') || normalized.includes('mobile') || normalized.includes('tel')) return 'phone';
     if (normalized.includes('email') || normalized.includes('e-mail')) return 'email';
     if (normalized.includes('address') || normalized.includes('location')) return 'address';
     if (normalized.includes('status')) return 'status';
-    if (normalized.includes('probability') || normalized.includes('prob')) return 'probability';
-    if (normalized.includes('score') || normalized.includes('rating')) return 'score';
-    if (normalized.includes('deal') && (normalized.includes('value') || normalized.includes('amount'))) return 'deal_value';
-    if (normalized.includes('value') || normalized.includes('estimate') || normalized.includes('price')) return 'estimated_value';
+    if (normalized.includes('score') || normalized.includes('rating') || normalized.includes('probability')) return 'score';
+    if (normalized.includes('value') || normalized.includes('estimate') || normalized.includes('price') || normalized.includes('deal')) return 'estimated_value';
     if (normalized.includes('roof') || normalized.includes('type')) return 'roof_type';
     if (normalized.includes('source') || normalized.includes('origin')) return 'source';
-    if (normalized.includes('company') && normalized.includes('size')) return 'company_size';
-    if (normalized.includes('crm')) return 'current_crm';
-    if (normalized.includes('pain')) return 'pain_points';
-    if (normalized.includes('decision')) return 'decision_maker';
     if (normalized.includes('note')) return 'notes';
 
     return null;
@@ -248,13 +233,8 @@ export const ImportLeadsModal: React.FC<ImportLeadsModalProps> = ({ isOpen, onCl
 
             switch (col.mappedField) {
               case 'name':
-              case 'contact_name':
                 leadData.name = value.replace(/[<>]/g, '');
-                leadData.contact_name = value.replace(/[<>]/g, '');
                 if (!value) hasRequiredFields = false;
-                break;
-              case 'company_name':
-                leadData.company_name = value.replace(/[<>]/g, '');
                 break;
               case 'phone':
                 const cleanPhone = value.replace(/[^\d\s\-\(\)\+]/g, '');
@@ -274,34 +254,17 @@ export const ImportLeadsModal: React.FC<ImportLeadsModalProps> = ({ isOpen, onCl
                 leadData.status = VALID_STATUSES.includes(normalizedStatus) ? normalizedStatus : 'new';
                 break;
               case 'score':
-              case 'probability':
                 const numValue = parseInt(value);
                 leadData.score = (!isNaN(numValue) && numValue >= 0 && numValue <= 100) ? numValue : 50;
-                leadData.probability = (!isNaN(numValue) && numValue >= 0 && numValue <= 100) ? numValue : 50;
                 break;
               case 'estimated_value':
-              case 'deal_value':
                 const dealVal = parseFloat(value.replace(/[,$]/g, ''));
                 if (!isNaN(dealVal) && dealVal > 0) {
                   leadData.estimated_value = Math.round(dealVal);
-                  leadData.deal_value = Math.round(dealVal);
                 }
                 break;
               case 'source':
                 leadData.source = value.toLowerCase().replace(/\s+/g, '_') || 'import';
-                break;
-              case 'company_size':
-                leadData.company_size = value.replace(/[<>]/g, '');
-                break;
-              case 'current_crm':
-                leadData.current_crm = value.replace(/[<>]/g, '');
-                break;
-              case 'pain_points':
-                leadData.pain_points = value.split(',').map(p => p.trim()).filter(p => p);
-                break;
-              case 'decision_maker':
-                const boolValue = value.toLowerCase();
-                leadData.decision_maker = boolValue === 'true' || boolValue === 'yes' || boolValue === '1';
                 break;
               case 'address':
                 leadData.address = value.replace(/[<>]/g, '');
@@ -312,8 +275,6 @@ export const ImportLeadsModal: React.FC<ImportLeadsModalProps> = ({ isOpen, onCl
               case 'roof_type':
                 leadData.roof_type = value.replace(/[<>]/g, '');
                 break;
-              default:
-                leadData[col.mappedField] = value.replace(/[<>]/g, '');
             }
           }
         });
@@ -470,15 +431,16 @@ export const ImportLeadsModal: React.FC<ImportLeadsModalProps> = ({ isOpen, onCl
   };
 
   const downloadTemplate = () => {
-    const template = 'Company Name,Contact Name,Phone,Email,Status,Probability,Deal Value,Source,Company Size,Current CRM,Pain Points,Decision Maker,Notes\n' +
-      'Elite Roofing Co.,John Smith,(555) 123-4567,john@eliteroofing.com,qualified,75,199,website,10-50 employees,None,"Lead management, Follow-up tracking",yes,Interested in comprehensive training program\n' +
-      'Apex Roofing Solutions,Jane Doe,(555) 987-6543,jane@apexroofing.com,lead,60,299,referral,51-200 employees,HubSpot,"Team training, Sales process",no,Needs approval from owner';
+    const template = 'Name,Phone,Email,Address,Status,Score,Estimated Value,Roof Type,Source,Notes\n' +
+      'John Smith,(555) 123-4567,john@example.com,123 Main St,new,75,15000,Shingle,website,Interested in roofing services\n' +
+      'Jane Doe,(555) 234-5678,jane@example.com,456 Oak Ave,contacted,80,20000,Metal,referral,Follow up needed\n' +
+      'Bob Johnson,(555) 345-6789,bob@example.com,789 Pine Rd,qualified,90,25000,Tile,phone,Ready to close soon';
 
     const blob = new Blob([template], { type: 'text/csv' });
     const url = window.URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = 'prospects_import_template.csv';
+    a.download = 'leads_import_template.csv';
     a.click();
     window.URL.revokeObjectURL(url);
     toast.success('Template downloaded');

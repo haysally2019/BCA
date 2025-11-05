@@ -1,5 +1,5 @@
-Name,Phone,Email,Address,Status,Score,Estimated Value,Notes,Source
-John Smith,(555) 123-4567,john@example.com,123 Main St,new,75,15000,Interested in roofing,website
-Jane Doe,(555) 234-5678,jane@example.com,456 Oak Ave,contacted,80,20000,Follow up needed,referral
-Bob Johnson,(555) 345-6789,bob@example.com,789 Pine Rd,qualified,90,25000,Ready to close,phone
-Alice Williams,(555) 456-7890,alice@example.com,321 Elm St,new,70,18000,Initial contact,email
+Name,Phone,Email,Address,Status,Score,Estimated Value,Roof Type,Source,Notes
+John Smith,(555) 123-4567,john@example.com,123 Main St,new,75,15000,Shingle,website,Interested in roofing services
+Jane Doe,(555) 234-5678,jane@example.com,456 Oak Ave,contacted,80,20000,Metal,referral,Follow up needed
+Bob Johnson,(555) 345-6789,bob@example.com,789 Pine Rd,qualified,90,25000,Tile,phone,Ready to close soon
+Alice Williams,(555) 456-7890,alice@example.com,321 Elm St,new,70,18000,Shingle,email,Initial contact made
