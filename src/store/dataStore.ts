@@ -75,7 +75,7 @@ export const useDataStore = create<DataState>((set, get) => ({
         try {
           const [analytics, prospects] = await Promise.all([
             supabaseService.getAnalyticsData(companyId, timeRange),
-            supabaseService.getProspects(companyId)
+            supabaseService.getProspects(companyId, 500)
           ]);
 
           const data = { analytics, prospects };
@@ -101,10 +101,10 @@ export const useDataStore = create<DataState>((set, get) => ({
     try {
       set({ dashboardLoading: true });
 
-      // Load data in parallel
+      // Load data in parallel with limit for better performance
       const [analytics, prospects] = await Promise.all([
         supabaseService.getAnalyticsData(companyId, timeRange),
-        supabaseService.getProspects(companyId)
+        supabaseService.getProspects(companyId, 500)
       ]);
 
       const data = { analytics, prospects };
