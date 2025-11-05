@@ -985,30 +985,45 @@ export const supabaseService = {
         companyId
       });
 
-      let query = supabase
-        .from('prospects')
-        .select('*')
-        .order('created_at', { ascending: false });
+      // Fetch all prospects using pagination to bypass 1000 row limit
+      let allProspects: Prospect[] = [];
+      let start = 0;
+      const pageSize = 1000;
+      let hasMore = true;
 
-      // If sales rep, only show their assigned prospects
-      // If manager/admin, show all company prospects
-      if (profile?.user_role === 'sales_rep') {
-        console.log('[getProspects] Filtering for sales rep, assigned_rep_id:', companyId);
-        query = query.eq('assigned_rep_id', companyId);
-      } else {
-        console.log('[getProspects] Filtering for manager, company_id:', companyId);
-        query = query.eq('company_id', companyId);
+      while (hasMore) {
+        let query = supabase
+          .from('prospects')
+          .select('*', { count: 'exact' })
+          .order('created_at', { ascending: false })
+          .range(start, start + pageSize - 1);
+
+        // If sales rep, only show their assigned prospects
+        // If manager/admin, show all company prospects
+        if (profile?.user_role === 'sales_rep') {
+          query = query.eq('assigned_rep_id', companyId);
+        } else {
+          query = query.eq('company_id', companyId);
+        }
+
+        const { data, error, count } = await query;
+
+        if (error) {
+          console.error('[getProspects] Query error:', error);
+          throw error;
+        }
+
+        if (data && data.length > 0) {
+          allProspects = [...allProspects, ...data];
+          start += pageSize;
+          hasMore = data.length === pageSize;
+        } else {
+          hasMore = false;
+        }
       }
 
-      const { data, error } = await query;
-
-      if (error) {
-        console.error('[getProspects] Query error:', error);
-        throw error;
-      }
-
-      console.log('[getProspects] Fetched prospects count:', data?.length || 0);
-      return data || [];
+      console.log('[getProspects] Fetched prospects count:', allProspects.length);
+      return allProspects;
     } catch (error) {
       console.error('[getProspects] Error fetching prospects:', error);
       return [];
