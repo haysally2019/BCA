@@ -230,13 +230,11 @@ const LeadDetailsModal: React.FC<LeadDetailsModalProps> = ({
             </div>
 
             <div>
-              <label htmlFor="lead-status-select" className="block text-sm font-medium text-gray-700 mb-2">All Status Options</label>
+              <label className="block text-sm font-medium text-gray-700 mb-2">All Status Options</label>
               <select
-                id="lead-status-select"
                 value={lead.status}
                 onChange={(e) => handleStatusChange(e.target.value)}
                 className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-red-500 focus:border-red-500"
-                aria-label="Change lead status"
               >
                 <option value="new">New</option>
                 <option value="contacted">Contacted</option>
@@ -271,9 +269,8 @@ const LeadDetailsModal: React.FC<LeadDetailsModalProps> = ({
             <h5 className="font-medium text-gray-900 mb-3">Log New Activity</h5>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
-                <label htmlFor="activity-type" className="block text-sm font-medium text-gray-700 mb-1">Type</label>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Type</label>
                 <select
-                  id="activity-type"
                   value={newActivity.type}
                   onChange={(e) => setNewActivity(prev => ({ ...prev, type: e.target.value }))}
                   className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-red-500 focus:border-red-500"
@@ -286,9 +283,8 @@ const LeadDetailsModal: React.FC<LeadDetailsModalProps> = ({
                 </select>
               </div>
               <div>
-                <label htmlFor="activity-subject" className="block text-sm font-medium text-gray-700 mb-1">Subject</label>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Subject</label>
                 <input
-                  id="activity-subject"
                   type="text"
                   value={newActivity.subject}
                   onChange={(e) => setNewActivity(prev => ({ ...prev, subject: e.target.value }))}
@@ -298,9 +294,8 @@ const LeadDetailsModal: React.FC<LeadDetailsModalProps> = ({
               </div>
             </div>
             <div className="mt-4">
-              <label htmlFor="activity-description" className="block text-sm font-medium text-gray-700 mb-1">Description</label>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Description</label>
               <textarea
-                id="activity-description"
                 value={newActivity.description}
                 onChange={(e) => setNewActivity(prev => ({ ...prev, description: e.target.value }))}
                 rows={2}
@@ -310,9 +305,8 @@ const LeadDetailsModal: React.FC<LeadDetailsModalProps> = ({
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
               <div>
-                <label htmlFor="activity-outcome" className="block text-sm font-medium text-gray-700 mb-1">Outcome</label>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Outcome</label>
                 <select
-                  id="activity-outcome"
                   value={newActivity.outcome}
                   onChange={(e) => setNewActivity(prev => ({ ...prev, outcome: e.target.value }))}
                   className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-red-500 focus:border-red-500"
@@ -326,9 +320,8 @@ const LeadDetailsModal: React.FC<LeadDetailsModalProps> = ({
                 </select>
               </div>
               <div>
-                <label htmlFor="activity-next-action" className="block text-sm font-medium text-gray-700 mb-1">Next Action</label>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Next Action</label>
                 <input
-                  id="activity-next-action"
                   type="text"
                   value={newActivity.next_action}
                   onChange={(e) => setNewActivity(prev => ({ ...prev, next_action: e.target.value }))}

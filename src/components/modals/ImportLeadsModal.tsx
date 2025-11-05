@@ -2,16 +2,11 @@ import React, { useState } from 'react';
 import { Upload, X, Download, AlertCircle, CheckCircle, Loader } from 'lucide-react';
 import BaseModal from './BaseModal';
 import toast from 'react-hot-toast';
-import { supabase } from '../../lib/supabaseClient';
-import { useDataStore } from '../../store/dataStore';
 
 interface ImportLeadsModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onImport?: (leads: any[]) => Promise<{ success: number; failed: number; duplicates: number; dbDuplicates: number }>;
-  managerId?: string;
-  teamMembers?: Array<{ profile_id: string; employment_status: string }>;
-  onSuccess?: () => void;
+  onImport: (leads: any[]) => Promise<{ success: number; failed: number; duplicates: number; dbDuplicates: number }>;
 }
 
 interface CSVColumn {
@@ -30,81 +25,30 @@ interface ImportResult {
 
 const FIELD_OPTIONS = [
   { value: '', label: 'Skip this column' },
-  { value: 'name', label: 'Name (Required)', required: true },
+  { value: 'name', label: 'Name / Contact Name (Required)', required: true },
+  { value: 'company_name', label: 'Company Name' },
+  { value: 'contact_name', label: 'Contact Name' },
   { value: 'phone', label: 'Phone (Required)', required: true },
   { value: 'email', label: 'Email' },
   { value: 'address', label: 'Address' },
   { value: 'status', label: 'Status' },
-  { value: 'score', label: 'Score' },
-  { value: 'estimated_value', label: 'Estimated Value' },
+  { value: 'score', label: 'Score / Probability' },
+  { value: 'probability', label: 'Probability' },
+  { value: 'estimated_value', label: 'Estimated Value / Deal Value' },
+  { value: 'deal_value', label: 'Deal Value' },
   { value: 'roof_type', label: 'Roof Type' },
   { value: 'source', label: 'Source' },
+  { value: 'company_size', label: 'Company Size' },
+  { value: 'current_crm', label: 'Current CRM' },
+  { value: 'pain_points', label: 'Pain Points' },
+  { value: 'decision_maker', label: 'Decision Maker' },
   { value: 'notes', label: 'Notes' },
 ];
 
 const VALID_STATUSES = ['new', 'contacted', 'qualified', 'won', 'lost'];
-const MAX_IMPORT_LEADS = 2000;
+const MAX_IMPORT_LEADS = 100;
 
-// Helper function to distribute leads evenly to active team members
-async function distributeLeadsToTeam(
-  leads: any[],
-  teamMembers: Array<{ profile_id: string; employment_status: string }>,
-  companyId: string
-): Promise<{ assigned: number; memberCount: number }> {
-  if (!teamMembers || teamMembers.length === 0 || !leads || leads.length === 0) {
-    return { assigned: 0, memberCount: 0 };
-  }
-
-  try {
-    const activeMembers = teamMembers.filter(m => m.employment_status === 'active');
-    if (activeMembers.length === 0) {
-      console.log('[distributeLeadsToTeam] No active team members found');
-      return { assigned: 0, memberCount: 0 };
-    }
-
-    console.log(`[distributeLeadsToTeam] Distributing ${leads.length} leads to ${activeMembers.length} members`);
-
-    // Round-robin distribution
-    const assignments: Map<string, string[]> = new Map();
-    activeMembers.forEach(member => assignments.set(member.profile_id, []));
-
-    leads.forEach((lead, index) => {
-      const memberIndex = index % activeMembers.length;
-      const memberId = activeMembers[memberIndex].profile_id;
-      const leadIds = assignments.get(memberId) || [];
-      leadIds.push(lead.id);
-      assignments.set(memberId, leadIds);
-    });
-
-    // Apply assignments in batches
-    let totalAssigned = 0;
-    for (const [memberId, leadIds] of assignments.entries()) {
-      if (leadIds.length > 0) {
-        console.log(`[distributeLeadsToTeam] Assigning ${leadIds.length} leads to member ${memberId}`);
-
-        const { error } = await supabase
-          .from('leads')
-          .update({ assigned_rep_id: memberId })
-          .in('id', leadIds);
-
-        if (error) {
-          console.error(`[distributeLeadsToTeam] Error assigning leads to ${memberId}:`, error);
-        } else {
-          totalAssigned += leadIds.length;
-        }
-      }
-    }
-
-    console.log(`[distributeLeadsToTeam] Successfully assigned ${totalAssigned} leads`);
-    return { assigned: totalAssigned, memberCount: activeMembers.length };
-  } catch (error) {
-    console.error('[distributeLeadsToTeam] Distribution error:', error);
-    return { assigned: 0, memberCount: 0 };
-  }
-}
-
-export const ImportLeadsModal: React.FC<ImportLeadsModalProps> = ({ isOpen, onClose, onImport, managerId, teamMembers, onSuccess }) => {
-  const { clearCache } = useDataStore();
+export const ImportLeadsModal: React.FC<ImportLeadsModalProps> = ({ isOpen, onClose, onImport }) => {
   const [file, setFile] = useState<File | null>(null);
   const [columns, setColumns] = useState<CSVColumn[]>([]);
   const [csvData, setCsvData] = useState<string[][]>([]);
@@ -217,16 +161,23 @@ export const ImportLeadsModal: React.FC<ImportLeadsModalProps> = ({ isOpen, onCl
   const detectFieldMapping = (header: string): string | null => {
     const normalized = header.toLowerCase().trim();
 
-    // Map to actual leads table fields only - be specific to avoid duplicates
-    if (normalized.includes('roof') && normalized.includes('type')) return 'roof_type';
-    if (normalized === 'name' || normalized === 'contact name' || normalized === 'lead name') return 'name';
+    if (normalized.includes('company') && normalized.includes('name')) return 'company_name';
+    if (normalized.includes('contact') && normalized.includes('name')) return 'contact_name';
+    if (normalized.includes('name') && !normalized.includes('company')) return 'name';
     if (normalized.includes('phone') || normalized.includes('mobile') || normalized.includes('tel')) return 'phone';
     if (normalized.includes('email') || normalized.includes('e-mail')) return 'email';
     if (normalized.includes('address') || normalized.includes('location')) return 'address';
     if (normalized.includes('status')) return 'status';
-    if (normalized.includes('score') || normalized.includes('rating') || normalized.includes('probability')) return 'score';
-    if (normalized.includes('value') || normalized.includes('estimate') || normalized.includes('price') || normalized.includes('deal')) return 'estimated_value';
+    if (normalized.includes('probability') || normalized.includes('prob')) return 'probability';
+    if (normalized.includes('score') || normalized.includes('rating')) return 'score';
+    if (normalized.includes('deal') && (normalized.includes('value') || normalized.includes('amount'))) return 'deal_value';
+    if (normalized.includes('value') || normalized.includes('estimate') || normalized.includes('price')) return 'estimated_value';
+    if (normalized.includes('roof') || normalized.includes('type')) return 'roof_type';
     if (normalized.includes('source') || normalized.includes('origin')) return 'source';
+    if (normalized.includes('company') && normalized.includes('size')) return 'company_size';
+    if (normalized.includes('crm')) return 'current_crm';
+    if (normalized.includes('pain')) return 'pain_points';
+    if (normalized.includes('decision')) return 'decision_maker';
     if (normalized.includes('note')) return 'notes';
 
     return null;
@@ -242,9 +193,6 @@ export const ImportLeadsModal: React.FC<ImportLeadsModalProps> = ({ isOpen, onCl
     const mappedFields = columns.map(c => c.mappedField).filter(Boolean);
     const requiredFields = ['name', 'phone'];
 
-    console.log('[ImportLeads] Columns:', columns);
-    console.log('[ImportLeads] Mapped fields:', mappedFields);
-
     const missingFields = requiredFields.filter(field => !mappedFields.includes(field));
 
     if (missingFields.length > 0) {
@@ -257,9 +205,7 @@ export const ImportLeadsModal: React.FC<ImportLeadsModalProps> = ({ isOpen, onCl
     );
 
     if (duplicates.length > 0) {
-      console.log('[ImportLeads] Duplicate fields detected:', duplicates);
-      console.log('[ImportLeads] All mapped fields:', mappedFields);
-      toast.error(`Each field can only be mapped once. Duplicates: ${[...new Set(duplicates)].join(', ')}`);
+      toast.error('Each field can only be mapped once');
       return false;
     }
 
@@ -298,8 +244,13 @@ export const ImportLeadsModal: React.FC<ImportLeadsModalProps> = ({ isOpen, onCl
 
             switch (col.mappedField) {
               case 'name':
+              case 'contact_name':
                 leadData.name = value.replace(/[<>]/g, '');
+                leadData.contact_name = value.replace(/[<>]/g, '');
                 if (!value) hasRequiredFields = false;
+                break;
+              case 'company_name':
+                leadData.company_name = value.replace(/[<>]/g, '');
                 break;
               case 'phone':
                 const cleanPhone = value.replace(/[^\d\s\-\(\)\+]/g, '');
@@ -319,17 +270,34 @@ export const ImportLeadsModal: React.FC<ImportLeadsModalProps> = ({ isOpen, onCl
                 leadData.status = VALID_STATUSES.includes(normalizedStatus) ? normalizedStatus : 'new';
                 break;
               case 'score':
+              case 'probability':
                 const numValue = parseInt(value);
                 leadData.score = (!isNaN(numValue) && numValue >= 0 && numValue <= 100) ? numValue : 50;
+                leadData.probability = (!isNaN(numValue) && numValue >= 0 && numValue <= 100) ? numValue : 50;
                 break;
               case 'estimated_value':
+              case 'deal_value':
                 const dealVal = parseFloat(value.replace(/[,$]/g, ''));
                 if (!isNaN(dealVal) && dealVal > 0) {
                   leadData.estimated_value = Math.round(dealVal);
+                  leadData.deal_value = Math.round(dealVal);
                 }
                 break;
               case 'source':
                 leadData.source = value.toLowerCase().replace(/\s+/g, '_') || 'import';
+                break;
+              case 'company_size':
+                leadData.company_size = value.replace(/[<>]/g, '');
+                break;
+              case 'current_crm':
+                leadData.current_crm = value.replace(/[<>]/g, '');
+                break;
+              case 'pain_points':
+                leadData.pain_points = value.split(',').map(p => p.trim()).filter(p => p);
+                break;
+              case 'decision_maker':
+                const boolValue = value.toLowerCase();
+                leadData.decision_maker = boolValue === 'true' || boolValue === 'yes' || boolValue === '1';
                 break;
               case 'address':
                 leadData.address = value.replace(/[<>]/g, '');
@@ -340,6 +308,8 @@ export const ImportLeadsModal: React.FC<ImportLeadsModalProps> = ({ isOpen, onCl
               case 'roof_type':
                 leadData.roof_type = value.replace(/[<>]/g, '');
                 break;
+              default:
+                leadData[col.mappedField] = value.replace(/[<>]/g, '');
             }
           }
         });
@@ -380,91 +350,18 @@ export const ImportLeadsModal: React.FC<ImportLeadsModalProps> = ({ isOpen, onCl
 
     try {
       if (validLeads.length > 0) {
-        // Store leads in the company's lead pool without immediate assignment
-        // Distribution will happen automatically based on team member availability
-        if (managerId) {
-          console.log('[ImportLeads] Importing leads for company:', managerId);
-          console.log('[ImportLeads] Getting active team members for distribution...');
+        // Use the onImport callback which will handle the bulk insert
+        const importResults = await onImport(validLeads);
 
-          // Get active team members for distribution
-          const activeMembers = teamMembers?.filter(m => m.employment_status === 'active') || [];
-          console.log(`[ImportLeads] Found ${activeMembers.length} active team members`);
+        // Update result with actual database results
+        result.success = importResults.success;
+        result.dbDuplicates = importResults.dbDuplicates;
 
-          // Prepare leads for insertion
-          const leadsToInsert = validLeads.map(lead => ({
-            company_id: managerId,
-            // Assign to manager initially - distribution will update if team members exist
-            assigned_rep_id: managerId,
-            name: lead.name || '',
-            email: lead.email || null,
-            phone: lead.phone || '',
-            address: lead.address || null,
-            status: lead.status || 'new',
-            score: lead.score || null,
-            estimated_value: lead.estimated_value || null,
-            roof_type: lead.roof_type || null,
-            notes: lead.notes || null,
-            source: lead.source || 'import',
-            created_at: new Date().toISOString(),
-            updated_at: new Date().toISOString()
-          }));
+        // Keep track of CSV duplicates separately
+        // (these are already counted in result.duplicates from the loop above)
 
-          console.log(`[ImportLeads] Inserting ${leadsToInsert.length} leads`);
-
-          const { data: insertedLeads, error: insertError } = await supabase
-            .from('leads')
-            .insert(leadsToInsert)
-            .select();
-
-          if (insertError) {
-            console.error('[ImportLeads] Insert error:', insertError);
-            throw insertError;
-          }
-
-          console.log(`[ImportLeads] Successfully inserted ${insertedLeads?.length || 0} leads`);
-
-          // Distribute leads to active team members
-          if (activeMembers.length > 0 && insertedLeads && insertedLeads.length > 0) {
-            console.log('[ImportLeads] Starting lead distribution to team members...');
-            const distributionResult = await distributeLeadsToTeam(
-              insertedLeads,
-              activeMembers,
-              managerId
-            );
-
-            console.log(`[ImportLeads] Distribution complete: ${distributionResult.assigned} leads assigned to ${distributionResult.memberCount} members`);
-            result.success = insertedLeads.length;
-            toast.success(
-              `Successfully imported ${result.success} leads and distributed to ${distributionResult.memberCount} team member${distributionResult.memberCount > 1 ? 's' : ''}!`
-            );
-          } else if (insertedLeads && insertedLeads.length > 0) {
-            // No active team members - leads stay assigned to manager
-            console.log('[ImportLeads] No active team members, leads assigned to manager');
-            result.success = insertedLeads.length;
-            toast.success(`Successfully imported ${result.success} leads!`);
-          }
-
-          // Clear all caches to ensure fresh data is loaded
-          console.log('[ImportLeads] Clearing cache to force data refresh');
-          clearCache();
-
-          if (onSuccess) onSuccess();
-        } else if (onImport) {
-          // Use the onImport callback which will handle the bulk insert
-          const importResults = await onImport(validLeads);
-
-          // Update result with actual database results
-          result.success = importResults.success;
-          result.dbDuplicates = importResults.dbDuplicates;
-
-          // Keep track of CSV duplicates separately
-          // (these are already counted in result.duplicates from the loop above)
-
-          if (importResults.success > 0) {
-            toast.success(`Successfully imported ${importResults.success} lead${importResults.success > 1 ? 's' : ''}`);
-          }
-        } else {
-          throw new Error('No import handler provided');
+        if (importResults.success > 0) {
+          toast.success(`Successfully imported ${importResults.success} lead${importResults.success > 1 ? 's' : ''}`);
         }
       } else {
         toast.error('No valid leads to import');
@@ -507,16 +404,15 @@ export const ImportLeadsModal: React.FC<ImportLeadsModalProps> = ({ isOpen, onCl
   };
 
   const downloadTemplate = () => {
-    const template = 'Name,Phone,Email,Address,Status,Score,Estimated Value,Roof Type,Source,Notes\n' +
-      'John Smith,(555) 123-4567,john@example.com,123 Main St,new,75,15000,Shingle,website,Interested in roofing services\n' +
-      'Jane Doe,(555) 234-5678,jane@example.com,456 Oak Ave,contacted,80,20000,Metal,referral,Follow up needed\n' +
-      'Bob Johnson,(555) 345-6789,bob@example.com,789 Pine Rd,qualified,90,25000,Tile,phone,Ready to close soon';
+    const template = 'Company Name,Contact Name,Phone,Email,Status,Probability,Deal Value,Source,Company Size,Current CRM,Pain Points,Decision Maker,Notes\n' +
+      'Elite Roofing Co.,John Smith,(555) 123-4567,john@eliteroofing.com,qualified,75,199,website,10-50 employees,None,"Lead management, Follow-up tracking",yes,Interested in comprehensive training program\n' +
+      'Apex Roofing Solutions,Jane Doe,(555) 987-6543,jane@apexroofing.com,lead,60,299,referral,51-200 employees,HubSpot,"Team training, Sales process",no,Needs approval from owner';
 
     const blob = new Blob([template], { type: 'text/csv' });
     const url = window.URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = 'leads_import_template.csv';
+    a.download = 'prospects_import_template.csv';
     a.click();
     window.URL.revokeObjectURL(url);
     toast.success('Template downloaded');
@@ -622,9 +518,6 @@ export const ImportLeadsModal: React.FC<ImportLeadsModalProps> = ({ isOpen, onCl
             <p className="text-sm text-blue-700 mt-1">
               Match your CSV columns to lead fields. Name and Phone are required.
               Found {csvData.length} rows to import.
-              {teamMembers && teamMembers.filter(m => m.employment_status === 'active').length > 0 && (
-                <> Leads will be distributed evenly among {teamMembers.filter(m => m.employment_status === 'active').length} active team members.</>
-              )}
             </p>
           </div>
         </div>
