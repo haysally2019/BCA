@@ -157,15 +157,15 @@ export const ImportLeadsModal: React.FC<ImportLeadsModalProps> = ({ isOpen, onCl
   const detectFieldMapping = (header: string): string | null => {
     const normalized = header.toLowerCase().trim();
 
-    // Map to actual leads table fields only
-    if (normalized.includes('name')) return 'name';
+    // Map to actual leads table fields only - be specific to avoid duplicates
+    if (normalized.includes('roof') && normalized.includes('type')) return 'roof_type';
+    if (normalized === 'name' || normalized === 'contact name' || normalized === 'lead name') return 'name';
     if (normalized.includes('phone') || normalized.includes('mobile') || normalized.includes('tel')) return 'phone';
     if (normalized.includes('email') || normalized.includes('e-mail')) return 'email';
     if (normalized.includes('address') || normalized.includes('location')) return 'address';
     if (normalized.includes('status')) return 'status';
     if (normalized.includes('score') || normalized.includes('rating') || normalized.includes('probability')) return 'score';
     if (normalized.includes('value') || normalized.includes('estimate') || normalized.includes('price') || normalized.includes('deal')) return 'estimated_value';
-    if (normalized.includes('roof') || normalized.includes('type')) return 'roof_type';
     if (normalized.includes('source') || normalized.includes('origin')) return 'source';
     if (normalized.includes('note')) return 'notes';
 
@@ -182,6 +182,9 @@ export const ImportLeadsModal: React.FC<ImportLeadsModalProps> = ({ isOpen, onCl
     const mappedFields = columns.map(c => c.mappedField).filter(Boolean);
     const requiredFields = ['name', 'phone'];
 
+    console.log('[ImportLeads] Columns:', columns);
+    console.log('[ImportLeads] Mapped fields:', mappedFields);
+
     const missingFields = requiredFields.filter(field => !mappedFields.includes(field));
 
     if (missingFields.length > 0) {
@@ -194,7 +197,9 @@ export const ImportLeadsModal: React.FC<ImportLeadsModalProps> = ({ isOpen, onCl
     );
 
     if (duplicates.length > 0) {
-      toast.error('Each field can only be mapped once');
+      console.log('[ImportLeads] Duplicate fields detected:', duplicates);
+      console.log('[ImportLeads] All mapped fields:', mappedFields);
+      toast.error(`Each field can only be mapped once. Duplicates: ${[...new Set(duplicates)].join(', ')}`);
       return false;
     }
 
