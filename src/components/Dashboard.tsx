@@ -144,7 +144,6 @@ const Dashboard: React.FC = () => {
               onClick={copyAffiliateUrl}
               className="flex-shrink-0 p-2 hover:bg-gray-100 rounded-md transition-colors"
               title="Copy to clipboard"
-              aria-label="Copy affiliate URL to clipboard"
             >
               {copied ? (
                 <CheckCheck className="w-5 h-5 text-green-600" />
@@ -189,7 +188,6 @@ const Dashboard: React.FC = () => {
               onClick={copyAffiliateUrl}
               className="flex-shrink-0 p-2 hover:bg-gray-100 rounded-md transition-colors"
               title="Copy to clipboard"
-              aria-label="Copy affiliate URL to clipboard"
             >
               {copied ? (
                 <CheckCheck className="w-5 h-5 text-green-600" />
@@ -264,13 +262,10 @@ const Dashboard: React.FC = () => {
           <p className="text-xs sm:text-sm lg:text-base text-gray-600 mt-0.5 sm:mt-1">Welcome back! Here's what's happening with your roofing business.</p>
         </div>
         <div className="flex items-center space-x-2">
-          <label htmlFor="dashboard-time-range" className="sr-only">Select time range</label>
           <select
-            id="dashboard-time-range"
             value={timeRange}
             onChange={(e) => setTimeRange(e.target.value)}
             className="border border-gray-300 rounded-lg px-2.5 py-1.5 text-xs sm:text-sm focus:ring-2 focus:ring-red-500 focus:border-red-500 touch-manipulation"
-            aria-label="Select time range for dashboard data"
           >
             <option value="7d">Last 7 days</option>
             <option value="30d">Last 30 days</option>
@@ -349,7 +344,6 @@ const Dashboard: React.FC = () => {
               onClick={handleRefreshProfile}
               disabled={refreshing}
               className="flex items-center gap-1 px-2 py-1 bg-yellow-200 hover:bg-yellow-300 rounded text-xs font-medium disabled:opacity-50"
-              aria-label="Refresh profile data"
             >
               <RefreshCw className={`w-3 h-3 ${refreshing ? 'animate-spin' : ''}`} />
               Refresh
@@ -419,7 +413,6 @@ const Dashboard: React.FC = () => {
                 }
               }}
               className="px-3 py-1.5 bg-orange-600 text-white rounded-md text-xs font-medium hover:bg-orange-700 transition-colors"
-              aria-label="Create my affiliate account"
             >
               Create My Affiliate Account
             </button>

@@ -41,19 +41,16 @@ interface AuthState {
   silentSessionRefresh: () => Promise<void>;
 }
 
-const createMockProfile = (user: User, name?: string): Profile => {
-  console.warn('[AuthStore] Creating mock profile - this should be replaced with real profile ASAP');
-  return {
-    id: user.id,
-    user_id: user.id,
-    company_name: name || user.email?.split('@')[0] || 'User',
-    full_name: name || user.email?.split('@')[0] || 'User',
-    company_email: user.email,
-    subscription_plan: 'professional',
-    created_at: new Date().toISOString(),
-    updated_at: new Date().toISOString()
-  };
-};
+const createMockProfile = (user: User, name?: string): Profile => ({
+  id: user.id,
+  user_id: user.id,
+  company_name: name || user.email?.split('@')[0] || 'User',
+  full_name: name || user.email?.split('@')[0] || 'User',
+  company_email: user.email,
+  subscription_plan: 'professional',
+  created_at: new Date().toISOString(),
+  updated_at: new Date().toISOString()
+});
 
 export const useAuthStore = create<AuthState>((set, get) => ({
   user: null,
@@ -71,9 +68,11 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       if (error) throw error;
 
       if (data.user) {
-        console.log('[AuthStore] User authenticated, fetching real profile...');
-        set({ user: data.user, profile: null, loading: true });
+        // Create mock profile for immediate use
+        const mockProfile = createMockProfile(data.user);
+        set({ user: data.user, profile: mockProfile });
 
+        // Try to fetch real profile in background
         try {
           const { data: profile, error: profileError } = await supabase
             .from('profiles')
@@ -82,27 +81,20 @@ export const useAuthStore = create<AuthState>((set, get) => ({
             .maybeSingle();
 
           if (profileError) {
-            console.error('[AuthStore] Error fetching profile:', profileError);
             throw profileError;
           }
 
           if (profile) {
-            console.log('[AuthStore] Real profile loaded successfully:', {
+            console.log('[AuthStore] Real profile loaded:', {
               id: profile.id,
-              user_id: profile.user_id,
-              company_name: profile.company_name,
-              affiliatewp_id: profile.affiliatewp_id
+              affiliatewp_id: profile.affiliatewp_id,
+              affiliate_referral_url: profile.affiliate_referral_url
             });
-            set({ profile, loading: false });
-          } else {
-            console.error('[AuthStore] No profile found for user:', data.user.id);
-            const mockProfile = createMockProfile(data.user);
-            set({ profile: mockProfile, loading: false });
+            set({ profile });
           }
         } catch (profileError) {
-          console.error('[AuthStore] Exception loading profile, using mock:', profileError);
-          const mockProfile = createMockProfile(data.user);
-          set({ profile: mockProfile, loading: false });
+          // Using mock profile as fallback
+          console.log('[AuthStore] Using mock profile as fallback');
         }
       }
     } catch (error) {

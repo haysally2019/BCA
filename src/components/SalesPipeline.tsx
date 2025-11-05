@@ -131,13 +131,10 @@ const SalesPipeline: React.FC = () => {
           <h1 className="text-3xl font-bold text-gray-900">Training Pipeline</h1>
           <p className="text-gray-600 mt-1">Track prospects through your training enrollment process</p>
         </div>
-        <label htmlFor="time-range" className="sr-only">Select time range</label>
         <select
-          id="time-range"
           value={timeRange}
           onChange={(e) => setTimeRange(e.target.value)}
           className="border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-academy-blue-500 focus:border-academy-blue-500"
-          aria-label="Select time range for pipeline data"
         >
           <option value="current_quarter">Current Quarter</option>
           <option value="next_quarter">Next Quarter</option>
@@ -223,13 +220,12 @@ const SalesPipeline: React.FC = () => {
       <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-100">
         <div className="flex items-center justify-between mb-6">
           <h3 className="text-lg font-semibold text-gray-900">Pipeline View</h3>
-          <div className="flex items-center bg-gray-100 rounded-lg p-1" role="group" aria-label="View mode">
+          <div className="flex items-center bg-gray-100 rounded-lg p-1">
             <button
               onClick={() => setViewMode('pipeline')}
               className={`px-3 py-2 rounded text-sm font-medium transition-colors ${
                 viewMode === 'pipeline' ? 'bg-white shadow-sm text-gray-900' : 'text-gray-600'
               }`}
-              aria-pressed={viewMode === 'pipeline'}
             >
               Pipeline
             </button>
@@ -238,7 +234,6 @@ const SalesPipeline: React.FC = () => {
               className={`px-3 py-2 rounded text-sm font-medium transition-colors ${
                 viewMode === 'kanban' ? 'bg-white shadow-sm text-gray-900' : 'text-gray-600'
               }`}
-              aria-pressed={viewMode === 'kanban'}
             >
               Kanban
             </button>
@@ -247,7 +242,6 @@ const SalesPipeline: React.FC = () => {
               className={`px-3 py-2 rounded text-sm font-medium transition-colors ${
                 viewMode === 'list' ? 'bg-white shadow-sm text-gray-900' : 'text-gray-600'
               }`}
-              aria-pressed={viewMode === 'list'}
             >
               List
             </button>

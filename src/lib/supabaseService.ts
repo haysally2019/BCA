@@ -227,63 +227,18 @@ export interface Profile {
 
 export const supabaseService = {
   // LEAD MANAGEMENT
-  async getLeads(profileId: string): Promise<Lead[]> {
+  async getLeads(companyId: string): Promise<Lead[]> {
     try {
-      console.log('[supabaseService] Fetching leads for profile_id:', profileId);
+      const { data, error } = await supabase
+        .from('leads')
+        .select('*')
+        .eq('company_id', companyId)
+        .order('created_at', { ascending: false });
 
-      // Get the user's profile to determine role
-      const { data: profile } = await supabase
-        .from('profiles')
-        .select('id, user_role, company_name')
-        .eq('id', profileId)
-        .single();
-
-      if (!profile) {
-        console.error('[supabaseService] Profile not found');
-        return [];
-      }
-
-      console.log('[supabaseService] User role:', profile.user_role);
-
-      let leads: Lead[] = [];
-
-      // For managers: get all leads where company_id matches their profile
-      if (profile.user_role === 'manager' || profile.user_role === 'admin') {
-        console.log('[supabaseService] Fetching leads by company_id for manager');
-        const { data, error } = await supabase
-          .from('leads')
-          .select('*')
-          .eq('company_id', profileId)
-          .order('created_at', { ascending: false });
-
-        if (error) {
-          console.error('[supabaseService] Error fetching manager leads:', error);
-          throw error;
-        }
-
-        leads = data || [];
-        console.log('[supabaseService] ✓ Fetched', leads.length, 'leads for manager');
-      } else {
-        // For sales reps: get leads assigned to them
-        console.log('[supabaseService] Fetching leads by assigned_rep_id for sales rep');
-        const { data, error } = await supabase
-          .from('leads')
-          .select('*')
-          .eq('assigned_rep_id', profileId)
-          .order('created_at', { ascending: false });
-
-        if (error) {
-          console.error('[supabaseService] Error fetching rep leads:', error);
-          throw error;
-        }
-
-        leads = data || [];
-        console.log('[supabaseService] ✓ Fetched', leads.length, 'leads for sales rep');
-      }
-
-      return leads;
+      if (error) throw error;
+      return data || [];
     } catch (error) {
-      console.error('[supabaseService] Error in getLeads:', error);
+      console.error('Error fetching leads:', error);
       return [];
     }
   },
