@@ -229,16 +229,23 @@ export const supabaseService = {
   // LEAD MANAGEMENT
   async getLeads(companyId: string): Promise<Lead[]> {
     try {
+      console.log('[supabaseService] Fetching leads for company_id:', companyId);
+
       const { data, error } = await supabase
         .from('leads')
         .select('*')
         .eq('company_id', companyId)
         .order('created_at', { ascending: false });
 
-      if (error) throw error;
+      if (error) {
+        console.error('[supabaseService] Error fetching leads:', error);
+        throw error;
+      }
+
+      console.log('[supabaseService] Successfully fetched', data?.length || 0, 'leads');
       return data || [];
     } catch (error) {
-      console.error('Error fetching leads:', error);
+      console.error('[supabaseService] Exception fetching leads:', error);
       return [];
     }
   },

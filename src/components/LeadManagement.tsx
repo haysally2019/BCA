@@ -80,14 +80,26 @@ const LeadManagement: React.FC = () => {
 
   const loadLeads = async () => {
     if (!profile) {
+      console.log('[LeadManagement] Cannot load leads - no profile');
       return;
     }
 
+    console.log('[LeadManagement] Loading leads for profile:', {
+      id: profile.id,
+      company_name: profile.company_name,
+      user_id: profile.user_id
+    });
+
     try {
       const companyLeads = await supabaseService.getLeads(profile.id);
+      console.log('[LeadManagement] Loaded', companyLeads.length, 'leads');
       setLeads(companyLeads);
+
+      if (companyLeads.length === 0) {
+        console.warn('[LeadManagement] No leads found for this profile');
+      }
     } catch (error) {
-      console.error('Error loading leads:', error);
+      console.error('[LeadManagement] Error loading leads:', error);
       toast.error('Error loading leads');
     }
   };
