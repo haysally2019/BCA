@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Search, Filter, Plus, MapPin, Star, Users, DollarSign, Tag, Upload, MoreVertical, CheckCircle, AlertCircle, TrendingUp, Calendar, CreditCard as Edit3, Trash2, Eye, Phone, Mail, ArrowRight, ThumbsUp, FileText, Trophy, X, RefreshCw } from 'lucide-react';
 import { supabaseService } from '../lib/supabaseService';
 import { supabase } from '../lib/supabaseClient';
+import { teamService } from '../lib/teamService';
 import { useAuthStore } from '../store/authStore';
 import BaseModal from './modals/BaseModal';
 import ConfirmationModal from './modals/ConfirmationModal';
@@ -55,11 +56,13 @@ const LeadManagement: React.FC = () => {
   const [showImportModal, setShowImportModal] = useState(false);
   const [leadToDelete, setLeadToDelete] = useState<Lead | null>(null);
   const [statusDropdownOpen, setStatusDropdownOpen] = useState<string | null>(null);
+  const [teamMembers, setTeamMembers] = useState<any[]>([]);
   const { profile } = useAuthStore();
 
   useEffect(() => {
     if (profile) {
       loadLeads();
+      loadTeamMembers();
     }
   }, [profile]);
 
@@ -78,6 +81,18 @@ const LeadManagement: React.FC = () => {
       };
     }
   }, [statusDropdownOpen]);
+
+  const loadTeamMembers = async () => {
+    if (!profile) return;
+
+    try {
+      const members = await teamService.getTeamMembers(profile.id);
+      setTeamMembers(members);
+      console.log('[LeadManagement] Loaded team members:', members.length);
+    } catch (error) {
+      console.error('[LeadManagement] Error loading team members:', error);
+    }
+  };
 
   const loadLeads = async () => {
     if (!profile) {
@@ -1293,6 +1308,9 @@ const LeadManagement: React.FC = () => {
           isOpen={showImportModal}
           onClose={() => setShowImportModal(false)}
           onImport={handleImportLeads}
+          managerId={profile?.id}
+          teamMembers={teamMembers}
+          onSuccess={loadLeads}
         />
       )}
     </div>
