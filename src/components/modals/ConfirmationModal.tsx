@@ -53,22 +53,23 @@ const ConfirmationModal: React.FC<ConfirmationModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50" role="dialog" aria-modal="true" aria-labelledby="confirmation-title" aria-describedby="confirmation-message">
       <div className="bg-white rounded-xl p-6 max-w-md w-full mx-4 shadow-2xl">
         <div className="flex items-center justify-between mb-4">
           <div className="flex items-center space-x-3">
             {getIcon()}
-            <h3 className="text-lg font-semibold text-gray-900">{title}</h3>
+            <h3 id="confirmation-title" className="text-lg font-semibold text-gray-900">{title}</h3>
           </div>
           <button
             onClick={onClose}
             className="text-gray-400 hover:text-gray-600 transition-colors"
+            aria-label="Close confirmation dialog"
           >
             <X className="w-5 h-5" />
           </button>
         </div>
 
-        <p className="text-gray-600 mb-6">{message}</p>
+        <p id="confirmation-message" className="text-gray-600 mb-6">{message}</p>
 
         <div className="flex space-x-3">
           <button

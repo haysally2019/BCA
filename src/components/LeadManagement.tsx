@@ -585,21 +585,27 @@ const LeadManagement: React.FC = () => {
         <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between space-y-3 lg:space-y-0">
           <div className="flex flex-col sm:flex-row sm:items-center space-y-2 sm:space-y-0 sm:space-x-3">
             <div className="relative flex-1 w-full sm:min-w-64">
-              <Search className="absolute left-2.5 top-1/2 transform -translate-y-1/2 text-gray-400 w-3.5 h-3.5 sm:w-4 sm:h-4" />
+              <Search className="absolute left-2.5 top-1/2 transform -translate-y-1/2 text-gray-400 w-3.5 h-3.5 sm:w-4 sm:h-4" aria-hidden="true" />
+              <label htmlFor="lead-search" className="sr-only">Search leads</label>
               <input
+                id="lead-search"
                 type="text"
                 placeholder="Search leads..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
                 className="w-full pl-9 pr-3 py-1.5 sm:py-2 text-xs sm:text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-700 focus:border-red-700 transition-all duration-200 touch-manipulation"
+                aria-label="Search leads by name, email, phone, or address"
               />
             </div>
             <div className="flex items-center space-x-2">
-              <Filter className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-gray-400 hidden sm:block" />
+              <Filter className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-gray-400 hidden sm:block" aria-hidden="true" />
+              <label htmlFor="filter-status" className="sr-only">Filter by status</label>
               <select
+                id="filter-status"
                 value={filterStatus}
                 onChange={(e) => setFilterStatus(e.target.value)}
                 className="flex-1 sm:flex-none border border-gray-300 rounded-lg px-2 py-1.5 text-xs sm:text-sm focus:ring-2 focus:ring-red-700 focus:border-red-700 transition-all duration-200 touch-manipulation"
+                aria-label="Filter leads by status"
               >
                 <option value="all">All Status</option>
                 <option value="new">New</option>
@@ -608,10 +614,13 @@ const LeadManagement: React.FC = () => {
                 <option value="won">Won</option>
                 <option value="lost">Lost</option>
               </select>
+              <label htmlFor="filter-source" className="sr-only">Filter by source</label>
               <select
+                id="filter-source"
                 value={filterSource}
                 onChange={(e) => setFilterSource(e.target.value)}
                 className="flex-1 sm:flex-none border border-gray-300 rounded-lg px-2 py-1.5 text-xs sm:text-sm focus:ring-2 focus:ring-red-700 focus:border-red-700 transition-all duration-200 touch-manipulation"
+                aria-label="Filter leads by source"
               >
                 <option value="all">All Sources</option>
                 <option value="website">Website</option>
@@ -624,10 +633,13 @@ const LeadManagement: React.FC = () => {
           </div>
 
           <div className="flex items-center space-x-2">
+            <label htmlFor="sort-leads" className="sr-only">Sort leads by</label>
             <select
+              id="sort-leads"
               value={sortBy}
               onChange={(e) => setSortBy(e.target.value)}
               className="flex-1 sm:flex-none border border-gray-300 rounded-lg px-2 py-1.5 text-xs sm:text-sm focus:ring-2 focus:ring-red-700 focus:border-red-700 transition-all duration-200 touch-manipulation"
+              aria-label="Sort leads"
             >
               <option value="created_at">Sort by Date</option>
               <option value="name">Sort by Name</option>
@@ -638,6 +650,8 @@ const LeadManagement: React.FC = () => {
               <button
                 onClick={() => setViewMode('grid')}
                 className={`p-1.5 sm:p-2 rounded touch-manipulation ${viewMode === 'grid' ? 'bg-white shadow-sm' : ''}`}
+                aria-label="Switch to grid view"
+                aria-pressed={viewMode === 'grid'}
               >
                 <div className="w-3.5 h-3.5 sm:w-4 sm:h-4 grid grid-cols-2 gap-0.5">
                   <div className="bg-gray-400 rounded-sm"></div>
@@ -649,6 +663,8 @@ const LeadManagement: React.FC = () => {
               <button
                 onClick={() => setViewMode('list')}
                 className={`p-1.5 sm:p-2 rounded touch-manipulation ${viewMode === 'list' ? 'bg-white shadow-sm' : ''}`}
+                aria-label="Switch to list view"
+                aria-pressed={viewMode === 'list'}
               >
                 <div className="w-3.5 h-3.5 sm:w-4 sm:h-4 flex flex-col space-y-1">
                   <div className="bg-gray-400 h-0.5 rounded"></div>
@@ -714,7 +730,7 @@ const LeadManagement: React.FC = () => {
                     <Star className="w-2.5 h-2.5 sm:w-3 sm:h-3" />
                     <span className="text-xs font-medium">{lead.score}</span>
                   </div>
-                  <button className="p-1 text-gray-400 hover:text-gray-600 touch-manipulation">
+                  <button className="p-1 text-gray-400 hover:text-gray-600 touch-manipulation" aria-label="More actions">
                     <MoreVertical className="w-4 h-4" />
                   </button>
                 </div>
@@ -756,6 +772,9 @@ const LeadManagement: React.FC = () => {
                         onClick={() => setStatusDropdownOpen(statusDropdownOpen === lead.id ? null : lead.id)}
                         className="flex items-center space-x-1 px-2 py-1 text-xs font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors touch-manipulation"
                         title="Update Stage"
+                        aria-label="Update lead status"
+                        aria-expanded={statusDropdownOpen === lead.id}
+                        aria-haspopup="true"
                       >
                         <RefreshCw className="w-3 h-3" />
                         <span className="hidden sm:inline">Update</span>
@@ -1083,6 +1102,7 @@ const LeadManagement: React.FC = () => {
                               onClick={() => handleLeadAction(lead.id, 'won')}
                               className="text-emerald-600 hover:text-emerald-900 font-semibold"
                               title="Mark as WON"
+                              aria-label="Mark lead as won"
                             >
                               <Trophy className="w-5 h-5" />
                             </button>
@@ -1090,6 +1110,7 @@ const LeadManagement: React.FC = () => {
                               onClick={() => handleLeadAction(lead.id, 'lost')}
                               className="text-gray-500 hover:text-gray-700"
                               title="Mark as LOST"
+                              aria-label="Mark lead as lost"
                             >
                               <X className="w-5 h-5" />
                             </button>
@@ -1100,6 +1121,7 @@ const LeadManagement: React.FC = () => {
                           onClick={() => handleLeadAction(lead.id, 'view')}
                           className="text-blue-600 hover:text-blue-900"
                           title="View Details"
+                          aria-label="View lead details"
                         >
                           <Eye className="w-4 h-4" />
                         </button>
@@ -1107,6 +1129,7 @@ const LeadManagement: React.FC = () => {
                           onClick={() => handleLeadAction(lead.id, 'call')}
                           className="text-green-600 hover:text-green-900"
                           title="Call Lead"
+                          aria-label="Call lead"
                         >
                           <Phone className="w-4 h-4" />
                         </button>
@@ -1114,6 +1137,7 @@ const LeadManagement: React.FC = () => {
                           onClick={() => handleLeadAction(lead.id, 'email')}
                           className="text-purple-600 hover:text-purple-900"
                           title="Email Lead"
+                          aria-label="Email lead"
                         >
                           <Mail className="w-4 h-4" />
                         </button>
@@ -1121,6 +1145,7 @@ const LeadManagement: React.FC = () => {
                           onClick={() => handleLeadAction(lead.id, 'schedule')}
                           className="text-green-600 hover:text-green-900"
                           title="Schedule Appointment"
+                          aria-label="Schedule appointment"
                         >
                           <Calendar className="w-4 h-4" />
                         </button>
@@ -1128,6 +1153,7 @@ const LeadManagement: React.FC = () => {
                           onClick={() => handleLeadAction(lead.id, 'edit')}
                           className="text-gray-600 hover:text-gray-900"
                           title="Edit Lead"
+                          aria-label="Edit lead"
                         >
                           <Edit3 className="w-4 h-4" />
                         </button>

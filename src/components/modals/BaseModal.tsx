@@ -64,17 +64,18 @@ const BaseModal: React.FC<BaseModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-end sm:items-center justify-center z-50 sm:p-4">
+    <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-end sm:items-center justify-center z-50 sm:p-4" role="dialog" aria-modal="true" aria-labelledby="modal-title">
       <div
         className={`bg-white rounded-t-2xl sm:rounded-xl shadow-2xl w-full ${getSizeClasses()} max-h-[92vh] sm:max-h-[90vh] overflow-y-auto`}
         onClick={(e) => e.stopPropagation()}
       >
         <div className="p-3.5 sm:p-5 lg:p-6 border-b border-gray-100 flex items-center justify-between sticky top-0 bg-white z-10">
-          <h3 className="text-base sm:text-lg font-semibold text-gray-900">{title}</h3>
+          <h3 id="modal-title" className="text-base sm:text-lg font-semibold text-gray-900">{title}</h3>
           {showCloseButton && (
             <button
               onClick={onClose}
               className="text-gray-400 hover:text-gray-600 transition-colors p-2.5 -mr-2 touch-manipulation"
+              aria-label="Close modal"
             >
               <X className="w-5 h-5" />
             </button>

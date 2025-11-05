@@ -112,6 +112,7 @@ const MobileNav: React.FC<MobileNavProps> = ({ isOpen, onClose }) => {
         <div
           className="fixed inset-0 bg-black/40 z-40 md:hidden backdrop-blur-sm transition-opacity duration-300"
           onClick={onClose}
+          aria-hidden="true"
         />
       )}
 
@@ -134,6 +135,7 @@ const MobileNav: React.FC<MobileNavProps> = ({ isOpen, onClose }) => {
             <button
               onClick={onClose}
               className="p-2.5 hover:bg-gray-100 rounded-lg transition-colors touch-manipulation"
+              aria-label="Close navigation menu"
             >
               <X className="w-5 h-5 text-gray-600" />
             </button>

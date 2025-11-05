@@ -468,21 +468,27 @@ const ProspectsManager: React.FC = () => {
         <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between space-y-4 lg:space-y-0">
           <div className="flex flex-col sm:flex-row sm:items-center space-y-3 sm:space-y-0 sm:space-x-4">
             <div className="relative flex-1 min-w-64">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" aria-hidden="true" />
+              <label htmlFor="prospect-search" className="sr-only">Search prospects</label>
               <input
+                id="prospect-search"
                 type="text"
                 placeholder="Search prospects..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
                 className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500"
+                aria-label="Search prospects by company name, contact name, or email"
               />
             </div>
             <div className="flex items-center space-x-3">
-              <Filter className="w-4 h-4 text-gray-400" />
+              <Filter className="w-4 h-4 text-gray-400" aria-hidden="true" />
+              <label htmlFor="filter-prospect-status" className="sr-only">Filter by status</label>
               <select
+                id="filter-prospect-status"
                 value={filterStatus}
                 onChange={(e) => setFilterStatus(e.target.value)}
                 className="border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-academy-blue-500 focus:border-academy-blue-500"
+                aria-label="Filter prospects by status"
               >
                 <option value="all">All Status</option>
                 <option value="lead">Lead</option>
@@ -492,10 +498,13 @@ const ProspectsManager: React.FC = () => {
                 <option value="closed_won">Closed Won</option>
                 <option value="closed_lost">Closed Lost</option>
               </select>
+              <label htmlFor="filter-prospect-rep" className="sr-only">Filter by sales rep</label>
               <select
+                id="filter-prospect-rep"
                 value={filterRep}
                 onChange={(e) => setFilterRep(e.target.value)}
                 className="border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-academy-blue-500 focus:border-academy-blue-500"
+                aria-label="Filter prospects by sales rep"
               >
                 <option value="all">All Reps</option>
               </select>
@@ -503,22 +512,25 @@ const ProspectsManager: React.FC = () => {
           </div>
           
           <div className="flex items-center space-x-3">
-            <div className="flex items-center bg-gray-100 rounded-lg p-1">
+            <div className="flex items-center bg-gray-100 rounded-lg p-1" role="group" aria-label="View mode">
               <button
                 onClick={() => setViewMode('grid')}
                 className={`px-3 py-2 rounded text-sm font-medium transition-colors ${viewMode === 'grid' ? 'bg-white shadow-sm text-gray-900' : 'text-gray-600 hover:text-gray-900'}`}
+                aria-pressed={viewMode === 'grid'}
               >
                 Grid
               </button>
               <button
                 onClick={() => setViewMode('list')}
                 className={`px-3 py-2 rounded text-sm font-medium transition-colors ${viewMode === 'list' ? 'bg-white shadow-sm text-gray-900' : 'text-gray-600 hover:text-gray-900'}`}
+                aria-pressed={viewMode === 'list'}
               >
                 List
               </button>
               <button
                 onClick={() => setViewMode('pipeline')}
                 className={`px-3 py-2 rounded text-sm font-medium transition-colors ${viewMode === 'pipeline' ? 'bg-white shadow-sm text-gray-900' : 'text-gray-600 hover:text-gray-900'}`}
+                aria-pressed={viewMode === 'pipeline'}
               >
                 <Target className="w-4 h-4 inline mr-1" />
                 Pipeline
@@ -572,6 +584,9 @@ const ProspectsManager: React.FC = () => {
                           <button
                             onClick={() => setOpenMenuId(openMenuId === prospect.id ? null : prospect.id)}
                             className="p-1 text-gray-400 hover:text-gray-600"
+                            aria-label="More actions"
+                            aria-expanded={openMenuId === prospect.id}
+                            aria-haspopup="true"
                           >
                             <MoreVertical className="w-4 h-4" />
                           </button>
