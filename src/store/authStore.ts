@@ -41,20 +41,6 @@ interface AuthState {
   silentSessionRefresh: () => Promise<void>;
 }
 
-const createMockProfile = (user: User, name?: string): Profile => {
-  console.warn('[AuthStore] Creating mock profile - this should be replaced with real profile ASAP');
-  return {
-    id: user.id,
-    user_id: user.id,
-    company_name: name || user.email?.split('@')[0] || 'User',
-    full_name: name || user.email?.split('@')[0] || 'User',
-    company_email: user.email,
-    subscription_plan: 'professional',
-    created_at: new Date().toISOString(),
-    updated_at: new Date().toISOString()
-  };
-};
-
 export const useAuthStore = create<AuthState>((set, get) => ({
   user: null,
   profile: null,
@@ -72,7 +58,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
 
       if (data.user) {
         console.log('[AuthStore] User authenticated, fetching real profile...');
-        set({ user: data.user, profile: null, loading: true });
+        set({ user: data.user, loading: true });
 
         try {
           const { data: profile, error: profileError } = await supabase
@@ -96,13 +82,11 @@ export const useAuthStore = create<AuthState>((set, get) => ({
             set({ profile, loading: false });
           } else {
             console.error('[AuthStore] No profile found for user:', data.user.id);
-            const mockProfile = createMockProfile(data.user);
-            set({ profile: mockProfile, loading: false });
+            set({ profile: null, loading: false });
           }
         } catch (profileError) {
-          console.error('[AuthStore] Exception loading profile, using mock:', profileError);
-          const mockProfile = createMockProfile(data.user);
-          set({ profile: mockProfile, loading: false });
+          console.error('[AuthStore] Exception loading profile:', profileError);
+          set({ profile: null, loading: false });
         }
       }
     } catch (error) {
@@ -128,8 +112,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       if (data.user) {
         console.log('[AuthStore] User created successfully:', data.user.id);
 
-        const mockProfile = createMockProfile(data.user, name);
-        set({ user: data.user, profile: mockProfile });
+        set({ user: data.user, profile: null });
 
         let profileCreated = false;
         let retryCount = 0;
@@ -179,8 +162,9 @@ export const useAuthStore = create<AuthState>((set, get) => ({
 
         if (!profileCreated) {
           console.error('[AuthStore] WARNING: Profile not found after all retries, but user is created');
-          console.log('[AuthStore] User can still access the app with mock profile');
+          console.log('[AuthStore] User will need to complete profile setup');
           console.log('[AuthStore] AffiliateWP account creation will be queued automatically');
+          set({ profile: null, loading: false });
         }
       }
     } catch (error) {
@@ -246,8 +230,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         }
 
         if (session?.user) {
-          const mockProfile = createMockProfile(session.user);
-          set({ user: session.user, profile: mockProfile, loading: false, initialized: true });
+          set({ user: session.user, profile: null, loading: false, initialized: true });
 
           try {
             const { data: profile, error: profileError } = await supabase
@@ -265,7 +248,8 @@ export const useAuthStore = create<AuthState>((set, get) => ({
               set({ profile, initialized: true });
             }
           } catch (profileError) {
-            console.log('[AuthStore] Using mock profile as fallback');
+            console.log('[AuthStore] Profile not found, user will need to complete setup');
+            set({ profile: null });
           }
         } else {
           set({ user: null, profile: null, loading: false, initialized: true });
@@ -285,7 +269,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
               if (currentProfile?.user_id === session.user.id) {
                 set({ user: session.user });
               } else {
-                set({ user: session.user, profile: createMockProfile(session.user) });
+                set({ user: session.user, profile: null });
 
                 try {
                   const { data: profile, error: profileError } = await supabase
@@ -298,7 +282,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
                     set({ profile });
                   }
                 } catch (error) {
-                  console.log('[AuthStore] Error fetching profile after token refresh');
+                  console.log('[AuthStore] Error fetching profile after token refresh, profile remains null');
                 }
               }
             } else {
@@ -323,15 +307,14 @@ export const useAuthStore = create<AuthState>((set, get) => ({
                   set({ profile });
                 }
               } catch (error) {
-                console.log('[AuthStore] Error refreshing profile after USER_UPDATED');
+                console.log('[AuthStore] Error refreshing profile after USER_UPDATED, profile remains null');
               }
             }
             return;
           }
 
           if (session?.user) {
-            const mockProfile = createMockProfile(session.user);
-            set({ user: session.user, profile: mockProfile });
+            set({ user: session.user, profile: null });
 
             try {
               const { data: profile, error: profileError } = await supabase
@@ -344,7 +327,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
                 set({ profile });
               }
             } catch (error) {
-              console.log('[AuthStore] Using mock profile due to database error');
+              console.log('[AuthStore] Database error fetching profile, profile remains null');
             }
           } else {
             set({ user: null, profile: null });
