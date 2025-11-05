@@ -117,7 +117,19 @@ export const ManagerImportLeadsModal: React.FC<ManagerImportLeadsModalProps> = (
           sampleData: dataRows[0]?.[index] || '',
         }));
 
-        setColumns(detectedColumns);
+        // Remove duplicate mappings - keep only the first occurrence of each field
+        const seenFields = new Set<string>();
+        const cleanedColumns = detectedColumns.map(col => {
+          if (col.mappedField && seenFields.has(col.mappedField)) {
+            return { ...col, mappedField: null };
+          }
+          if (col.mappedField) {
+            seenFields.add(col.mappedField);
+          }
+          return col;
+        });
+
+        setColumns(cleanedColumns);
         setCsvData(dataRows);
         setStep('mapping');
         toast.success(`CSV file loaded successfully with ${dataRows.length} row${dataRows.length > 1 ? 's' : ''}`);
@@ -186,9 +198,20 @@ export const ManagerImportLeadsModal: React.FC<ManagerImportLeadsModalProps> = (
   };
 
   const handleFieldMappingChange = (columnIndex: number, field: string) => {
-    setColumns(prev => prev.map((col, idx) =>
-      idx === columnIndex ? { ...col, mappedField: field || null } : col
-    ));
+    setColumns(prev => {
+      // If selecting a field that's already mapped elsewhere, clear the old mapping
+      const newColumns = prev.map((col, idx) => {
+        if (idx === columnIndex) {
+          return { ...col, mappedField: field || null };
+        }
+        // Clear any other column that has the same field mapped
+        if (field && col.mappedField === field) {
+          return { ...col, mappedField: null };
+        }
+        return col;
+      });
+      return newColumns;
+    });
   };
 
   const validateMapping = (): boolean => {
@@ -202,12 +225,20 @@ export const ManagerImportLeadsModal: React.FC<ManagerImportLeadsModalProps> = (
       return false;
     }
 
-    const duplicates = mappedFields.filter((field, idx) =>
-      field && mappedFields.indexOf(field) !== idx
-    );
+    // Check for duplicates with better error message
+    const fieldCount = new Map<string, number>();
+    mappedFields.forEach(field => {
+      if (field) {
+        fieldCount.set(field, (fieldCount.get(field) || 0) + 1);
+      }
+    });
 
-    if (duplicates.length > 0) {
-      toast.error('Each field can only be mapped once');
+    const duplicatedFields = Array.from(fieldCount.entries())
+      .filter(([_, count]) => count > 1)
+      .map(([field, _]) => field);
+
+    if (duplicatedFields.length > 0) {
+      toast.error(`Duplicate field mappings found: ${duplicatedFields.join(', ')}. Each field can only be mapped once.`);
       return false;
     }
 
