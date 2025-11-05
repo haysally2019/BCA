@@ -23,7 +23,7 @@ const ProspectsManager: React.FC = () => {
   const [prospectToEdit, setProspectToEdit] = useState<Prospect | null>(null);
   const [showEditModal, setShowEditModal] = useState(false);
   const { profile } = useAuthStore();
-  const { prospects, loadDashboardData } = useDataStore();
+  const { prospects, loadDashboardData, loadMoreProspects, prospectsLoadingMore, hasMoreProspects } = useDataStore();
 
   useEffect(() => {
     console.log('[ProspectsManager] showAddModal state changed:', showAddModal);
@@ -34,6 +34,23 @@ const ProspectsManager: React.FC = () => {
       loadDashboardData(profile.id);
     }
   }, [profile?.id]);
+
+  // Infinite scroll handler
+  useEffect(() => {
+    const handleScroll = () => {
+      if (!profile || prospectsLoadingMore || !hasMoreProspects) return;
+
+      const scrollPosition = window.innerHeight + window.scrollY;
+      const threshold = document.documentElement.scrollHeight - 500;
+
+      if (scrollPosition >= threshold) {
+        loadMoreProspects(profile.id);
+      }
+    };
+
+    window.addEventListener('scroll', handleScroll);
+    return () => window.removeEventListener('scroll', handleScroll);
+  }, [profile, prospectsLoadingMore, hasMoreProspects, loadMoreProspects]);
 
   const createSampleProspects = async () => {
     if (!profile) return;
@@ -830,6 +847,21 @@ const ProspectsManager: React.FC = () => {
           }}
           onSave={handleEditProspect}
         />
+      )}
+
+      {/* Loading More Indicator */}
+      {prospectsLoadingMore && (
+        <div className="flex justify-center items-center py-8">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-red-700"></div>
+          <span className="ml-3 text-gray-600">Loading more prospects...</span>
+        </div>
+      )}
+
+      {/* End of List Message */}
+      {!hasMoreProspects && prospects.length > 0 && (
+        <div className="text-center py-6 text-gray-500">
+          Showing all {prospects.length} prospects
+        </div>
       )}
     </div>
   );

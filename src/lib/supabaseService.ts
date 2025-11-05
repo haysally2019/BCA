@@ -984,7 +984,7 @@ export const supabaseService = {
   },
 
   // PROSPECT MANAGEMENT
-  async getProspects(companyId: string, limit?: number): Promise<Prospect[]> {
+  async getProspects(companyId: string, limit?: number, offset?: number): Promise<Prospect[]> {
     try {
       // Get current user's profile to determine role
       const { data: { user } } = await supabase.auth.getUser();
@@ -1009,16 +1009,20 @@ export const supabaseService = {
         profileId: profile.id,
         role: profile.user_role,
         companyId,
-        limit: limit || 'unlimited'
+        limit: limit || 'unlimited',
+        offset: offset || 0
       });
 
       // If limit is specified, fetch only that many records (for faster initial load)
-      if (limit) {
+      if (limit !== undefined) {
+        const start = offset || 0;
+        const end = start + limit - 1;
+
         let query = supabase
           .from('prospects')
           .select('*')
           .order('created_at', { ascending: false })
-          .limit(limit);
+          .range(start, end);
 
         if (profile?.user_role === 'sales_rep') {
           query = query.eq('assigned_rep_id', companyId);
@@ -1033,7 +1037,7 @@ export const supabaseService = {
           throw error;
         }
 
-        console.log('[getProspects] Fetched prospects count:', data?.length || 0);
+        console.log('[getProspects] Fetched prospects count:', data?.length || 0, 'offset:', start);
         return data || [];
       }
 

@@ -11,21 +11,24 @@ interface CachedData {
 interface DataState {
   // Cache storage
   cache: Map<string, CachedData>;
-  
+
   // Loading states
   dashboardLoading: boolean;
   pipelineLoading: boolean;
   commissionsLoading: boolean;
-  
+  prospectsLoadingMore: boolean;
+
   // Cached data
   analyticsData: AnalyticsData | null;
   deals: Deal[];
   commissions: Commission[];
   affiliateCommissions: CommissionEntry[];
   prospects: Prospect[];
-  
+  hasMoreProspects: boolean;
+
   // Actions
   loadDashboardData: (companyId: string, timeRange?: string, force?: boolean) => Promise<void>;
+  loadMoreProspects: (companyId: string) => Promise<void>;
   loadPipelineData: (companyId: string, force?: boolean) => Promise<void>;
   loadCommissionsData: (companyId: string, force?: boolean) => Promise<void>;
   clearCache: () => void;
@@ -40,11 +43,13 @@ export const useDataStore = create<DataState>((set, get) => ({
   dashboardLoading: false,
   pipelineLoading: false,
   commissionsLoading: false,
+  prospectsLoadingMore: false,
   analyticsData: null,
   deals: [],
   commissions: [],
   affiliateCommissions: [],
   prospects: [],
+  hasMoreProspects: true,
 
   loadDashboardData: async (companyId: string, timeRange: string = '30d', force: boolean = false) => {
     const cacheKey = `dashboard_${companyId}_${timeRange}`;
@@ -75,7 +80,7 @@ export const useDataStore = create<DataState>((set, get) => ({
         try {
           const [analytics, prospects] = await Promise.all([
             supabaseService.getAnalyticsData(companyId, timeRange),
-            supabaseService.getProspects(companyId, 500)
+            supabaseService.getProspects(companyId, 50)
           ]);
 
           const data = { analytics, prospects };
@@ -101,10 +106,10 @@ export const useDataStore = create<DataState>((set, get) => ({
     try {
       set({ dashboardLoading: true });
 
-      // Load data in parallel with limit for better performance
+      // Load data in parallel - only first 50 prospects for initial load
       const [analytics, prospects] = await Promise.all([
         supabaseService.getAnalyticsData(companyId, timeRange),
-        supabaseService.getProspects(companyId, 500)
+        supabaseService.getProspects(companyId, 50)
       ]);
 
       const data = { analytics, prospects };
@@ -120,7 +125,8 @@ export const useDataStore = create<DataState>((set, get) => ({
       set({
         cache: newCache,
         analyticsData: analytics,
-        prospects: prospects
+        prospects: prospects,
+        hasMoreProspects: prospects.length === 50
       });
 
     } catch (error) {
@@ -134,6 +140,30 @@ export const useDataStore = create<DataState>((set, get) => ({
       }
     } finally {
       set({ dashboardLoading: false });
+    }
+  },
+
+  loadMoreProspects: async (companyId: string) => {
+    const { prospects, prospectsLoadingMore, hasMoreProspects } = get();
+
+    // Don't load if already loading or no more data
+    if (prospectsLoadingMore || !hasMoreProspects) return;
+
+    try {
+      set({ prospectsLoadingMore: true });
+
+      // Fetch next batch starting from current length
+      const offset = prospects.length;
+      const newProspects = await supabaseService.getProspects(companyId, 50, offset);
+
+      set({
+        prospects: [...prospects, ...newProspects],
+        hasMoreProspects: newProspects.length === 50
+      });
+    } catch (error) {
+      console.error('Error loading more prospects:', error);
+    } finally {
+      set({ prospectsLoadingMore: false });
     }
   },
 
