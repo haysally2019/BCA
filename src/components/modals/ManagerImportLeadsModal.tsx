@@ -4,6 +4,7 @@ import BaseModal from './BaseModal';
 import toast from 'react-hot-toast';
 import { supabaseService } from '../../lib/supabaseService';
 import { teamService, type TeamMember } from '../../lib/teamService';
+import { supabase } from '../../lib/supabaseClient';
 
 interface ManagerImportLeadsModalProps {
   isOpen: boolean;
@@ -435,6 +436,8 @@ export const ManagerImportLeadsModal: React.FC<ManagerImportLeadsModalProps> = (
       if (repLeads.length === 0) continue;
 
       // Convert leads to prospects format with rep assignment
+      // assigned_rep_id: the sales rep who works this prospect
+      // company_id: the manager who owns the team (companyId)
       const prospectsWithRep = repLeads.map(lead => ({
         company_name: lead.company_name || lead.name || 'Unknown Company',
         contact_name: lead.name || lead.contact_name || 'Unknown Contact',
@@ -455,15 +458,24 @@ export const ManagerImportLeadsModal: React.FC<ManagerImportLeadsModalProps> = (
         last_contact_date: new Date().toISOString(),
       }));
 
-      const importResults = await supabaseService.bulkCreateProspects(companyId, prospectsWithRep);
-      totalSuccess += importResults.success.length;
-      totalDbDuplicates += importResults.duplicates.length;
+      // Don't use bulkCreateProspects wrapper, insert directly to set correct IDs
+      const { data: insertedProspects, error } = await supabase
+        .from('prospects')
+        .insert(prospectsWithRep)
+        .select();
+
+      if (error) {
+        console.error('Error inserting prospects:', error);
+        continue;
+      }
+
+      totalSuccess += insertedProspects?.length || 0;
     }
 
     return {
       success: totalSuccess,
       failed: 0,
-      dbDuplicates: totalDbDuplicates,
+      dbDuplicates: 0,
     };
   };
 
