@@ -231,6 +231,20 @@ export const supabaseService = {
     try {
       console.log('[supabaseService] Fetching leads for company_id:', companyId);
 
+      // Try using the database function first (bypasses any caching issues)
+      try {
+        const { data: functionData, error: functionError } = await supabase
+          .rpc('get_my_leads');
+
+        if (!functionError && functionData && functionData.length > 0) {
+          console.log('[supabaseService] Successfully fetched', functionData.length, 'leads via RPC function');
+          return functionData;
+        }
+      } catch (rpcError) {
+        console.warn('[supabaseService] RPC function failed, falling back to direct query:', rpcError);
+      }
+
+      // Fallback to direct query
       const { data, error } = await supabase
         .from('leads')
         .select('*')
@@ -242,7 +256,7 @@ export const supabaseService = {
         throw error;
       }
 
-      console.log('[supabaseService] Successfully fetched', data?.length || 0, 'leads');
+      console.log('[supabaseService] Successfully fetched', data?.length || 0, 'leads via direct query');
       return data || [];
     } catch (error) {
       console.error('[supabaseService] Exception fetching leads:', error);

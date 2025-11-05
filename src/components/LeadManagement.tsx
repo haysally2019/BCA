@@ -85,17 +85,22 @@ const LeadManagement: React.FC = () => {
       return;
     }
 
-    console.log('[LeadManagement] Loading leads for profile:', {
+    console.log('='.repeat(60));
+    console.log('[LeadManagement] LOADING LEADS');
+    console.log('='.repeat(60));
+    console.log('[LeadManagement] Profile Details:', {
       id: profile.id,
       company_name: profile.company_name,
       user_id: profile.user_id,
       user_role: profile.user_role
     });
+    console.log('[LeadManagement] Timestamp:', new Date().toISOString());
 
     try {
       // Try to get leads using profile.id (which should match company_id in leads table)
+      console.log('[LeadManagement] Attempting to fetch leads...');
       let companyLeads = await supabaseService.getLeads(profile.id);
-      console.log('[LeadManagement] Loaded', companyLeads.length, 'leads using profile.id:', profile.id);
+      console.log('[LeadManagement] ✓ Successfully loaded', companyLeads.length, 'leads using profile.id:', profile.id);
 
       // If no leads found, check if this user is a rep under a manager
       // In that case, they might need to see leads from their manager's company_id
@@ -131,10 +136,25 @@ const LeadManagement: React.FC = () => {
       setLeads(companyLeads);
 
       if (companyLeads.length === 0) {
-        console.warn('[LeadManagement] No leads found for this profile. Profile ID:', profile.id, 'User ID:', profile.user_id);
-        console.warn('[LeadManagement] User may need leads to be distributed to them or assigned to their company_id');
+        console.warn('='.repeat(60));
+        console.warn('[LeadManagement] ✗ NO LEADS FOUND');
+        console.warn('='.repeat(60));
+        console.warn('[LeadManagement] Profile ID:', profile.id);
+        console.warn('[LeadManagement] User ID:', profile.user_id);
+        console.warn('[LeadManagement] Company Name:', profile.company_name);
+        console.warn('[LeadManagement] This user needs leads distributed to their company_id');
+        console.warn('='.repeat(60));
       } else {
-        console.log('[LeadManagement] Successfully loaded', companyLeads.length, 'leads');
+        console.log('='.repeat(60));
+        console.log('[LeadManagement] ✓ SUCCESS - LEADS LOADED');
+        console.log('='.repeat(60));
+        console.log('[LeadManagement] Total leads:', companyLeads.length);
+        console.log('[LeadManagement] Sample leads:', companyLeads.slice(0, 3).map(l => ({
+          name: l.name,
+          phone: l.phone,
+          status: l.status
+        })));
+        console.log('='.repeat(60));
       }
     } catch (error) {
       console.error('[LeadManagement] Error loading leads:', error);

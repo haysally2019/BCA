@@ -1,0 +1,346 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Check My Leads - Diagnostic Tool</title>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+        .container {
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            max-width: 600px;
+            width: 100%;
+            padding: 40px;
+        }
+        h1 {
+            color: #333;
+            margin-bottom: 10px;
+            font-size: 28px;
+        }
+        .subtitle {
+            color: #666;
+            margin-bottom: 30px;
+            font-size: 14px;
+        }
+        .form-group {
+            margin-bottom: 20px;
+        }
+        label {
+            display: block;
+            margin-bottom: 8px;
+            color: #333;
+            font-weight: 500;
+            font-size: 14px;
+        }
+        input {
+            width: 100%;
+            padding: 12px 16px;
+            border: 2px solid #e1e8ed;
+            border-radius: 8px;
+            font-size: 16px;
+            transition: all 0.3s;
+        }
+        input:focus {
+            outline: none;
+            border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        }
+        button {
+            width: 100%;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            padding: 14px;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+        button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 20px rgba(102, 126, 234, 0.3);
+        }
+        button:active {
+            transform: translateY(0);
+        }
+        button:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none;
+        }
+        .results {
+            margin-top: 30px;
+        }
+        .result-box {
+            padding: 20px;
+            border-radius: 12px;
+            margin-bottom: 15px;
+            border-left: 4px solid #667eea;
+            animation: slideIn 0.3s ease-out;
+        }
+        @keyframes slideIn {
+            from {
+                opacity: 0;
+                transform: translateY(10px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+        .success {
+            background: #d4edda;
+            border-left-color: #28a745;
+            color: #155724;
+        }
+        .info {
+            background: #d1ecf1;
+            border-left-color: #17a2b8;
+            color: #0c5460;
+        }
+        .warning {
+            background: #fff3cd;
+            border-left-color: #ffc107;
+            color: #856404;
+        }
+        .error {
+            background: #f8d7da;
+            border-left-color: #dc3545;
+            color: #721c24;
+        }
+        .result-title {
+            font-weight: 600;
+            margin-bottom: 8px;
+            font-size: 16px;
+        }
+        .result-content {
+            font-size: 14px;
+            line-height: 1.6;
+        }
+        .code {
+            background: #f4f4f4;
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-family: 'Courier New', monospace;
+            font-size: 13px;
+        }
+        .spinner {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 3px solid rgba(255,255,255,0.3);
+            border-radius: 50%;
+            border-top-color: white;
+            animation: spin 1s ease-in-out infinite;
+            margin-right: 10px;
+        }
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+        .lead-list {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 8px;
+            margin-top: 10px;
+            max-height: 200px;
+            overflow-y: auto;
+        }
+        .lead-item {
+            padding: 8px 0;
+            border-bottom: 1px solid #e1e8ed;
+            font-size: 13px;
+        }
+        .lead-item:last-child {
+            border-bottom: none;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔍 Check My Leads</h1>
+        <p class="subtitle">Diagnostic tool to verify your lead visibility</p>
+
+        <div class="form-group">
+            <label for="email">Email Address</label>
+            <input type="email" id="email" placeholder="your.email@example.com" required>
+        </div>
+
+        <div class="form-group">
+            <label for="password">Password</label>
+            <input type="password" id="password" placeholder="••••••••" required>
+        </div>
+
+        <button onclick="checkLeads()" id="checkBtn">
+            Check My Leads
+        </button>
+
+        <div id="results" class="results"></div>
+    </div>
+
+    <script>
+        const SUPABASE_URL = 'https://gpupamrhpmrgslqnzzpb.supabase.co';
+        const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdwdXBhbXJocG1yZ3NscW56enBiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3MTg5NDgwODksImV4cCI6MjAzNDUyNDA4OX0.OJE8QXlYpfSY4qpQyHFuXxMJp3V5oQ7K-qy_LmhU3Ig';
+
+        const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+        async function checkLeads() {
+            const email = document.getElementById('email').value;
+            const password = document.getElementById('password').value;
+            const resultsDiv = document.getElementById('results');
+            const checkBtn = document.getElementById('checkBtn');
+
+            if (!email || !password) {
+                resultsDiv.innerHTML = '<div class="result-box error"><div class="result-title">⚠️ Missing Information</div><div class="result-content">Please enter both email and password.</div></div>';
+                return;
+            }
+
+            checkBtn.disabled = true;
+            checkBtn.innerHTML = '<span class="spinner"></span>Checking...';
+            resultsDiv.innerHTML = '<div class="result-box info"><div class="result-title">🔄 Processing</div><div class="result-content">Signing in and checking your leads...</div></div>';
+
+            try {
+                // Step 1: Sign in
+                const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
+                    email,
+                    password
+                });
+
+                if (authError) throw authError;
+
+                const userId = authData.user.id;
+
+                // Step 2: Get profile
+                const { data: profile, error: profileError } = await supabase
+                    .from('profiles')
+                    .select('*')
+                    .eq('user_id', userId)
+                    .single();
+
+                if (profileError) throw profileError;
+
+                // Step 3: Try the new RPC function first
+                let leads = [];
+                let method = '';
+
+                try {
+                    const { data: rpcData, error: rpcError } = await supabase.rpc('get_my_leads');
+                    if (!rpcError && rpcData && rpcData.length > 0) {
+                        leads = rpcData;
+                        method = 'Database Function (RPC)';
+                    }
+                } catch (rpcErr) {
+                    console.log('RPC failed, trying direct query');
+                }
+
+                // Step 4: Fallback to direct query
+                if (leads.length === 0) {
+                    const { data: directData, error: directError } = await supabase
+                        .from('leads')
+                        .select('*')
+                        .eq('company_id', profile.id)
+                        .limit(100);
+
+                    if (!directError && directData) {
+                        leads = directData;
+                        method = 'Direct Query';
+                    }
+                }
+
+                // Display results
+                let html = '';
+
+                html += `<div class="result-box success">
+                    <div class="result-title">✅ Signed In Successfully</div>
+                    <div class="result-content">User: ${email}</div>
+                </div>`;
+
+                html += `<div class="result-box info">
+                    <div class="result-title">👤 Profile Information</div>
+                    <div class="result-content">
+                        <strong>Company:</strong> ${profile.company_name}<br>
+                        <strong>Profile ID:</strong> <span class="code">${profile.id}</span><br>
+                        <strong>User ID:</strong> <span class="code">${userId}</span>
+                    </div>
+                </div>`;
+
+                if (leads.length > 0) {
+                    html += `<div class="result-box success">
+                        <div class="result-title">🎉 Leads Found!</div>
+                        <div class="result-content">
+                            <strong>Total Leads:</strong> ${leads.length}<br>
+                            <strong>Fetch Method:</strong> ${method}<br>
+                            <strong>Status:</strong> Your leads are properly configured and ready to view in the portal!
+                            <div class="lead-list">
+                                <strong>Sample Leads:</strong>
+                                ${leads.slice(0, 5).map((lead, i) => `
+                                    <div class="lead-item">
+                                        ${i + 1}. <strong>${lead.name}</strong> - ${lead.phone} - <em>${lead.status}</em>
+                                    </div>
+                                `).join('')}
+                                ${leads.length > 5 ? `<div class="lead-item"><em>... and ${leads.length - 5} more leads</em></div>` : ''}
+                            </div>
+                        </div>
+                    </div>`;
+
+                    html += `<div class="result-box info">
+                        <div class="result-title">💡 Next Steps</div>
+                        <div class="result-content">
+                            1. Go to your portal<br>
+                            2. Press <strong>Ctrl+Shift+R</strong> (or Cmd+Shift+R on Mac) to hard refresh<br>
+                            3. Navigate to the Leads page<br>
+                            4. Your ${leads.length} leads should now be visible!
+                        </div>
+                    </div>`;
+                } else {
+                    html += `<div class="result-box warning">
+                        <div class="result-title">⚠️ No Leads Found</div>
+                        <div class="result-content">
+                            Your profile exists but has no leads assigned.<br>
+                            <strong>Profile ID:</strong> <span class="code">${profile.id}</span><br><br>
+                            <strong>Possible Solutions:</strong><br>
+                            1. Leads may need to be distributed to your account<br>
+                            2. Check with your administrator<br>
+                            3. Contact support with your Profile ID above
+                        </div>
+                    </div>`;
+                }
+
+                resultsDiv.innerHTML = html;
+
+            } catch (error) {
+                resultsDiv.innerHTML = `<div class="result-box error">
+                    <div class="result-title">❌ Error</div>
+                    <div class="result-content">${error.message}</div>
+                </div>`;
+            } finally {
+                checkBtn.disabled = false;
+                checkBtn.innerHTML = 'Check My Leads';
+            }
+        }
+
+        // Allow Enter key to submit
+        document.getElementById('password').addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') {
+                checkLeads();
+            }
+        });
+    </script>
+</body>
+</html>
