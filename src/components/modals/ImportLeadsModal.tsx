@@ -9,7 +9,7 @@ interface ImportLeadsModalProps {
   onClose: () => void;
   onImport?: (leads: any[]) => Promise<{ success: number; failed: number; duplicates: number; dbDuplicates: number }>;
   managerId?: string;
-  teamMembers?: Array<{ profile_id: string; is_active: boolean }>;
+  teamMembers?: Array<{ profile_id: string; employment_status: string }>;
   onSuccess?: () => void;
 }
 
@@ -356,7 +356,11 @@ export const ImportLeadsModal: React.FC<ImportLeadsModalProps> = ({ isOpen, onCl
       if (validLeads.length > 0) {
         // If teamMembers and managerId are provided, distribute leads to team
         if (teamMembers && managerId) {
-          const activeReps = teamMembers.filter(m => m.is_active);
+          console.log('[ImportLeads] Team members:', teamMembers);
+          console.log('[ImportLeads] Manager ID:', managerId);
+
+          const activeReps = teamMembers.filter(m => m.employment_status === 'active');
+          console.log('[ImportLeads] Active reps:', activeReps.length, activeReps);
 
           if (activeReps.length === 0) {
             throw new Error('No active team members to distribute leads to');
@@ -368,24 +372,44 @@ export const ImportLeadsModal: React.FC<ImportLeadsModalProps> = ({ isOpen, onCl
           for (let i = 0; i < validLeads.length; i++) {
             const repIndex = Math.floor(i / leadsPerRep);
             const assignedRep = activeReps[Math.min(repIndex, activeReps.length - 1)];
+            const lead = validLeads[i];
 
+            // Only include fields that exist in the leads table
             leadsToInsert.push({
-              ...validLeads[i],
               company_id: assignedRep.profile_id,
               assigned_rep_id: assignedRep.profile_id,
+              name: lead.name || '',
+              email: lead.email || null,
+              phone: lead.phone || '',
+              address: lead.address || null,
+              status: lead.status || 'new',
+              score: lead.score || null,
+              estimated_value: lead.estimated_value || null,
+              roof_type: lead.roof_type || null,
+              notes: lead.notes || null,
+              source: lead.source || 'import',
               created_at: new Date().toISOString(),
               updated_at: new Date().toISOString()
             });
           }
 
+          console.log(`[ImportLeads] Inserting ${leadsToInsert.length} leads for ${activeReps.length} reps`);
+          console.log('[ImportLeads] Sample lead:', leadsToInsert[0]);
+
           const { data, error: insertError } = await supabase
             .from('leads')
-            .insert(leadsToInsert);
+            .insert(leadsToInsert)
+            .select();
 
-          if (insertError) throw insertError;
+          if (insertError) {
+            console.error('[ImportLeads] Insert error:', insertError);
+            throw insertError;
+          }
 
-          result.success = leadsToInsert.length;
-          toast.success(`Successfully imported ${leadsToInsert.length} leads distributed to ${activeReps.length} reps`);
+          console.log(`[ImportLeads] Successfully inserted ${data?.length || 0} leads`);
+
+          result.success = data?.length || leadsToInsert.length;
+          toast.success(`Successfully imported ${result.success} leads distributed to ${activeReps.length} reps`);
 
           if (onSuccess) onSuccess();
         } else if (onImport) {
@@ -560,8 +584,8 @@ export const ImportLeadsModal: React.FC<ImportLeadsModalProps> = ({ isOpen, onCl
             <p className="text-sm text-blue-700 mt-1">
               Match your CSV columns to lead fields. Name and Phone are required.
               Found {csvData.length} rows to import.
-              {teamMembers && teamMembers.filter(m => m.is_active).length > 0 && (
-                <> Leads will be distributed evenly among {teamMembers.filter(m => m.is_active).length} active team members.</>
+              {teamMembers && teamMembers.filter(m => m.employment_status === 'active').length > 0 && (
+                <> Leads will be distributed evenly among {teamMembers.filter(m => m.employment_status === 'active').length} active team members.</>
               )}
             </p>
           </div>
