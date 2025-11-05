@@ -91,12 +91,22 @@ const LeadManagement: React.FC = () => {
     });
 
     try {
-      const companyLeads = await supabaseService.getLeads(profile.id);
-      console.log('[LeadManagement] Loaded', companyLeads.length, 'leads');
+      let companyLeads = await supabaseService.getLeads(profile.id);
+      console.log('[LeadManagement] Loaded', companyLeads.length, 'leads using profile.id');
+
+      if (companyLeads.length === 0 && profile.user_id) {
+        console.log('[LeadManagement] No leads found with profile.id, trying with user_id as fallback');
+        companyLeads = await supabaseService.getLeads(profile.user_id);
+        console.log('[LeadManagement] Loaded', companyLeads.length, 'leads using user_id fallback');
+      }
+
       setLeads(companyLeads);
 
       if (companyLeads.length === 0) {
         console.warn('[LeadManagement] No leads found for this profile');
+        toast.error('No leads found. Please contact support.');
+      } else {
+        console.log('[LeadManagement] Successfully loaded leads');
       }
     } catch (error) {
       console.error('[LeadManagement] Error loading leads:', error);
