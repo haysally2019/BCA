@@ -3,6 +3,7 @@ import { Upload, X, Download, AlertCircle, CheckCircle, Loader } from 'lucide-re
 import BaseModal from './BaseModal';
 import toast from 'react-hot-toast';
 import { supabase } from '../../lib/supabaseClient';
+import { useDataStore } from '../../store/dataStore';
 
 interface ImportLeadsModalProps {
   isOpen: boolean;
@@ -103,6 +104,7 @@ async function distributeLeadsToTeam(
 }
 
 export const ImportLeadsModal: React.FC<ImportLeadsModalProps> = ({ isOpen, onClose, onImport, managerId, teamMembers, onSuccess }) => {
+  const { clearCache } = useDataStore();
   const [file, setFile] = useState<File | null>(null);
   const [columns, setColumns] = useState<CSVColumn[]>([]);
   const [csvData, setCsvData] = useState<string[][]>([]);
@@ -441,6 +443,10 @@ export const ImportLeadsModal: React.FC<ImportLeadsModalProps> = ({ isOpen, onCl
             result.success = insertedLeads.length;
             toast.success(`Successfully imported ${result.success} leads!`);
           }
+
+          // Clear all caches to ensure fresh data is loaded
+          console.log('[ImportLeads] Clearing cache to force data refresh');
+          clearCache();
 
           if (onSuccess) onSuccess();
         } else if (onImport) {
