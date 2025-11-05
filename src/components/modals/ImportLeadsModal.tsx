@@ -391,8 +391,8 @@ export const ImportLeadsModal: React.FC<ImportLeadsModalProps> = ({ isOpen, onCl
           // Prepare leads for insertion
           const leadsToInsert = validLeads.map(lead => ({
             company_id: managerId,
-            // Don't assign yet - let distribution handle it
-            assigned_rep_id: null,
+            // Assign to manager initially - distribution will update if team members exist
+            assigned_rep_id: managerId,
             name: lead.name || '',
             email: lead.email || null,
             phone: lead.phone || '',
@@ -423,7 +423,7 @@ export const ImportLeadsModal: React.FC<ImportLeadsModalProps> = ({ isOpen, onCl
 
           // Distribute leads to active team members
           if (activeMembers.length > 0 && insertedLeads && insertedLeads.length > 0) {
-            console.log('[ImportLeads] Starting lead distribution...');
+            console.log('[ImportLeads] Starting lead distribution to team members...');
             const distributionResult = await distributeLeadsToTeam(
               insertedLeads,
               activeMembers,
@@ -431,26 +431,15 @@ export const ImportLeadsModal: React.FC<ImportLeadsModalProps> = ({ isOpen, onCl
             );
 
             console.log(`[ImportLeads] Distribution complete: ${distributionResult.assigned} leads assigned to ${distributionResult.memberCount} members`);
-            result.success = distributionResult.assigned;
+            result.success = insertedLeads.length;
             toast.success(
-              `Successfully imported and distributed ${result.success} leads to ${distributionResult.memberCount} team member${distributionResult.memberCount > 1 ? 's' : ''}!`
+              `Successfully imported ${result.success} leads and distributed to ${distributionResult.memberCount} team member${distributionResult.memberCount > 1 ? 's' : ''}!`
             );
           } else if (insertedLeads && insertedLeads.length > 0) {
-            // No active team members - assign all to manager
-            console.log('[ImportLeads] No active team members, assigning all leads to manager');
-            const leadIds = insertedLeads.map(l => l.id);
-
-            const { error: assignError } = await supabase
-              .from('leads')
-              .update({ assigned_rep_id: managerId })
-              .in('id', leadIds);
-
-            if (assignError) {
-              console.error('[ImportLeads] Assignment error:', assignError);
-            }
-
+            // No active team members - leads stay assigned to manager
+            console.log('[ImportLeads] No active team members, leads assigned to manager');
             result.success = insertedLeads.length;
-            toast.success(`Successfully imported ${result.success} leads to your pool`);
+            toast.success(`Successfully imported ${result.success} leads!`);
           }
 
           if (onSuccess) onSuccess();
