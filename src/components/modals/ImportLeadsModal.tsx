@@ -320,46 +320,29 @@ export const ImportLeadsModal: React.FC<ImportLeadsModalProps> = ({ isOpen, onCl
 
     try {
       if (validLeads.length > 0) {
-        // If teamMembers and managerId are provided, distribute leads to team
-        if (teamMembers && managerId) {
-          console.log('[ImportLeads] Team members:', teamMembers);
-          console.log('[ImportLeads] Manager ID:', managerId);
+        // Assign all imported leads to the manager's company_id (not distributed to reps yet)
+        // This matches how manually created leads work - they go to manager's pool first
+        if (managerId) {
+          console.log('[ImportLeads] Assigning leads to manager ID:', managerId);
 
-          const activeReps = teamMembers.filter(m => m.employment_status === 'active');
-          console.log('[ImportLeads] Active reps:', activeReps.length, activeReps);
+          const leadsToInsert = validLeads.map(lead => ({
+            company_id: managerId,
+            assigned_rep_id: managerId,
+            name: lead.name || '',
+            email: lead.email || null,
+            phone: lead.phone || '',
+            address: lead.address || null,
+            status: lead.status || 'new',
+            score: lead.score || null,
+            estimated_value: lead.estimated_value || null,
+            roof_type: lead.roof_type || null,
+            notes: lead.notes || null,
+            source: lead.source || 'import',
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString()
+          }));
 
-          if (activeReps.length === 0) {
-            throw new Error('No active team members to distribute leads to');
-          }
-
-          const leadsPerRep = Math.ceil(validLeads.length / activeReps.length);
-          const leadsToInsert = [];
-
-          for (let i = 0; i < validLeads.length; i++) {
-            const repIndex = Math.floor(i / leadsPerRep);
-            const assignedRep = activeReps[Math.min(repIndex, activeReps.length - 1)];
-            const lead = validLeads[i];
-
-            // Only include fields that exist in the leads table
-            leadsToInsert.push({
-              company_id: assignedRep.profile_id,
-              assigned_rep_id: assignedRep.profile_id,
-              name: lead.name || '',
-              email: lead.email || null,
-              phone: lead.phone || '',
-              address: lead.address || null,
-              status: lead.status || 'new',
-              score: lead.score || null,
-              estimated_value: lead.estimated_value || null,
-              roof_type: lead.roof_type || null,
-              notes: lead.notes || null,
-              source: lead.source || 'import',
-              created_at: new Date().toISOString(),
-              updated_at: new Date().toISOString()
-            });
-          }
-
-          console.log(`[ImportLeads] Inserting ${leadsToInsert.length} leads for ${activeReps.length} reps`);
+          console.log(`[ImportLeads] Inserting ${leadsToInsert.length} leads to manager's pool`);
           console.log('[ImportLeads] Sample lead:', leadsToInsert[0]);
 
           const { data, error: insertError } = await supabase
@@ -375,7 +358,7 @@ export const ImportLeadsModal: React.FC<ImportLeadsModalProps> = ({ isOpen, onCl
           console.log(`[ImportLeads] Successfully inserted ${data?.length || 0} leads`);
 
           result.success = data?.length || leadsToInsert.length;
-          toast.success(`Successfully imported ${result.success} leads distributed to ${activeReps.length} reps`);
+          toast.success(`Successfully imported ${result.success} leads to your lead pool`);
 
           if (onSuccess) onSuccess();
         } else if (onImport) {
