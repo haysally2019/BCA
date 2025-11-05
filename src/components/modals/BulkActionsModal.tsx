@@ -94,7 +94,6 @@ const BulkActionsModal: React.FC<BulkActionsModalProps> = ({
               <option value="new">New</option>
               <option value="contacted">Contacted</option>
               <option value="qualified">Qualified</option>
-              <option value="proposal_sent">Proposal Sent</option>
               <option value="won">Won</option>
               <option value="lost">Lost</option>
             </select>

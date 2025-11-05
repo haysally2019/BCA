@@ -57,7 +57,6 @@ const SalesPipeline: React.FC = () => {
     { name: 'New', status: 'new', color: 'bg-red-500' },
     { name: 'Contacted', status: 'contacted', color: 'bg-yellow-500' },
     { name: 'Qualified', status: 'qualified', color: 'bg-green-500' },
-    { name: 'Proposal Sent', status: 'proposal_sent', color: 'bg-purple-500' },
     { name: 'Won', status: 'won', color: 'bg-emerald-500' },
     { name: 'Lost', status: 'lost', color: 'bg-gray-500' }
   ];
@@ -109,10 +108,6 @@ const SalesPipeline: React.FC = () => {
           { label: 'Qualify', status: 'qualified', icon: ThumbsUp, color: 'bg-green-600 hover:bg-green-700' }
         ];
       case 'qualified':
-        return [
-          { label: 'Proposal', status: 'proposal_sent', icon: FileText, color: 'bg-purple-600 hover:bg-purple-700' }
-        ];
-      case 'proposal_sent':
         return [
           { label: 'Won', status: 'won', icon: Trophy, color: 'bg-emerald-600 hover:bg-emerald-700' },
           { label: 'Lost', status: 'lost', icon: X, color: 'bg-gray-600 hover:bg-gray-700' }

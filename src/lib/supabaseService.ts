@@ -9,7 +9,7 @@ export interface Lead {
   email?: string;
   phone: string;
   address?: string;
-  status: 'new' | 'contacted' | 'qualified' | 'proposal_sent' | 'won' | 'lost';
+  status: 'new' | 'contacted' | 'qualified' | 'won' | 'lost';
   score: number;
   estimated_value?: number;
   roof_type?: string;
@@ -1308,10 +1308,9 @@ export const supabaseService = {
 
   calculateConversionFunnel(leads: Lead[]): Array<{ stage: string; count: number; percentage: number }> {
     const stages = [
-      { stage: 'New Leads', status: ['new', 'contacted', 'qualified', 'proposal_sent', 'won', 'lost'] },
-      { stage: 'Contacted', status: ['contacted', 'qualified', 'proposal_sent', 'won', 'lost'] },
-      { stage: 'Qualified', status: ['qualified', 'proposal_sent', 'won', 'lost'] },
-      { stage: 'Proposal Sent', status: ['proposal_sent', 'won', 'lost'] },
+      { stage: 'New Leads', status: ['new', 'contacted', 'qualified', 'won', 'lost'] },
+      { stage: 'Contacted', status: ['contacted', 'qualified', 'won', 'lost'] },
+      { stage: 'Qualified', status: ['qualified', 'won', 'lost'] },
       { stage: 'Won', status: ['won'] }
     ];
 

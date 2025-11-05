@@ -45,7 +45,7 @@ const FIELD_OPTIONS = [
   { value: 'notes', label: 'Notes' },
 ];
 
-const VALID_STATUSES = ['new', 'contacted', 'qualified', 'proposal_sent', 'won', 'lost'];
+const VALID_STATUSES = ['new', 'contacted', 'qualified', 'won', 'lost'];
 const MAX_IMPORT_LEADS = 100;
 
 export const ImportLeadsModal: React.FC<ImportLeadsModalProps> = ({ isOpen, onClose, onImport }) => {

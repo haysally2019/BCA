@@ -97,7 +97,6 @@ const LeadManagement: React.FC = () => {
       new: 'bg-red-100 text-red-800 border-red-200',
       contacted: 'bg-yellow-100 text-yellow-800 border-yellow-200',
       qualified: 'bg-green-100 text-green-800 border-green-200',
-      proposal_sent: 'bg-purple-100 text-purple-800 border-purple-200',
       won: 'bg-emerald-100 text-emerald-800 border-emerald-200',
       lost: 'bg-gray-100 text-gray-800 border-gray-200'
     };
@@ -131,14 +130,9 @@ const LeadManagement: React.FC = () => {
       case 'contacted':
         return [
           { label: 'Qualify Lead', status: 'qualified', icon: ThumbsUp, color: 'bg-green-600 hover:bg-green-700' },
-          { label: 'Send Proposal', status: 'proposal_sent', icon: FileText, color: 'bg-purple-600 hover:bg-purple-700' }
-        ];
-      case 'qualified':
-        return [
-          { label: 'Send Proposal', status: 'proposal_sent', icon: FileText, color: 'bg-purple-600 hover:bg-purple-700' },
           { label: 'Mark Won', status: 'won', icon: Trophy, color: 'bg-emerald-600 hover:bg-emerald-700' }
         ];
-      case 'proposal_sent':
+      case 'qualified':
         return [
           { label: 'Mark Won', status: 'won', icon: Trophy, color: 'bg-emerald-600 hover:bg-emerald-700' },
           { label: 'Mark Lost', status: 'lost', icon: X, color: 'bg-gray-600 hover:bg-gray-700' }
@@ -589,7 +583,6 @@ const LeadManagement: React.FC = () => {
                 <option value="new">New</option>
                 <option value="contacted">Contacted</option>
                 <option value="qualified">Qualified</option>
-                <option value="proposal_sent">Proposal Sent</option>
                 <option value="won">Won</option>
                 <option value="lost">Lost</option>
               </select>
@@ -774,15 +767,6 @@ const LeadManagement: React.FC = () => {
                               className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 transition-colors"
                             >
                               Qualified
-                            </button>
-                            <button
-                              onClick={() => {
-                                handleUpdateLeadStatus(lead.id, 'proposal_sent');
-                                setStatusDropdownOpen(null);
-                              }}
-                              className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 transition-colors"
-                            >
-                              Proposal Sent
                             </button>
                             <button
                               onClick={() => {
@@ -1011,15 +995,6 @@ const LeadManagement: React.FC = () => {
                                     className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 transition-colors"
                                   >
                                     Qualified
-                                  </button>
-                                  <button
-                                    onClick={() => {
-                                      handleUpdateLeadStatus(lead.id, 'proposal_sent');
-                                      setStatusDropdownOpen(null);
-                                    }}
-                                    className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 transition-colors"
-                                  >
-                                    Proposal Sent
                                   </button>
                                   <button
                                     onClick={() => {
