@@ -34,15 +34,15 @@ const FIELD_OPTIONS = [
   { value: 'contact_name', label: 'Contact Name' },
   { value: 'phone', label: 'Phone (Required)', required: true },
   { value: 'email', label: 'Email' },
-  { value: 'address', label: 'Address' },
   { value: 'status', label: 'Status' },
   { value: 'score', label: 'Score / Probability' },
   { value: 'probability', label: 'Probability' },
   { value: 'estimated_value', label: 'Estimated Value / Deal Value' },
   { value: 'deal_value', label: 'Deal Value' },
-  { value: 'roof_type', label: 'Roof Type' },
   { value: 'source', label: 'Source' },
   { value: 'notes', label: 'Notes' },
+  { value: 'company_size', label: 'Company Size' },
+  { value: 'current_crm', label: 'Current CRM' },
 ];
 
 const VALID_STATUSES = ['new', 'contacted', 'qualified', 'won', 'lost'];
@@ -184,14 +184,14 @@ export const ManagerImportLeadsModal: React.FC<ManagerImportLeadsModalProps> = (
     if (normalized.includes('name') && !normalized.includes('company')) return 'name';
     if (normalized.includes('phone') || normalized.includes('mobile') || normalized.includes('tel')) return 'phone';
     if (normalized.includes('email') || normalized.includes('e-mail')) return 'email';
-    if (normalized.includes('address') || normalized.includes('location')) return 'address';
     if (normalized.includes('status')) return 'status';
     if (normalized.includes('probability') || normalized.includes('prob')) return 'probability';
     if (normalized.includes('score') || normalized.includes('rating')) return 'score';
     if (normalized.includes('deal') && (normalized.includes('value') || normalized.includes('amount'))) return 'deal_value';
     if (normalized.includes('value') || normalized.includes('estimate') || normalized.includes('price')) return 'estimated_value';
-    if (normalized.includes('roof') || normalized.includes('type')) return 'roof_type';
     if (normalized.includes('source') || normalized.includes('origin')) return 'source';
+    if (normalized.includes('company') && normalized.includes('size')) return 'company_size';
+    if (normalized.includes('crm')) return 'current_crm';
     if (normalized.includes('note')) return 'notes';
 
     return null;
@@ -288,6 +288,7 @@ export const ManagerImportLeadsModal: React.FC<ManagerImportLeadsModalProps> = (
               case 'name':
               case 'contact_name':
                 leadData.name = value.replace(/[<>]/g, '');
+                leadData.contact_name = value.replace(/[<>]/g, '');
                 if (!value) hasRequiredFields = false;
                 break;
               case 'company_name':
@@ -314,25 +315,27 @@ export const ManagerImportLeadsModal: React.FC<ManagerImportLeadsModalProps> = (
               case 'probability':
                 const numValue = parseInt(value);
                 leadData.score = (!isNaN(numValue) && numValue >= 0 && numValue <= 100) ? numValue : 50;
+                leadData.probability = (!isNaN(numValue) && numValue >= 0 && numValue <= 100) ? numValue : 50;
                 break;
               case 'estimated_value':
               case 'deal_value':
                 const dealVal = parseFloat(value.replace(/[,$]/g, ''));
                 if (!isNaN(dealVal) && dealVal > 0) {
                   leadData.estimated_value = Math.round(dealVal);
+                  leadData.deal_value = Math.round(dealVal);
                 }
                 break;
               case 'source':
                 leadData.source = value.toLowerCase().replace(/\s+/g, '_') || 'import';
                 break;
-              case 'address':
-                leadData.address = value.replace(/[<>]/g, '');
-                break;
               case 'notes':
                 leadData.notes = value.replace(/[<>]/g, '');
                 break;
-              case 'roof_type':
-                leadData.roof_type = value.replace(/[<>]/g, '');
+              case 'company_size':
+                leadData.company_size = value.replace(/[<>]/g, '');
+                break;
+              case 'current_crm':
+                leadData.current_crm = value.replace(/[<>]/g, '');
                 break;
               default:
                 leadData[col.mappedField] = value.replace(/[<>]/g, '');
@@ -431,13 +434,28 @@ export const ManagerImportLeadsModal: React.FC<ManagerImportLeadsModalProps> = (
 
       if (repLeads.length === 0) continue;
 
-      const leadsWithRep = repLeads.map(lead => ({
-        ...lead,
+      // Convert leads to prospects format with rep assignment
+      const prospectsWithRep = repLeads.map(lead => ({
+        company_name: lead.company_name || lead.name || 'Unknown Company',
+        contact_name: lead.name || lead.contact_name || 'Unknown Contact',
+        email: lead.email,
+        phone: lead.phone,
+        status: lead.status === 'new' ? 'lead' :
+                lead.status === 'contacted' ? 'lead' :
+                lead.status === 'qualified' ? 'qualified' :
+                lead.status === 'won' ? 'closed_won' :
+                lead.status === 'lost' ? 'closed_lost' : 'lead',
+        deal_value: lead.estimated_value || lead.deal_value || 199,
+        probability: lead.score || lead.probability || 50,
+        source: lead.source || 'import',
+        notes: lead.notes,
+        decision_maker: false,
         assigned_rep_id: rep.profile_id,
         company_id: companyId,
+        last_contact_date: new Date().toISOString(),
       }));
 
-      const importResults = await supabaseService.bulkCreateLeads(companyId, leadsWithRep);
+      const importResults = await supabaseService.bulkCreateProspects(companyId, prospectsWithRep);
       totalSuccess += importResults.success.length;
       totalDbDuplicates += importResults.duplicates.length;
     }
@@ -454,15 +472,15 @@ export const ManagerImportLeadsModal: React.FC<ManagerImportLeadsModalProps> = (
   };
 
   const downloadTemplate = () => {
-    const template = 'Name,Phone,Email,Status,Score,Deal Value,Source,Address,Notes\n' +
-      'John Smith,(555) 123-4567,john@example.com,new,75,15000,website,123 Main St,Interested in roof replacement\n' +
-      'Jane Doe,(555) 987-6543,jane@example.com,qualified,85,22000,referral,456 Oak Ave,Needs quick turnaround';
+    const template = 'Company Name,Contact Name,Phone,Email,Status,Probability,Deal Value,Source,Company Size,Current CRM,Notes\n' +
+      'Elite Roofing Co.,John Smith,(555) 123-4567,john@eliteroofing.com,lead,75,199,website,10-50,None,Interested in training program\n' +
+      'Apex Solutions,Jane Doe,(555) 987-6543,jane@apex.com,qualified,85,299,referral,51-200,HubSpot,Needs team training';
 
     const blob = new Blob([template], { type: 'text/csv' });
     const url = window.URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = 'manager_leads_import_template.csv';
+    a.download = 'manager_prospects_import_template.csv';
     a.click();
     window.URL.revokeObjectURL(url);
     toast.success('Template downloaded');
