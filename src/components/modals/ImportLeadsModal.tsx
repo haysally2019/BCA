@@ -50,7 +50,7 @@ const FIELD_OPTIONS = [
 ];
 
 const VALID_STATUSES = ['new', 'contacted', 'qualified', 'won', 'lost'];
-const MAX_IMPORT_LEADS = 100;
+const MAX_IMPORT_LEADS = 2000;
 
 export const ImportLeadsModal: React.FC<ImportLeadsModalProps> = ({ isOpen, onClose, onImport, managerId, teamMembers, onSuccess }) => {
   const [file, setFile] = useState<File | null>(null);
