@@ -254,30 +254,45 @@ export const supabaseService = {
         companyId
       });
 
-      let query = supabase
-        .from('leads')
-        .select('*')
-        .order('created_at', { ascending: false });
+      // Fetch all leads using pagination to bypass 1000 row limit
+      let allLeads: Lead[] = [];
+      let start = 0;
+      const pageSize = 1000;
+      let hasMore = true;
 
-      // If sales rep, only show their assigned leads
-      // If manager/admin, show all company leads
-      if (profile?.user_role === 'sales_rep') {
-        console.log('[getLeads] Filtering for sales rep, assigned_rep_id:', companyId);
-        query = query.eq('assigned_rep_id', companyId);
-      } else {
-        console.log('[getLeads] Filtering for manager, company_id:', companyId);
-        query = query.eq('company_id', companyId);
+      while (hasMore) {
+        let query = supabase
+          .from('leads')
+          .select('*', { count: 'exact' })
+          .order('created_at', { ascending: false })
+          .range(start, start + pageSize - 1);
+
+        // If sales rep, only show their assigned leads
+        // If manager/admin, show all company leads
+        if (profile?.user_role === 'sales_rep') {
+          query = query.eq('assigned_rep_id', companyId);
+        } else {
+          query = query.eq('company_id', companyId);
+        }
+
+        const { data, error, count } = await query;
+
+        if (error) {
+          console.error('[getLeads] Query error:', error);
+          throw error;
+        }
+
+        if (data && data.length > 0) {
+          allLeads = [...allLeads, ...data];
+          start += pageSize;
+          hasMore = data.length === pageSize;
+        } else {
+          hasMore = false;
+        }
       }
 
-      const { data, error } = await query;
-
-      if (error) {
-        console.error('[getLeads] Query error:', error);
-        throw error;
-      }
-
-      console.log('[getLeads] Fetched leads count:', data?.length || 0);
-      return data || [];
+      console.log('[getLeads] Fetched leads count:', allLeads.length);
+      return allLeads;
     } catch (error) {
       console.error('[getLeads] Error fetching leads:', error);
       return [];
