@@ -227,7 +227,7 @@ export interface Profile {
 
 export const supabaseService = {
   // LEAD MANAGEMENT
-  async getLeads(companyId: string): Promise<Lead[]> {
+  async getLeads(companyId: string, limit?: number): Promise<Lead[]> {
     try {
       // Get current user's profile to determine role
       const { data: { user } } = await supabase.auth.getUser();
@@ -251,8 +251,34 @@ export const supabaseService = {
         userId: user.id,
         profileId: profile.id,
         role: profile.user_role,
-        companyId
+        companyId,
+        limit: limit || 'unlimited'
       });
+
+      // If limit is specified, fetch only that many records (for faster initial load)
+      if (limit) {
+        let query = supabase
+          .from('leads')
+          .select('*')
+          .order('created_at', { ascending: false })
+          .limit(limit);
+
+        if (profile?.user_role === 'sales_rep') {
+          query = query.eq('assigned_rep_id', companyId);
+        } else {
+          query = query.eq('company_id', companyId);
+        }
+
+        const { data, error } = await query;
+
+        if (error) {
+          console.error('[getLeads] Query error:', error);
+          throw error;
+        }
+
+        console.log('[getLeads] Fetched leads count:', data?.length || 0);
+        return data || [];
+      }
 
       // Fetch all leads using pagination to bypass 1000 row limit
       let allLeads: Lead[] = [];
@@ -958,7 +984,7 @@ export const supabaseService = {
   },
 
   // PROSPECT MANAGEMENT
-  async getProspects(companyId: string): Promise<Prospect[]> {
+  async getProspects(companyId: string, limit?: number): Promise<Prospect[]> {
     try {
       // Get current user's profile to determine role
       const { data: { user } } = await supabase.auth.getUser();
@@ -982,8 +1008,34 @@ export const supabaseService = {
         userId: user.id,
         profileId: profile.id,
         role: profile.user_role,
-        companyId
+        companyId,
+        limit: limit || 'unlimited'
       });
+
+      // If limit is specified, fetch only that many records (for faster initial load)
+      if (limit) {
+        let query = supabase
+          .from('prospects')
+          .select('*')
+          .order('created_at', { ascending: false })
+          .limit(limit);
+
+        if (profile?.user_role === 'sales_rep') {
+          query = query.eq('assigned_rep_id', companyId);
+        } else {
+          query = query.eq('company_id', companyId);
+        }
+
+        const { data, error } = await query;
+
+        if (error) {
+          console.error('[getProspects] Query error:', error);
+          throw error;
+        }
+
+        console.log('[getProspects] Fetched prospects count:', data?.length || 0);
+        return data || [];
+      }
 
       // Fetch all prospects using pagination to bypass 1000 row limit
       let allProspects: Prospect[] = [];
