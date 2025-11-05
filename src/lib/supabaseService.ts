@@ -904,11 +904,30 @@ export const supabaseService = {
   // PROSPECT MANAGEMENT
   async getProspects(companyId: string): Promise<Prospect[]> {
     try {
-      const { data, error } = await supabase
+      // Get current user's profile to determine role
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return [];
+
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('user_role')
+        .eq('user_id', user.id)
+        .single();
+
+      let query = supabase
         .from('prospects')
         .select('*')
-        .eq('company_id', companyId)
         .order('created_at', { ascending: false });
+
+      // If sales rep, only show their assigned prospects
+      // If manager/admin, show all company prospects
+      if (profile?.user_role === 'sales_rep') {
+        query = query.eq('assigned_rep_id', companyId);
+      } else {
+        query = query.eq('company_id', companyId);
+      }
+
+      const { data, error } = await query;
 
       if (error) throw error;
       return data || [];
