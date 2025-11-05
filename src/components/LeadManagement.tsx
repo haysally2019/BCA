@@ -100,77 +100,12 @@ const LeadManagement: React.FC = () => {
       return;
     }
 
-    console.log('='.repeat(60));
-    console.log('[LeadManagement] LOADING LEADS');
-    console.log('='.repeat(60));
-    console.log('[LeadManagement] Profile Details:', {
-      id: profile.id,
-      company_name: profile.company_name,
-      user_id: profile.user_id,
-      user_role: profile.user_role
-    });
-    console.log('[LeadManagement] Timestamp:', new Date().toISOString());
+    console.log('[LeadManagement] Loading leads for:', profile.company_name, '(' + profile.user_role + ')');
 
     try {
-      // Try to get leads using profile.id (which should match company_id in leads table)
-      console.log('[LeadManagement] Attempting to fetch leads...');
-      let companyLeads = await supabaseService.getLeads(profile.id);
-      console.log('[LeadManagement] ✓ Successfully loaded', companyLeads.length, 'leads using profile.id:', profile.id);
-
-      // If no leads found, check if this user is a rep under a manager
-      // In that case, they might need to see leads from their manager's company_id
-      if (companyLeads.length === 0) {
-        console.log('[LeadManagement] No leads found with profile.id. Checking for team relationships...');
-
-        // Check if user is part of a team and should see team leads
-        const { data: teamMember } = await supabase
-          .from('team_members')
-          .select('team_id, teams:team_id(manager_id)')
-          .eq('rep_id', profile.user_id)
-          .maybeSingle();
-
-        if (teamMember && teamMember.teams) {
-          const managerId = (teamMember.teams as any).manager_id;
-          console.log('[LeadManagement] User is in a team. Manager ID:', managerId);
-
-          // Get manager's profile to find their company_id
-          const { data: managerProfile } = await supabase
-            .from('profiles')
-            .select('id')
-            .eq('user_id', managerId)
-            .maybeSingle();
-
-          if (managerProfile) {
-            console.log('[LeadManagement] Trying to load leads from manager company_id:', managerProfile.id);
-            companyLeads = await supabaseService.getLeads(managerProfile.id);
-            console.log('[LeadManagement] Loaded', companyLeads.length, 'leads from manager company');
-          }
-        }
-      }
-
-      setLeads(companyLeads);
-
-      if (companyLeads.length === 0) {
-        console.warn('='.repeat(60));
-        console.warn('[LeadManagement] ✗ NO LEADS FOUND');
-        console.warn('='.repeat(60));
-        console.warn('[LeadManagement] Profile ID:', profile.id);
-        console.warn('[LeadManagement] User ID:', profile.user_id);
-        console.warn('[LeadManagement] Company Name:', profile.company_name);
-        console.warn('[LeadManagement] This user needs leads distributed to their company_id');
-        console.warn('='.repeat(60));
-      } else {
-        console.log('='.repeat(60));
-        console.log('[LeadManagement] ✓ SUCCESS - LEADS LOADED');
-        console.log('='.repeat(60));
-        console.log('[LeadManagement] Total leads:', companyLeads.length);
-        console.log('[LeadManagement] Sample leads:', companyLeads.slice(0, 3).map(l => ({
-          name: l.name,
-          phone: l.phone,
-          status: l.status
-        })));
-        console.log('='.repeat(60));
-      }
+      const leads = await supabaseService.getLeads(profile.id);
+      setLeads(leads);
+      console.log('[LeadManagement] ✓ Loaded', leads.length, 'leads');
     } catch (error) {
       console.error('[LeadManagement] Error loading leads:', error);
       toast.error('Error loading leads');

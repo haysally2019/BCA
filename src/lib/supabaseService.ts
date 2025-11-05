@@ -227,63 +227,63 @@ export interface Profile {
 
 export const supabaseService = {
   // LEAD MANAGEMENT
-  async getLeads(companyId: string): Promise<Lead[]> {
+  async getLeads(profileId: string): Promise<Lead[]> {
     try {
-      console.log('[supabaseService] Fetching leads for company_id:', companyId);
+      console.log('[supabaseService] Fetching leads for profile_id:', profileId);
 
-      // Method 1: Try the view (user-specific, auto-filtered by auth)
-      try {
-        console.log('[supabaseService] Trying method 1: my_leads_view');
-        const { data: viewData, error: viewError } = await supabase
-          .from('my_leads_view')
+      // Get the user's profile to determine role
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('id, user_role, company_name')
+        .eq('id', profileId)
+        .single();
+
+      if (!profile) {
+        console.error('[supabaseService] Profile not found');
+        return [];
+      }
+
+      console.log('[supabaseService] User role:', profile.user_role);
+
+      let leads: Lead[] = [];
+
+      // For managers: get all leads where company_id matches their profile
+      if (profile.user_role === 'manager' || profile.user_role === 'admin') {
+        console.log('[supabaseService] Fetching leads by company_id for manager');
+        const { data, error } = await supabase
+          .from('leads')
           .select('*')
+          .eq('company_id', profileId)
           .order('created_at', { ascending: false });
 
-        if (!viewError && viewData !== null) {
-          console.log('[supabaseService] ✓ Method 1 SUCCESS: Fetched', viewData.length, 'leads via view');
-          return viewData;
+        if (error) {
+          console.error('[supabaseService] Error fetching manager leads:', error);
+          throw error;
         }
-        if (viewError) {
-          console.warn('[supabaseService] View query error:', viewError);
+
+        leads = data || [];
+        console.log('[supabaseService] ✓ Fetched', leads.length, 'leads for manager');
+      } else {
+        // For sales reps: get leads assigned to them
+        console.log('[supabaseService] Fetching leads by assigned_rep_id for sales rep');
+        const { data, error } = await supabase
+          .from('leads')
+          .select('*')
+          .eq('assigned_rep_id', profileId)
+          .order('created_at', { ascending: false });
+
+        if (error) {
+          console.error('[supabaseService] Error fetching rep leads:', error);
+          throw error;
         }
-      } catch (viewErr) {
-        console.warn('[supabaseService] View query exception:', viewErr);
+
+        leads = data || [];
+        console.log('[supabaseService] ✓ Fetched', leads.length, 'leads for sales rep');
       }
 
-      // Method 2: Try RPC function
-      try {
-        console.log('[supabaseService] Trying method 2: RPC function');
-        const { data: functionData, error: functionError } = await supabase
-          .rpc('get_my_leads');
-
-        if (!functionError && functionData && functionData.length > 0) {
-          console.log('[supabaseService] ✓ Method 2 SUCCESS: Fetched', functionData.length, 'leads via RPC');
-          return functionData;
-        }
-        if (functionError) {
-          console.warn('[supabaseService] RPC error:', functionError);
-        }
-      } catch (rpcError) {
-        console.warn('[supabaseService] RPC exception:', rpcError);
-      }
-
-      // Method 3: Direct query with company_id
-      console.log('[supabaseService] Trying method 3: Direct query with company_id:', companyId);
-      const { data, error } = await supabase
-        .from('leads')
-        .select('*')
-        .eq('company_id', companyId)
-        .order('created_at', { ascending: false });
-
-      if (error) {
-        console.error('[supabaseService] Direct query error:', error);
-        throw error;
-      }
-
-      console.log('[supabaseService] ✓ Method 3 SUCCESS: Fetched', data?.length || 0, 'leads via direct query');
-      return data || [];
+      return leads;
     } catch (error) {
-      console.error('[supabaseService] All methods failed:', error);
+      console.error('[supabaseService] Error in getLeads:', error);
       return [];
     }
   },
