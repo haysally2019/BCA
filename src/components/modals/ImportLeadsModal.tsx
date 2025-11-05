@@ -2,11 +2,15 @@ import React, { useState } from 'react';
 import { Upload, X, Download, AlertCircle, CheckCircle, Loader } from 'lucide-react';
 import BaseModal from './BaseModal';
 import toast from 'react-hot-toast';
+import { supabase } from '../../lib/supabaseClient';
 
 interface ImportLeadsModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onImport: (leads: any[]) => Promise<{ success: number; failed: number; duplicates: number; dbDuplicates: number }>;
+  onImport?: (leads: any[]) => Promise<{ success: number; failed: number; duplicates: number; dbDuplicates: number }>;
+  managerId?: string;
+  teamMembers?: Array<{ profile_id: string; is_active: boolean }>;
+  onSuccess?: () => void;
 }
 
 interface CSVColumn {
@@ -48,7 +52,7 @@ const FIELD_OPTIONS = [
 const VALID_STATUSES = ['new', 'contacted', 'qualified', 'won', 'lost'];
 const MAX_IMPORT_LEADS = 100;
 
-export const ImportLeadsModal: React.FC<ImportLeadsModalProps> = ({ isOpen, onClose, onImport }) => {
+export const ImportLeadsModal: React.FC<ImportLeadsModalProps> = ({ isOpen, onClose, onImport, managerId, teamMembers, onSuccess }) => {
   const [file, setFile] = useState<File | null>(null);
   const [columns, setColumns] = useState<CSVColumn[]>([]);
   const [csvData, setCsvData] = useState<string[][]>([]);
@@ -350,18 +354,56 @@ export const ImportLeadsModal: React.FC<ImportLeadsModalProps> = ({ isOpen, onCl
 
     try {
       if (validLeads.length > 0) {
-        // Use the onImport callback which will handle the bulk insert
-        const importResults = await onImport(validLeads);
+        // If teamMembers and managerId are provided, distribute leads to team
+        if (teamMembers && managerId) {
+          const activeReps = teamMembers.filter(m => m.is_active);
 
-        // Update result with actual database results
-        result.success = importResults.success;
-        result.dbDuplicates = importResults.dbDuplicates;
+          if (activeReps.length === 0) {
+            throw new Error('No active team members to distribute leads to');
+          }
 
-        // Keep track of CSV duplicates separately
-        // (these are already counted in result.duplicates from the loop above)
+          const leadsPerRep = Math.ceil(validLeads.length / activeReps.length);
+          const leadsToInsert = [];
 
-        if (importResults.success > 0) {
-          toast.success(`Successfully imported ${importResults.success} lead${importResults.success > 1 ? 's' : ''}`);
+          for (let i = 0; i < validLeads.length; i++) {
+            const repIndex = Math.floor(i / leadsPerRep);
+            const assignedRep = activeReps[Math.min(repIndex, activeReps.length - 1)];
+
+            leadsToInsert.push({
+              ...validLeads[i],
+              company_id: assignedRep.profile_id,
+              assigned_rep_id: assignedRep.profile_id,
+              created_at: new Date().toISOString(),
+              updated_at: new Date().toISOString()
+            });
+          }
+
+          const { data, error: insertError } = await supabase
+            .from('leads')
+            .insert(leadsToInsert);
+
+          if (insertError) throw insertError;
+
+          result.success = leadsToInsert.length;
+          toast.success(`Successfully imported ${leadsToInsert.length} leads distributed to ${activeReps.length} reps`);
+
+          if (onSuccess) onSuccess();
+        } else if (onImport) {
+          // Use the onImport callback which will handle the bulk insert
+          const importResults = await onImport(validLeads);
+
+          // Update result with actual database results
+          result.success = importResults.success;
+          result.dbDuplicates = importResults.dbDuplicates;
+
+          // Keep track of CSV duplicates separately
+          // (these are already counted in result.duplicates from the loop above)
+
+          if (importResults.success > 0) {
+            toast.success(`Successfully imported ${importResults.success} lead${importResults.success > 1 ? 's' : ''}`);
+          }
+        } else {
+          throw new Error('No import handler provided');
         }
       } else {
         toast.error('No valid leads to import');
@@ -518,6 +560,9 @@ export const ImportLeadsModal: React.FC<ImportLeadsModalProps> = ({ isOpen, onCl
             <p className="text-sm text-blue-700 mt-1">
               Match your CSV columns to lead fields. Name and Phone are required.
               Found {csvData.length} rows to import.
+              {teamMembers && teamMembers.filter(m => m.is_active).length > 0 && (
+                <> Leads will be distributed evenly among {teamMembers.filter(m => m.is_active).length} active team members.</>
+              )}
             </p>
           </div>
         </div>
