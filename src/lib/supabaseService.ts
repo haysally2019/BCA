@@ -229,16 +229,57 @@ export const supabaseService = {
   // LEAD MANAGEMENT
   async getLeads(companyId: string): Promise<Lead[]> {
     try {
-      const { data, error } = await supabase
+      // Get current user's profile to determine role
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        console.log('[getLeads] No authenticated user');
+        return [];
+      }
+
+      const { data: profile, error: profileError } = await supabase
+        .from('profiles')
+        .select('user_role, id')
+        .eq('user_id', user.id)
+        .single();
+
+      if (profileError) {
+        console.error('[getLeads] Error fetching profile:', profileError);
+        return [];
+      }
+
+      console.log('[getLeads] User profile:', {
+        userId: user.id,
+        profileId: profile.id,
+        role: profile.user_role,
+        companyId
+      });
+
+      let query = supabase
         .from('leads')
         .select('*')
-        .eq('company_id', companyId)
         .order('created_at', { ascending: false });
 
-      if (error) throw error;
+      // If sales rep, only show their assigned leads
+      // If manager/admin, show all company leads
+      if (profile?.user_role === 'sales_rep') {
+        console.log('[getLeads] Filtering for sales rep, assigned_rep_id:', companyId);
+        query = query.eq('assigned_rep_id', companyId);
+      } else {
+        console.log('[getLeads] Filtering for manager, company_id:', companyId);
+        query = query.eq('company_id', companyId);
+      }
+
+      const { data, error } = await query;
+
+      if (error) {
+        console.error('[getLeads] Query error:', error);
+        throw error;
+      }
+
+      console.log('[getLeads] Fetched leads count:', data?.length || 0);
       return data || [];
     } catch (error) {
-      console.error('Error fetching leads:', error);
+      console.error('[getLeads] Error fetching leads:', error);
       return [];
     }
   },
