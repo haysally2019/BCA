@@ -231,20 +231,44 @@ export const supabaseService = {
     try {
       console.log('[supabaseService] Fetching leads for company_id:', companyId);
 
-      // Try using the database function first (bypasses any caching issues)
+      // Method 1: Try the view (user-specific, auto-filtered by auth)
       try {
+        console.log('[supabaseService] Trying method 1: my_leads_view');
+        const { data: viewData, error: viewError } = await supabase
+          .from('my_leads_view')
+          .select('*')
+          .order('created_at', { ascending: false });
+
+        if (!viewError && viewData && viewData.length > 0) {
+          console.log('[supabaseService] ✓ Method 1 SUCCESS: Fetched', viewData.length, 'leads via view');
+          return viewData;
+        }
+        if (viewError) {
+          console.warn('[supabaseService] View query error:', viewError);
+        }
+      } catch (viewErr) {
+        console.warn('[supabaseService] View query exception:', viewErr);
+      }
+
+      // Method 2: Try RPC function
+      try {
+        console.log('[supabaseService] Trying method 2: RPC function');
         const { data: functionData, error: functionError } = await supabase
           .rpc('get_my_leads');
 
         if (!functionError && functionData && functionData.length > 0) {
-          console.log('[supabaseService] Successfully fetched', functionData.length, 'leads via RPC function');
+          console.log('[supabaseService] ✓ Method 2 SUCCESS: Fetched', functionData.length, 'leads via RPC');
           return functionData;
         }
+        if (functionError) {
+          console.warn('[supabaseService] RPC error:', functionError);
+        }
       } catch (rpcError) {
-        console.warn('[supabaseService] RPC function failed, falling back to direct query:', rpcError);
+        console.warn('[supabaseService] RPC exception:', rpcError);
       }
 
-      // Fallback to direct query
+      // Method 3: Direct query with company_id
+      console.log('[supabaseService] Trying method 3: Direct query with company_id:', companyId);
       const { data, error } = await supabase
         .from('leads')
         .select('*')
@@ -252,14 +276,14 @@ export const supabaseService = {
         .order('created_at', { ascending: false });
 
       if (error) {
-        console.error('[supabaseService] Error fetching leads:', error);
+        console.error('[supabaseService] Direct query error:', error);
         throw error;
       }
 
-      console.log('[supabaseService] Successfully fetched', data?.length || 0, 'leads via direct query');
+      console.log('[supabaseService] ✓ Method 3 SUCCESS: Fetched', data?.length || 0, 'leads via direct query');
       return data || [];
     } catch (error) {
-      console.error('[supabaseService] Exception fetching leads:', error);
+      console.error('[supabaseService] All methods failed:', error);
       return [];
     }
   },
