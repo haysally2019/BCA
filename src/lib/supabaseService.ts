@@ -906,13 +906,28 @@ export const supabaseService = {
     try {
       // Get current user's profile to determine role
       const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return [];
+      if (!user) {
+        console.log('[getProspects] No authenticated user');
+        return [];
+      }
 
-      const { data: profile } = await supabase
+      const { data: profile, error: profileError } = await supabase
         .from('profiles')
-        .select('user_role')
+        .select('user_role, id')
         .eq('user_id', user.id)
         .single();
+
+      if (profileError) {
+        console.error('[getProspects] Error fetching profile:', profileError);
+        return [];
+      }
+
+      console.log('[getProspects] User profile:', {
+        userId: user.id,
+        profileId: profile.id,
+        role: profile.user_role,
+        companyId
+      });
 
       let query = supabase
         .from('prospects')
@@ -922,17 +937,24 @@ export const supabaseService = {
       // If sales rep, only show their assigned prospects
       // If manager/admin, show all company prospects
       if (profile?.user_role === 'sales_rep') {
+        console.log('[getProspects] Filtering for sales rep, assigned_rep_id:', companyId);
         query = query.eq('assigned_rep_id', companyId);
       } else {
+        console.log('[getProspects] Filtering for manager, company_id:', companyId);
         query = query.eq('company_id', companyId);
       }
 
       const { data, error } = await query;
 
-      if (error) throw error;
+      if (error) {
+        console.error('[getProspects] Query error:', error);
+        throw error;
+      }
+
+      console.log('[getProspects] Fetched prospects count:', data?.length || 0);
       return data || [];
     } catch (error) {
-      console.error('Error fetching prospects:', error);
+      console.error('[getProspects] Error fetching prospects:', error);
       return [];
     }
   },
