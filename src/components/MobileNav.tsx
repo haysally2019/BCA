@@ -49,7 +49,7 @@ const MobileNav: React.FC<MobileNavProps> = ({ isOpen, onClose }) => {
       return [
         { path: '/agency-dashboard', label: 'Dashboard', icon: Home },
         { path: '/prospects', label: 'Leads & Pipeline', icon: Target },
-        { path: '/commissions', label: 'Commissions', icon: DollarSign },
+        { path: '/commissions', label: 'Performance & Payouts', icon: DollarSign },
         { path: '/sales-tools', label: 'Tools', icon: Briefcase },
         { path: '/reports', label: 'My Reports', icon: FileText },
         { path: '/settings', label: 'Settings', icon: Settings },
