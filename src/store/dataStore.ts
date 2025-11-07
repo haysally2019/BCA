@@ -39,6 +39,24 @@ interface DataState {
 const CACHE_DURATION = 5 * 60 * 1000; // 5 minutes
 const STALE_WHILE_REVALIDATE = 10 * 60 * 1000; // 10 minutes
 
+let lastVisibilityChange = Date.now();
+
+// Track visibility changes and invalidate cache if tab was hidden for too long
+if (typeof document !== 'undefined') {
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'hidden') {
+      lastVisibilityChange = Date.now();
+    } else if (document.visibilityState === 'visible') {
+      const hiddenDuration = Date.now() - lastVisibilityChange;
+      // If tab was hidden for more than 5 minutes, clear the cache
+      if (hiddenDuration > CACHE_DURATION) {
+        console.log('[DataStore] Tab was hidden for', Math.round(hiddenDuration / 1000), 'seconds - invalidating cache');
+        useDataStore.getState().clearCache();
+      }
+    }
+  });
+}
+
 export const useDataStore = create<DataState>((set, get) => ({
   cache: new Map(),
   dashboardLoading: false,
