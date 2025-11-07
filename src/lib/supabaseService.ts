@@ -1777,14 +1777,28 @@ export const supabaseService = {
   // PROFILE MANAGEMENT
   async getProfilesByCompany(companyId: string): Promise<Profile[]> {
     try {
-      const { data, error } = await supabase
+      // Get all team members for this company
+      const { data: teamMembers, error: teamError } = await supabase
+        .from('team_members')
+        .select('profile_id')
+        .eq('company_id', companyId);
+
+      if (teamError) throw teamError;
+
+      if (!teamMembers || teamMembers.length === 0) {
+        return [];
+      }
+
+      // Get all profiles for these team members
+      const profileIds = teamMembers.map(tm => tm.profile_id);
+      const { data: profiles, error: profilesError } = await supabase
         .from('profiles')
         .select('*')
-        .eq('id', companyId)
+        .in('id', profileIds)
         .order('created_at', { ascending: false });
 
-      if (error) throw error;
-      return data || [];
+      if (profilesError) throw profilesError;
+      return profiles || [];
     } catch (error) {
       console.error('Error fetching profiles by company:', error);
       return [];
