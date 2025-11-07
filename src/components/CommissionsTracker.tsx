@@ -46,6 +46,7 @@ const CommissionsTracker: React.FC = () => {
   const [syncingMetrics, setSyncingMetrics] = useState(false);
   const [processingPayout, setProcessingPayout] = useState(false);
   const [selectedPayoutReps, setSelectedPayoutReps] = useState<string[]>([]);
+  const [totalRevenue, setTotalRevenue] = useState(0);
 
   const syncAffiliateMetrics = async (silent: boolean = false) => {
     setSyncingMetrics(true);
@@ -99,6 +100,7 @@ const CommissionsTracker: React.FC = () => {
     if (profile) {
       loadCommissionsData(profile.id);
       loadSalesReps();
+      loadTotalRevenue();
     }
   }, [profile?.id]);
 
@@ -133,6 +135,19 @@ const CommissionsTracker: React.FC = () => {
       setSalesReps(repsData);
     } catch (error) {
       console.error('Error loading sales reps:', error);
+    }
+  };
+
+  const loadTotalRevenue = async () => {
+    if (!profile) return;
+
+    try {
+      const deals = await supabaseService.getDeals(profile.id);
+      const wonDeals = deals.filter(d => d.status === 'won');
+      const revenue = wonDeals.reduce((sum, deal) => sum + deal.value, 0);
+      setTotalRevenue(revenue);
+    } catch (error) {
+      console.error('Error loading total revenue:', error);
     }
   };
 
@@ -327,7 +342,7 @@ const CommissionsTracker: React.FC = () => {
       {/* Commission Summary */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4">
         {[
-          { title: 'Total Earnings', value: `$${metrics.totalEarnings.toLocaleString()}`, icon: DollarSign, color: 'bg-green-500' },
+          { title: 'Total Revenue', value: `$${totalRevenue.toLocaleString()}`, icon: DollarSign, color: 'bg-green-500' },
           { title: 'Paid Earnings', value: `$${metrics.totalPaidEarnings.toLocaleString()}`, icon: CheckCircle, color: 'bg-emerald-500' },
           { title: 'Unpaid Earnings', value: `$${metrics.totalUnpaidEarnings.toLocaleString()}`, icon: Clock, color: 'bg-yellow-500' },
           { title: 'Commission Rate', value: `${metrics.commissionRate.toFixed(1)}%`, icon: TrendingUp, color: 'bg-red-500' },
