@@ -123,34 +123,42 @@ function AppContent() {
 
   useEffect(() => {
     const handleVisibilityChange = async () => {
-      if (document.visibilityState === 'hidden' && user && profile && location.pathname !== '/') {
+      const currentUser = useAuthStore.getState().user;
+      const currentProfile = useAuthStore.getState().profile;
+
+      if (document.visibilityState === 'hidden' && currentUser && currentProfile && location.pathname !== '/') {
         console.log('[App] Tab becoming hidden - saving current route:', location.pathname);
         sessionStorage.setItem('currentRoute', location.pathname);
-      } else if (document.visibilityState === 'visible' && user && profile) {
-        console.log('[App] Tab becoming visible - refreshing session');
-        try {
-          const { data: { session }, error } = await supabase.auth.getSession();
+      } else if (document.visibilityState === 'visible' && currentUser && currentProfile) {
+        console.log('[App] Tab becoming visible - validating session in background');
 
-          if (error) {
-            console.error('[App] Session validation error on tab focus:', error);
-            if (error.message.includes('Invalid Refresh Token') ||
-                error.message.includes('Invalid login credentials') ||
-                error.message.includes('refresh_token_not_found')) {
-              console.log('[App] Invalid session detected - signing out');
+        // Validate session in background without disrupting UI
+        setTimeout(async () => {
+          try {
+            const { data: { session }, error } = await supabase.auth.getSession();
+
+            if (error) {
+              console.error('[App] Session validation error on tab focus:', error);
+              if (error.message.includes('Invalid Refresh Token') ||
+                  error.message.includes('Invalid login credentials') ||
+                  error.message.includes('refresh_token_not_found')) {
+                console.log('[App] Invalid session detected - signing out');
+                await useAuthStore.getState().signOut();
+                navigate('/');
+              }
+            } else if (!session) {
+              console.log('[App] No session found on tab focus - signing out');
               await useAuthStore.getState().signOut();
               navigate('/');
+            } else {
+              console.log('[App] Session validated successfully on tab focus');
+              // Silently refresh profile without triggering loading states
+              await useAuthStore.getState().refreshProfile();
             }
-          } else if (!session) {
-            console.log('[App] No session found on tab focus - signing out');
-            await useAuthStore.getState().signOut();
-            navigate('/');
-          } else {
-            console.log('[App] Session validated successfully on tab focus');
-            await refreshProfile();
+          } catch (error) {
+            console.error('[App] Error during session refresh on tab focus:', error);
           }
-        } catch (error) {
-          console.error('[App] Error during session refresh on tab focus:', error);
-        }
+        }, 100);
       }
     };
 
@@ -159,7 +167,7 @@ function AppContent() {
     return () => {
       document.removeEventListener('visibilitychange', handleVisibilityChange);
     };
-  }, [user, profile, location.pathname, navigate, refreshProfile]);
+  }, [location.pathname, navigate]);
 
   useEffect(() => {
     if (!user || !profile) {
