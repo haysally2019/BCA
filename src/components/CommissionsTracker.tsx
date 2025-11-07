@@ -116,9 +116,19 @@ const CommissionsTracker: React.FC = () => {
     if (!profile) return;
 
     try {
-      const profiles = await supabaseService.getProfilesByCompany(profile.id);
+      // Check if user is a sales rep
+      const isSalesRep = profile.user_role === 'sales_rep';
 
-      const repsData = profiles.filter(p => p.user_type === 'sales_rep').map(rep => {
+      let profiles = [];
+      if (isSalesRep) {
+        // Sales reps only see their own data
+        profiles = [profile];
+      } else {
+        // Managers see all team members
+        profiles = await supabaseService.getProfilesByCompany(profile.id);
+      }
+
+      const repsData = profiles.filter(p => p.user_role === 'sales_rep' || p.user_type === 'sales_rep').map(rep => {
         return {
           id: rep.id,
           name: rep.full_name || rep.company_name,
@@ -142,9 +152,23 @@ const CommissionsTracker: React.FC = () => {
     if (!profile) return;
 
     try {
+      // Check if user is management or sales rep
+      const isManagementRole = profile.user_role === 'manager' || profile.user_role === 'sales_manager';
+
       const deals = await supabaseService.getDeals(profile.id);
       const wonDeals = deals.filter(d => d.status === 'won');
-      const revenue = wonDeals.reduce((sum, deal) => sum + deal.value, 0);
+
+      let revenue = 0;
+      if (isManagementRole) {
+        // Managers see all team revenue
+        revenue = wonDeals.reduce((sum, deal) => sum + deal.value, 0);
+      } else {
+        // Sales reps see only their revenue
+        revenue = wonDeals
+          .filter(d => d.assigned_rep_id === profile.id)
+          .reduce((sum, deal) => sum + deal.value, 0);
+      }
+
       setTotalRevenue(revenue);
     } catch (error) {
       console.error('Error loading total revenue:', error);
