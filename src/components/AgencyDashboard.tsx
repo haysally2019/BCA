@@ -259,59 +259,6 @@ const AgencyDashboard: React.FC = () => {
         </div>
       )}
 
-      {/* Key Metrics */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-2 sm:gap-3 lg:gap-4">
-        {[
-          {
-            title: 'Active Prospects',
-            value: agencyMetrics.totalClients,
-            icon: Building2,
-            color: 'bg-blue-500',
-            change: '+12%',
-            subtitle: `${agencyMetrics.activeTrials} qualified`
-          },
-          {
-            title: affiliateMetrics.hasAffiliateAccount ? 'Pipeline Revenue' : 'Monthly Revenue',
-            value: `$${agencyMetrics.monthlyRevenue.toLocaleString()}`,
-            icon: DollarSign,
-            color: 'bg-green-500',
-            change: '+23%',
-            subtitle: `$${agencyMetrics.avgDealSize} avg`
-          },
-          {
-            title: 'Pipeline Value',
-            value: `$${agencyMetrics.pipelineValue.toLocaleString()}`,
-            icon: Target,
-            color: 'bg-purple-500',
-            change: '+18%',
-            subtitle: `${analyticsData.totalDeals} deals`
-          },
-          {
-            title: affiliateMetrics.hasAffiliateAccount ? 'Lead Conversion' : 'Conversion Rate',
-            value: `${agencyMetrics.conversionRate}%`,
-            icon: TrendingUp,
-            color: 'bg-emerald-500',
-            change: '+5%',
-            subtitle: affiliateMetrics.hasAffiliateAccount ? `${affiliateMetrics.referrals} referrals` : 'industry leading'
-          }
-        ].map((metric, index) => {
-          const Icon = metric.icon;
-          return (
-            <div key={index} className="bg-white rounded-lg p-2.5 sm:p-4 lg:p-5 shadow-sm border border-gray-100 hover:shadow-md transition-all duration-200">
-              <div className="flex items-center justify-between mb-2 sm:mb-3 lg:mb-4">
-                <div className={`w-7 h-7 sm:w-9 sm:h-9 lg:w-10 lg:h-10 ${metric.color} rounded-lg flex items-center justify-center shadow-sm`}>
-                  <Icon className="w-3.5 h-3.5 sm:w-4 sm:h-4 lg:w-5 lg:h-5 text-white" />
-                </div>
-                <span className="text-xs sm:text-sm font-medium text-green-600">{metric.change}</span>
-              </div>
-              <h3 className="text-base sm:text-lg lg:text-xl font-bold text-gray-900 mb-0.5 sm:mb-1">{metric.value}</h3>
-              <p className="text-gray-600 text-xs sm:text-sm mb-0.5 sm:mb-1 font-medium">{metric.title}</p>
-              <p className="text-xs text-gray-500 hidden sm:block">{metric.subtitle}</p>
-            </div>
-          );
-        })}
-      </div>
-
       {/* Quick Actions */}
       <div className="max-w-4xl">
         {/* Quick Actions */}
