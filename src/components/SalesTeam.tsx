@@ -255,21 +255,6 @@ const SalesTeam: React.FC = () => {
         })}
       </div>
 
-      {performanceData.length > 0 && (
-        <div className="bg-white rounded-xl p-4 sm:p-6 shadow-sm border border-gray-100">
-          <h3 className="text-base sm:text-lg font-semibold text-gray-900 mb-4">Team Performance Overview</h3>
-          <ResponsiveContainer width="100%" height={250}>
-            <BarChart data={performanceData}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
-              <XAxis dataKey="name" stroke="#6b7280" fontSize={12} />
-              <YAxis stroke="#6b7280" fontSize={12} />
-              <Tooltip />
-              <Bar dataKey="revenue" fill="#ef4444" name="Revenue ($)" />
-              <Bar dataKey="deals" fill="#3b82f6" name="Deals Closed" />
-            </BarChart>
-          </ResponsiveContainer>
-        </div>
-      )}
 
       <div className="bg-white rounded-xl p-4 sm:p-6 shadow-sm border border-gray-100">
         <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between space-y-4 lg:space-y-0">
