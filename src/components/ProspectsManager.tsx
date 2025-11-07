@@ -37,20 +37,43 @@ const ProspectsManager: React.FC = () => {
 
   // Infinite scroll handler
   useEffect(() => {
-    const handleScroll = () => {
-      if (!profile || prospectsLoadingMore || !hasMoreProspects) return;
+    const handleScroll = (e: Event) => {
+      if (!profile || prospectsLoadingMore || !hasMoreProspects) {
+        console.log('[ProspectsManager] Scroll blocked:', {
+          hasProfile: !!profile,
+          prospectsLoadingMore,
+          hasMoreProspects,
+          currentCount: prospects.length,
+          totalCount: totalProspectsCount
+        });
+        return;
+      }
 
-      const scrollPosition = window.innerHeight + window.scrollY;
-      const threshold = document.documentElement.scrollHeight - 500;
+      const target = e.target as HTMLElement;
+      const scrollPosition = target.scrollTop + target.clientHeight;
+      const threshold = target.scrollHeight - 500;
 
       if (scrollPosition >= threshold) {
+        console.log('[ProspectsManager] Loading more prospects...', {
+          currentCount: prospects.length,
+          totalCount: totalProspectsCount
+        });
         loadMoreProspects(profile.id);
       }
     };
 
-    window.addEventListener('scroll', handleScroll);
-    return () => window.removeEventListener('scroll', handleScroll);
-  }, [profile, prospectsLoadingMore, hasMoreProspects, loadMoreProspects]);
+    // Find the scrollable container (works for both mobile and desktop)
+    const scrollContainer = document.querySelector('.overflow-auto');
+
+    if (scrollContainer) {
+      scrollContainer.addEventListener('scroll', handleScroll);
+      return () => scrollContainer.removeEventListener('scroll', handleScroll);
+    }
+
+    // Fallback to window scroll for mobile
+    window.addEventListener('scroll', handleScroll as any);
+    return () => window.removeEventListener('scroll', handleScroll as any);
+  }, [profile, prospectsLoadingMore, hasMoreProspects, loadMoreProspects, prospects.length, totalProspectsCount]);
 
   const createSampleProspects = async () => {
     if (!profile) return;
