@@ -59,11 +59,16 @@ export const useDataStore = create<DataState>((set, get) => ({
     const cached = cache.get(cacheKey);
     const now = Date.now();
 
+    // Always get total count (it's fast and needed for hasMoreProspects)
+    const totalCount = await supabaseService.getProspectsCount(companyId);
+
     // Return cached data immediately if valid and not forced
     if (!force && cached && now < cached.expiry) {
       set({
         analyticsData: cached.data.analytics,
         prospects: cached.data.prospects || [],
+        totalProspectsCount: totalCount,
+        hasMoreProspects: (cached.data.prospects || []).length < totalCount,
         dashboardLoading: false
       });
       return;
@@ -74,13 +79,15 @@ export const useDataStore = create<DataState>((set, get) => ({
       set({
         analyticsData: cached.data.analytics,
         prospects: cached.data.prospects || [],
+        totalProspectsCount: totalCount,
+        hasMoreProspects: (cached.data.prospects || []).length < totalCount,
         dashboardLoading: false
       });
 
       // Revalidate in background without showing loading state
       setTimeout(async () => {
         try {
-          const [analytics, prospects, totalCount] = await Promise.all([
+          const [analytics, prospects, updatedTotalCount] = await Promise.all([
             supabaseService.getAnalyticsData(companyId, timeRange),
             supabaseService.getProspects(companyId, 50),
             supabaseService.getProspectsCount(companyId)
@@ -98,7 +105,8 @@ export const useDataStore = create<DataState>((set, get) => ({
             cache: newCache,
             analyticsData: analytics,
             prospects: prospects,
-            totalProspectsCount: totalCount
+            totalProspectsCount: updatedTotalCount,
+            hasMoreProspects: prospects.length < updatedTotalCount
           });
         } catch (error) {
           console.error('Background revalidation failed:', error);
