@@ -186,13 +186,6 @@ const AgencyDashboard: React.FC = () => {
             <option value="30d">Last 30 days</option>
             <option value="90d">Last 90 days</option>
           </select>
-          <button
-            onClick={handleAddLead}
-            className="bg-academy-blue-600 text-white px-3 py-1.5 sm:px-4 sm:py-2 rounded-lg flex items-center space-x-1.5 hover:bg-academy-blue-700 transition-colors text-xs sm:text-sm touch-manipulation"
-          >
-            <Plus className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
-            <span>Add Lead</span>
-          </button>
         </div>
       </div>
 
