@@ -7,6 +7,7 @@ import {
   Clock,
   AlertCircle,
   Target,
+  BarChart3,
   Users,
   Calendar
 } from 'lucide-react';
