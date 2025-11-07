@@ -7,22 +7,15 @@ import {
   Clock,
   AlertCircle,
   Target,
-  BarChart3,
   Users,
-  Copy,
-  Link,
-  Settings,
-  Calendar,
-  CreditCard
+  Calendar
 } from 'lucide-react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar } from 'recharts';
 import { supabaseService, Commission } from '../lib/supabaseService';
-import { commissionService, type Affiliate, type CommissionEntry } from '../lib/commissionService';
 import { useAuthStore } from '../store/authStore';
 import { useDataStore } from '../store/dataStore';
 import LoadingSpinner from './LoadingSpinner';
 import toast from 'react-hot-toast';
-import AffiliateManagement from './AffiliateManagement';
 
 interface MonthlyDataPoint {
   month: string;
@@ -42,7 +35,6 @@ interface CommissionTotals {
 const CommissionsTracker: React.FC = () => {
   const [activeTab, setActiveTab] = useState('overview');
   const [filterPeriod, setFilterPeriod] = useState('current_quarter');
-  const [filterStatus, setFilterStatus] = useState('all');
   const { profile } = useAuthStore();
   const { 
     commissions, 
@@ -51,22 +43,9 @@ const CommissionsTracker: React.FC = () => {
     loadCommissionsData 
   } = useDataStore();
   const [salesReps, setSalesReps] = useState<any[]>([]);
-
-  // Add affiliate management state
-  const [showAffiliateManagement, setShowAffiliateManagement] = useState(false);
-  const [webhookCopied, setWebhookCopied] = useState(false);
   const [syncingMetrics, setSyncingMetrics] = useState(false);
   const [processingPayout, setProcessingPayout] = useState(false);
   const [selectedPayoutReps, setSelectedPayoutReps] = useState<string[]>([]);
-
-  const webhookEndpoint = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/affiliatewp-webhook`;
-
-  const copyWebhookUrl = () => {
-    navigator.clipboard.writeText(webhookEndpoint);
-    setWebhookCopied(true);
-    toast.success('Webhook URL copied to clipboard');
-    setTimeout(() => setWebhookCopied(false), 2000);
-  };
 
   const syncAffiliateMetrics = async (silent: boolean = false) => {
     setSyncingMetrics(true);
@@ -376,7 +355,6 @@ const CommissionsTracker: React.FC = () => {
           <nav className="flex space-x-4 md:space-x-8 px-4 md:px-6 min-w-max">
             {[
               { id: 'overview', label: 'Overview' },
-              { id: 'affiliate_commissions', label: 'Commission History', count: affiliateCommissions.length },
               { id: 'reps', label: 'Rep Performance', count: salesReps.length },
               { id: 'payouts', label: 'Payouts' }
             ].map((tab) => (
@@ -609,170 +587,6 @@ const CommissionsTracker: React.FC = () => {
                   <DollarSign className="w-16 h-16 text-gray-300 mx-auto mb-4" />
                   <h3 className="text-lg font-medium text-gray-900 mb-2">No commissions found</h3>
                   <p className="text-gray-500">Complete some deals to start earning commissions!</p>
-                </div>
-              )}
-            </div>
-          )}
-
-          {activeTab === 'affiliate_commissions' && (
-            <div className="space-y-6">
-              {/* Filters */}
-              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between space-y-3 sm:space-y-0">
-                <div className="flex items-center space-x-3">
-                  <select
-                    value={filterStatus}
-                    onChange={(e) => setFilterStatus(e.target.value)}
-                    className="border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-academy-blue-500 focus:border-academy-blue-500"
-                  >
-                    <option value="all">All Status</option>
-                    <option value="pending">Pending</option>
-                    <option value="approved">Approved</option>
-                    <option value="paid">Paid</option>
-                  </select>
-                </div>
-                <div className="text-sm text-gray-600">
-                  Total: {affiliateCommissions.filter(c => filterStatus === 'all' || c.status === filterStatus).length} entries
-                </div>
-              </div>
-
-              {/* Affiliate Commissions Table */}
-              <div className="hidden md:block overflow-x-auto">
-                <table className="w-full">
-                  <thead className="bg-gray-50">
-                    <tr>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Affiliate</th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Customer</th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Product</th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Type</th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Order Total</th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Rate</th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Commission</th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Date</th>
-                    </tr>
-                  </thead>
-                  <tbody className="bg-white divide-y divide-gray-200">
-                    {affiliateCommissions
-                      .filter(c => filterStatus === 'all' || c.status === filterStatus)
-                      .map(entry => (
-                      <tr key={entry.id} className="hover:bg-gray-50">
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <div className="text-sm font-medium text-gray-900">
-                            {entry.affiliate?.name || 'Unknown'}
-                          </div>
-                          <div className="text-sm text-gray-500">
-                            {entry.affiliate?.tier_level && (
-                              <span className={`inline-flex px-2 py-0.5 text-xs rounded-full ${
-                                entry.affiliate.tier_level === 'platinum' ? 'bg-purple-100 text-purple-800' :
-                                entry.affiliate.tier_level === 'gold' ? 'bg-yellow-100 text-yellow-800' :
-                                entry.affiliate.tier_level === 'silver' ? 'bg-gray-100 text-gray-800' :
-                                entry.affiliate.tier_level === 'bronze' ? 'bg-orange-100 text-orange-800' :
-                                'bg-blue-100 text-blue-800'
-                              }`}>
-                                {entry.affiliate.tier_level}
-                              </span>
-                            )}
-                          </div>
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <div className="text-sm text-gray-900">{entry.customer_name}</div>
-                          <div className="text-sm text-gray-500">{entry.customer_email}</div>
-                        </td>
-                        <td className="px-6 py-4">
-                          <div className="text-sm text-gray-900 max-w-xs truncate">{entry.product_name}</div>
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
-                            entry.commission_type === 'upfront' ? 'bg-green-100 text-green-800' : 'bg-blue-100 text-blue-800'
-                          }`}>
-                            {entry.commission_type}
-                          </span>
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                          ${entry.order_total.toLocaleString()}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                          {entry.commission_rate}%
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-green-600">
-                          ${entry.commission_amount.toFixed(2)}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <div className="flex items-center space-x-2">
-                            {getStatusIcon(entry.status)}
-                            <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full border ${getStatusColor(entry.status)}`}>
-                              {entry.status}
-                            </span>
-                          </div>
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                          {new Date(entry.created_at).toLocaleDateString()}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-
-              {/* Mobile Affiliate Commission Cards */}
-              <div className="md:hidden space-y-3">
-                {affiliateCommissions
-                  .filter(c => filterStatus === 'all' || c.status === filterStatus)
-                  .map(entry => (
-                  <div key={entry.id} className="bg-white border border-gray-200 rounded-lg p-4 space-y-3">
-                    <div className="flex items-start justify-between">
-                      <div className="flex-1">
-                        <div className="text-sm font-medium text-gray-900">
-                          {entry.affiliate?.name || 'Unknown Affiliate'}
-                        </div>
-                        <div className="text-xs text-gray-500 mt-1">
-                          {entry.customer_name} • {entry.product_name}
-                        </div>
-                      </div>
-                      <div className="flex flex-col items-end space-y-1">
-                        <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
-                          entry.commission_type === 'upfront' ? 'bg-green-100 text-green-800' : 'bg-blue-100 text-blue-800'
-                        }`}>
-                          {entry.commission_type}
-                        </span>
-                        <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full border ${getStatusColor(entry.status)}`}>
-                          {entry.status}
-                        </span>
-                      </div>
-                    </div>
-
-                    <div className="grid grid-cols-2 gap-3 text-sm">
-                      <div>
-                        <div className="text-xs text-gray-500">Order Total</div>
-                        <div className="font-medium text-gray-900">${entry.order_total.toLocaleString()}</div>
-                      </div>
-                      <div>
-                        <div className="text-xs text-gray-500">Rate</div>
-                        <div className="font-medium text-gray-900">{entry.commission_rate}%</div>
-                      </div>
-                      <div className="col-span-2">
-                        <div className="text-xs text-gray-500">Commission</div>
-                        <div className="text-lg font-bold text-green-600">${entry.commission_amount.toFixed(2)}</div>
-                      </div>
-                    </div>
-
-                    <div className="text-xs text-gray-500">
-                      {new Date(entry.created_at).toLocaleDateString()}
-                    </div>
-                  </div>
-                ))}
-              </div>
-
-              {affiliateCommissions.filter(c => filterStatus === 'all' || c.status === filterStatus).length === 0 && (
-                <div className="text-center py-12">
-                  <Users className="w-16 h-16 text-gray-300 mx-auto mb-4" />
-                  <h3 className="text-lg font-medium text-gray-900 mb-2">No affiliate commissions found</h3>
-                  <p className="text-gray-500">
-                    {filterStatus === 'all'
-                      ? 'Affiliate commissions from AffiliateWP will appear here once webhooks are received.'
-                      : `No ${filterStatus} affiliate commissions found.`
-                    }
-                  </p>
                 </div>
               )}
             </div>
@@ -1056,25 +870,6 @@ const CommissionsTracker: React.FC = () => {
         </div>
       </div>
 
-      {/* Affiliate Management Modal */}
-      {showAffiliateManagement && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-xl max-w-6xl w-full max-h-[90vh] overflow-y-auto">
-            <div className="p-4 md:p-6 border-b border-gray-100 flex items-center justify-between">
-              <h3 className="text-lg font-semibold text-gray-900">Affiliate Management</h3>
-              <button
-                onClick={() => setShowAffiliateManagement(false)}
-                className="text-gray-400 hover:text-gray-600"
-              >
-                ✕
-              </button>
-            </div>
-            <div className="p-4 md:p-6">
-              <AffiliateManagement />
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 };
