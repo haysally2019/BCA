@@ -239,16 +239,18 @@ const CommissionsTracker: React.FC = () => {
     }
   };
 
-  // Get current user's rep data
-  const currentRep = salesReps.find(rep => rep.id === profile?.id);
+  // Check if user is management (manager or sales_manager) - they should ALWAYS see team totals
+  const isManagementRole = profile?.user_role === 'manager' || profile?.user_role === 'sales_manager';
 
-  // Calculate metrics - if viewing own data, show individual metrics; if manager, show totals
-  const isViewingOwnData = profile?.user_role === 'sales_rep' || profile?.user_role === 'affiliate';
+  // Get current user's rep data (only used if they're a regular sales rep)
+  const currentRep = salesReps.find(rep => rep.id === profile?.id);
 
   // Check if we have any synced data
   const hasSyncedData = salesReps.some(rep => rep.last_sync !== null && rep.last_sync !== undefined);
 
-  const metrics = isViewingOwnData && currentRep ? {
+  // Managers ALWAYS see team totals, sales reps see their individual data
+  const metrics = !isManagementRole && currentRep ? {
+    // Individual sales rep view - show only their data
     totalPaidEarnings: currentRep.paid_earnings ?? 0,
     totalUnpaidEarnings: currentRep.unpaid_earnings ?? 0,
     totalVisits: currentRep.visits ?? 0,
@@ -258,7 +260,7 @@ const CommissionsTracker: React.FC = () => {
     hasSyncedData: currentRep.last_sync !== null && currentRep.last_sync !== undefined,
     lastSync: currentRep.last_sync
   } : {
-    // Manager view - show totals across all reps
+    // Manager view - show totals across ALL sales reps (team aggregation)
     totalPaidEarnings: salesReps.reduce((sum, rep) => sum + (rep.paid_earnings ?? 0), 0),
     totalUnpaidEarnings: salesReps.reduce((sum, rep) => sum + (rep.unpaid_earnings ?? 0), 0),
     totalVisits: salesReps.reduce((sum, rep) => sum + (rep.visits ?? 0), 0),
@@ -317,7 +319,12 @@ const CommissionsTracker: React.FC = () => {
       <div className="flex flex-col space-y-4 md:flex-row md:items-center md:justify-between md:space-y-0">
         <div>
           <h1 className="text-2xl md:text-3xl font-bold text-gray-900">Commissions</h1>
-          <p className="text-sm md:text-base text-gray-600 mt-1">Track and manage sales commissions</p>
+          <p className="text-sm md:text-base text-gray-600 mt-1">
+            {isManagementRole
+              ? `Track team commissions across ${salesReps.length} sales rep${salesReps.length !== 1 ? 's' : ''}`
+              : 'Track and manage your sales commissions'
+            }
+          </p>
         </div>
         <div className="flex flex-col sm:flex-row items-stretch sm:items-center space-y-2 sm:space-y-0 sm:space-x-3">
           <select
