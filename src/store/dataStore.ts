@@ -37,22 +37,21 @@ interface DataState {
 }
 
 const CACHE_DURATION = 5 * 60 * 1000; // 5 minutes
-const STALE_WHILE_REVALIDATE = 10 * 60 * 1000; // 10 minutes
+const STALE_WHILE_REVALIDATE = 60 * 60 * 1000; // 60 minutes - show stale data for up to 1 hour
 
 let lastVisibilityChange = Date.now();
 
-// Track visibility changes and invalidate cache if tab was hidden for too long
+// Track visibility changes but DON'T clear cache
+// The stale-while-revalidate pattern will handle updates automatically
 if (typeof document !== 'undefined') {
   document.addEventListener('visibilitychange', () => {
     if (document.visibilityState === 'hidden') {
       lastVisibilityChange = Date.now();
     } else if (document.visibilityState === 'visible') {
       const hiddenDuration = Date.now() - lastVisibilityChange;
-      // If tab was hidden for more than 5 minutes, clear the cache
-      if (hiddenDuration > CACHE_DURATION) {
-        console.log('[DataStore] Tab was hidden for', Math.round(hiddenDuration / 1000), 'seconds - invalidating cache');
-        useDataStore.getState().clearCache();
-      }
+      console.log('[DataStore] Tab became visible after', Math.round(hiddenDuration / 1000), 'seconds');
+      // Don't clear cache - let stale-while-revalidate handle it
+      // This prevents "No Data Available" flash when returning to tab
     }
   });
 }
