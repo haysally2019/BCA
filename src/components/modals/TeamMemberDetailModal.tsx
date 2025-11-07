@@ -67,7 +67,7 @@ const TeamMemberDetailModal: React.FC<TeamMemberDetailModalProps> = ({
       return;
     }
 
-    if (!window.confirm(`Are you sure you want to reset the password for ${member.profile?.company_name}? This will generate a new temporary password.`)) {
+    if (!window.confirm(`Are you sure you want to reset the password for ${getDisplayName()}? This will generate a new temporary password.`)) {
       return;
     }
 
@@ -97,6 +97,10 @@ const TeamMemberDetailModal: React.FC<TeamMemberDetailModalProps> = ({
 
   if (!isOpen || !member) return null;
 
+  const getDisplayName = () => {
+    return member.profile?.full_name || member.profile?.company_name || 'Unknown';
+  };
+
   const getStatusColor = (status: string) => {
     switch (status) {
       case 'active': return 'bg-green-100 text-green-800';
@@ -119,11 +123,11 @@ const TeamMemberDetailModal: React.FC<TeamMemberDetailModalProps> = ({
           <div className="flex items-center space-x-4">
             <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center">
               <span className="text-red-600 font-bold text-2xl">
-                {member.profile?.company_name.split(' ').map(n => n[0]).join('').slice(0, 2)}
+                {getDisplayName().split(' ').map(n => n[0]).join('').slice(0, 2)}
               </span>
             </div>
             <div>
-              <h2 className="text-2xl font-bold text-gray-900">{member.profile?.company_name}</h2>
+              <h2 className="text-2xl font-bold text-gray-900">{getDisplayName()}</h2>
               <div className="flex items-center space-x-3 mt-1">
                 <span className={`inline-flex px-3 py-1 text-xs font-semibold rounded-full ${getStatusColor(member.employment_status)}`}>
                   {member.employment_status.replace('_', ' ')}

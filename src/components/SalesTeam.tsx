@@ -120,8 +120,12 @@ const SalesTeam: React.FC = () => {
     }
   };
 
+  const getDisplayName = (member: TeamMember) => {
+    return member.profile?.full_name || member.profile?.company_name || 'Unknown';
+  };
+
   const handleDeleteMember = async (member: TeamMember) => {
-    if (!window.confirm(`Are you sure you want to remove ${member.profile?.company_name} from the team?`)) {
+    if (!window.confirm(`Are you sure you want to remove ${getDisplayName(member)} from the team?`)) {
       return;
     }
 
@@ -156,8 +160,9 @@ const SalesTeam: React.FC = () => {
 
   const filteredMembers = teamMembers.filter(member => {
     const stats = memberStats.get(member.id) || {};
+    const displayName = getDisplayName(member);
     const matchesSearch =
-      member.profile?.company_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      displayName.toLowerCase().includes(searchTerm.toLowerCase()) ||
       member.profile?.company_email?.toLowerCase().includes(searchTerm.toLowerCase()) ||
       member.profile?.territory?.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesRole = filterRole === 'all' || member.profile?.user_role === filterRole;
@@ -171,7 +176,7 @@ const SalesTeam: React.FC = () => {
     .map(member => {
       const stats = memberStats.get(member.id) || {};
       return {
-        name: member.profile?.company_name.split(' ')[0] || 'Unknown',
+        name: getDisplayName(member).split(' ')[0] || 'Unknown',
         revenue: stats.ytdRevenue || 0,
         deals: stats.dealsClosedCount || 0,
         conversion: stats.conversionRate || 0
@@ -345,11 +350,11 @@ const SalesTeam: React.FC = () => {
                   <div className="flex items-center space-x-3">
                     <div className="w-12 h-12 bg-red-100 rounded-full flex items-center justify-center">
                       <span className="text-red-600 font-semibold text-lg">
-                        {member.profile?.company_name.split(' ').map(n => n[0]).join('').slice(0, 2)}
+                        {getDisplayName(member).split(' ').map(n => n[0]).join('').slice(0, 2)}
                       </span>
                     </div>
                     <div>
-                      <h3 className="font-semibold text-gray-900">{member.profile?.company_name}</h3>
+                      <h3 className="font-semibold text-gray-900">{getDisplayName(member)}</h3>
                       <div className="flex flex-wrap items-center gap-2 mt-1">
                         <span className={`inline-block text-xs px-2 py-1 rounded-full ${getRoleColor(member.profile?.user_role || '')}`}>
                           {(member.profile?.user_role || '').replace('_', ' ')}
@@ -460,11 +465,11 @@ const SalesTeam: React.FC = () => {
                         <div className="flex items-center">
                           <div className="w-10 h-10 bg-red-100 rounded-full flex items-center justify-center">
                             <span className="text-red-600 font-semibold">
-                              {member.profile?.company_name.split(' ').map(n => n[0]).join('').slice(0, 2)}
+                              {getDisplayName(member).split(' ').map(n => n[0]).join('').slice(0, 2)}
                             </span>
                           </div>
                           <div className="ml-3">
-                            <div className="text-sm font-medium text-gray-900">{member.profile?.company_name}</div>
+                            <div className="text-sm font-medium text-gray-900">{getDisplayName(member)}</div>
                             <div className="text-sm text-gray-500">{member.profile?.company_email}</div>
                           </div>
                         </div>

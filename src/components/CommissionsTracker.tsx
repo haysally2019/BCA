@@ -119,7 +119,7 @@ const CommissionsTracker: React.FC = () => {
       const repsData = profiles.filter(p => p.user_type === 'sales_rep').map(rep => {
         return {
           id: rep.id,
-          name: rep.company_name || rep.full_name,
+          name: rep.full_name || rep.company_name,
           territory: rep.territory || 'Unassigned',
           commission_rate: rep.commission_rate ?? 0,
           paid_earnings: rep.affiliatewp_earnings ?? 0,
