@@ -37,7 +37,7 @@ const Sidebar: React.FC = () => {
           { path: '/agency-dashboard', label: 'Dashboard', icon: Home },
           { path: '/prospects', label: 'Leads & Pipeline', icon: Target },
           { path: '/team', label: 'Team Management', icon: Building2 },
-          { path: '/commissions', label: 'Commissions', icon: DollarSign },
+          { path: '/commissions', label: 'Revenue & Payments', icon: DollarSign },
           { path: '/reports', label: 'Reports & Analytics', icon: FileText },
           { path: '/sales-tools', label: 'Sales Tools', icon: Briefcase },
           { path: '/settings', label: 'Settings', icon: Settings },
