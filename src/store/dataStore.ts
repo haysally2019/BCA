@@ -132,7 +132,7 @@ export const useDataStore = create<DataState>((set, get) => ({
         analyticsData: analytics,
         prospects: prospects,
         totalProspectsCount: totalCount,
-        hasMoreProspects: prospects.length === 50
+        hasMoreProspects: prospects.length < totalCount
       });
 
     } catch (error) {
@@ -150,7 +150,7 @@ export const useDataStore = create<DataState>((set, get) => ({
   },
 
   loadMoreProspects: async (companyId: string) => {
-    const { prospects, prospectsLoadingMore, hasMoreProspects } = get();
+    const { prospects, prospectsLoadingMore, hasMoreProspects, totalProspectsCount } = get();
 
     // Don't load if already loading or no more data
     if (prospectsLoadingMore || !hasMoreProspects) return;
@@ -162,9 +162,10 @@ export const useDataStore = create<DataState>((set, get) => ({
       const offset = prospects.length;
       const newProspects = await supabaseService.getProspects(companyId, 50, offset);
 
+      const updatedProspects = [...prospects, ...newProspects];
       set({
-        prospects: [...prospects, ...newProspects],
-        hasMoreProspects: newProspects.length === 50
+        prospects: updatedProspects,
+        hasMoreProspects: updatedProspects.length < totalProspectsCount
       });
     } catch (error) {
       console.error('Error loading more prospects:', error);
