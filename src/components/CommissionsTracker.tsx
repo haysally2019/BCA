@@ -10,7 +10,10 @@ import {
   BarChart3,
   Users,
   Copy,
-  Link
+  Link,
+  Settings,
+  Calendar,
+  CreditCard
 } from 'lucide-react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar } from 'recharts';
 import { supabaseService, Commission } from '../lib/supabaseService';
@@ -53,6 +56,8 @@ const CommissionsTracker: React.FC = () => {
   const [showAffiliateManagement, setShowAffiliateManagement] = useState(false);
   const [webhookCopied, setWebhookCopied] = useState(false);
   const [syncingMetrics, setSyncingMetrics] = useState(false);
+  const [processingPayout, setProcessingPayout] = useState(false);
+  const [selectedPayoutReps, setSelectedPayoutReps] = useState<string[]>([]);
 
   const webhookEndpoint = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/affiliatewp-webhook`;
 
@@ -195,8 +200,7 @@ const CommissionsTracker: React.FC = () => {
       }
 
       // Reload commissions
-      const commissionsData = await supabaseService.getCommissions(profile.id);
-      setCommissions(commissionsData);
+      await loadCommissionsData(profile.id, true);
     } catch (error) {
       console.error('Error creating sample commissions:', error);
     }
@@ -841,15 +845,205 @@ const CommissionsTracker: React.FC = () => {
           )}
 
           {activeTab === 'payouts' && (
-            <div className="text-center py-8 md:py-12 px-4">
-              <DollarSign className="w-12 h-12 md:w-16 md:h-16 text-gray-300 mx-auto mb-4" />
-              <h3 className="text-base md:text-lg font-medium text-gray-900 mb-2">Commission Payouts</h3>
-              <p className="text-sm md:text-base text-gray-500 mb-4">
-                Manage commission payments and payout schedules.
-              </p>
-              <button className="bg-academy-blue-600 text-white px-6 py-3 rounded-lg hover:bg-academy-blue-700 transition-colors min-h-[44px]">
-                Process Payouts
-              </button>
+            <div className="space-y-6">
+              {/* Payout Summary */}
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+                  <div className="flex items-center justify-between mb-2">
+                    <Clock className="w-5 h-5 text-yellow-600" />
+                    <span className="text-xs font-medium text-yellow-700">PENDING</span>
+                  </div>
+                  <div className="text-2xl font-bold text-yellow-900">
+                    ${salesReps.reduce((sum, rep) => sum + (rep.unpaid_earnings || 0), 0).toLocaleString()}
+                  </div>
+                  <div className="text-sm text-yellow-700">Unpaid Commissions</div>
+                </div>
+                <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+                  <div className="flex items-center justify-between mb-2">
+                    <CheckCircle className="w-5 h-5 text-green-600" />
+                    <span className="text-xs font-medium text-green-700">PAID</span>
+                  </div>
+                  <div className="text-2xl font-bold text-green-900">
+                    ${salesReps.reduce((sum, rep) => sum + (rep.paid_earnings || 0), 0).toLocaleString()}
+                  </div>
+                  <div className="text-sm text-green-700">Total Paid Out</div>
+                </div>
+                <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                  <div className="flex items-center justify-between mb-2">
+                    <Users className="w-5 h-5 text-blue-600" />
+                    <span className="text-xs font-medium text-blue-700">ACTIVE</span>
+                  </div>
+                  <div className="text-2xl font-bold text-blue-900">
+                    {salesReps.filter(rep => rep.unpaid_earnings > 0).length}
+                  </div>
+                  <div className="text-sm text-blue-700">Reps with Pending</div>
+                </div>
+              </div>
+
+              {/* Payout Actions */}
+              {isManagement && salesReps.filter(rep => rep.unpaid_earnings > 0).length > 0 && (
+                <div className="bg-academy-blue-50 border border-academy-blue-200 rounded-lg p-4">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <h4 className="font-semibold text-academy-blue-900 mb-1">Ready to Process Payouts</h4>
+                      <p className="text-sm text-academy-blue-700">
+                        {salesReps.filter(rep => rep.unpaid_earnings > 0).length} rep(s) have pending commissions totaling $
+                        {salesReps.reduce((sum, rep) => sum + (rep.unpaid_earnings || 0), 0).toLocaleString()}
+                      </p>
+                    </div>
+                    <button
+                      onClick={() => {
+                        if (selectedPayoutReps.length === 0) {
+                          toast.error('Please select reps to pay out');
+                        } else {
+                          setProcessingPayout(true);
+                          toast.success(`Processing payouts for ${selectedPayoutReps.length} rep(s). This is a simulation - actual payout processing would happen here.`);
+                          setTimeout(() => {
+                            setProcessingPayout(false);
+                            setSelectedPayoutReps([]);
+                          }, 2000);
+                        }
+                      }}
+                      disabled={processingPayout}
+                      className="bg-green-600 text-white px-6 py-3 rounded-lg hover:bg-green-700 transition-colors flex items-center space-x-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      {processingPayout ? (
+                        <>
+                          <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                          <span>Processing...</span>
+                        </>
+                      ) : (
+                        <>
+                          <CreditCard className="w-4 h-4" />
+                          <span>Process Selected Payouts</span>
+                        </>
+                      )}
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {/* Reps with Pending Payouts */}
+              <div>
+                <h3 className="text-lg font-semibold text-gray-900 mb-4">Pending Payouts</h3>
+                <div className="space-y-3">
+                  {salesReps.filter(rep => rep.unpaid_earnings > 0).map(rep => (
+                    <div key={rep.id} className="bg-white border border-gray-200 rounded-lg p-4">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center space-x-4 flex-1">
+                          {isManagement && (
+                            <input
+                              type="checkbox"
+                              checked={selectedPayoutReps.includes(rep.id)}
+                              onChange={(e) => {
+                                if (e.target.checked) {
+                                  setSelectedPayoutReps([...selectedPayoutReps, rep.id]);
+                                } else {
+                                  setSelectedPayoutReps(selectedPayoutReps.filter(id => id !== rep.id));
+                                }
+                              }}
+                              className="w-5 h-5 text-academy-blue-600 border-gray-300 rounded focus:ring-academy-blue-500"
+                            />
+                          )}
+                          <div className="w-12 h-12 bg-yellow-100 rounded-full flex items-center justify-center">
+                            <span className="text-yellow-600 font-semibold text-lg">
+                              {rep.name.split(' ').map(n => n[0]).join('')}
+                            </span>
+                          </div>
+                          <div className="flex-1">
+                            <h4 className="font-semibold text-gray-900">{rep.name}</h4>
+                            <p className="text-sm text-gray-600">{rep.territory}</p>
+                          </div>
+                          <div className="text-right">
+                            <div className="text-2xl font-bold text-yellow-600">
+                              ${rep.unpaid_earnings.toLocaleString()}
+                            </div>
+                            <div className="text-sm text-gray-500">Pending Commission</div>
+                          </div>
+                        </div>
+                      </div>
+                      <div className="grid grid-cols-3 gap-4 mt-4 pt-4 border-t border-gray-200">
+                        <div>
+                          <div className="text-sm text-gray-500">Commission Rate</div>
+                          <div className="font-medium text-gray-900">{rep.commission_rate.toFixed(1)}%</div>
+                        </div>
+                        <div>
+                          <div className="text-sm text-gray-500">Total Referrals</div>
+                          <div className="font-medium text-gray-900">{rep.referrals}</div>
+                        </div>
+                        <div>
+                          <div className="text-sm text-gray-500">Paid to Date</div>
+                          <div className="font-medium text-green-600">${rep.paid_earnings.toLocaleString()}</div>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+                {salesReps.filter(rep => rep.unpaid_earnings > 0).length === 0 && (
+                  <div className="text-center py-12 bg-gray-50 rounded-lg">
+                    <CheckCircle className="w-16 h-16 text-gray-300 mx-auto mb-4" />
+                    <h3 className="text-lg font-medium text-gray-900 mb-2">All Caught Up!</h3>
+                    <p className="text-gray-500">No pending commission payouts at this time.</p>
+                  </div>
+                )}
+              </div>
+
+              {/* Payout History */}
+              <div>
+                <h3 className="text-lg font-semibold text-gray-900 mb-4">Recent Payout History</h3>
+                <div className="bg-white border border-gray-200 rounded-lg overflow-hidden">
+                  <div className="overflow-x-auto">
+                    <table className="w-full">
+                      <thead className="bg-gray-50">
+                        <tr>
+                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Rep</th>
+                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Amount</th>
+                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
+                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Date</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-gray-200">
+                        {salesReps.filter(rep => rep.paid_earnings > 0).map(rep => (
+                          <tr key={rep.id} className="hover:bg-gray-50">
+                            <td className="px-6 py-4">
+                              <div className="flex items-center space-x-3">
+                                <div className="w-8 h-8 bg-green-100 rounded-full flex items-center justify-center">
+                                  <span className="text-green-600 font-semibold text-sm">
+                                    {rep.name.split(' ').map(n => n[0]).join('')}
+                                  </span>
+                                </div>
+                                <div>
+                                  <div className="font-medium text-gray-900">{rep.name}</div>
+                                  <div className="text-sm text-gray-500">{rep.territory}</div>
+                                </div>
+                              </div>
+                            </td>
+                            <td className="px-6 py-4 text-gray-900 font-medium">
+                              ${rep.paid_earnings.toLocaleString()}
+                            </td>
+                            <td className="px-6 py-4">
+                              <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                                <CheckCircle className="w-3 h-3 mr-1" />
+                                Paid
+                              </span>
+                            </td>
+                            <td className="px-6 py-4 text-sm text-gray-500">
+                              {rep.last_sync ? new Date(rep.last_sync).toLocaleDateString() : 'N/A'}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                  {salesReps.filter(rep => rep.paid_earnings > 0).length === 0 && (
+                    <div className="text-center py-12">
+                      <Calendar className="w-16 h-16 text-gray-300 mx-auto mb-4" />
+                      <h3 className="text-lg font-medium text-gray-900 mb-2">No Payout History</h3>
+                      <p className="text-gray-500">Payout history will appear here once commissions are processed.</p>
+                    </div>
+                  )}
+                </div>
+              </div>
             </div>
           )}
 
