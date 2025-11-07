@@ -651,12 +651,12 @@ const ProspectsManager: React.FC = () => {
                         <span className="truncate">{prospect.email}</span>
                       </div>
                       <div className="flex space-x-1">
-                        <button
-                          onClick={() => handleProspectAction(prospect.id, 'call')}
+                        <a
+                          href={`tel:${prospect.phone}`}
                           className="flex-1 bg-academy-blue-600 text-white py-1 px-2 rounded text-xs hover:bg-academy-blue-700 transition-colors flex items-center justify-center"
                         >
                           <PhoneCall className="w-3 h-3" />
-                        </button>
+                        </a>
                         <button
                           onClick={() => handleProspectAction(prospect.id, 'email')}
                           className="flex-1 bg-academy-red-600 text-white py-1 px-2 rounded text-xs hover:bg-academy-red-700 transition-colors flex items-center justify-center"
@@ -794,13 +794,13 @@ const ProspectsManager: React.FC = () => {
             )}
 
             <div className="flex space-x-2">
-              <button 
-                onClick={() => handleProspectAction(prospect.id, 'call')}
+              <a
+                href={`tel:${prospect.phone}`}
                 className="flex-1 bg-academy-blue-600 text-white py-2 px-3 rounded-lg text-sm hover:bg-academy-blue-700 transition-colors flex items-center justify-center space-x-1"
               >
                 <PhoneCall className="w-3 h-3" />
                 <span>Call</span>
-              </button>
+              </a>
               <button 
                 onClick={() => handleProspectAction(prospect.id, 'email')}
                 className="flex-1 bg-academy-red-600 text-white py-2 px-3 rounded-lg text-sm hover:bg-academy-red-700 transition-colors flex items-center justify-center space-x-1"
