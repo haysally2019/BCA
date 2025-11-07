@@ -23,7 +23,7 @@ const ProspectsManager: React.FC = () => {
   const [prospectToEdit, setProspectToEdit] = useState<Prospect | null>(null);
   const [showEditModal, setShowEditModal] = useState(false);
   const { profile } = useAuthStore();
-  const { prospects, loadDashboardData, loadMoreProspects, prospectsLoadingMore, hasMoreProspects } = useDataStore();
+  const { prospects, totalProspectsCount, loadDashboardData, loadMoreProspects, prospectsLoadingMore, hasMoreProspects } = useDataStore();
 
   useEffect(() => {
     console.log('[ProspectsManager] showAddModal state changed:', showAddModal);
@@ -328,7 +328,7 @@ const ProspectsManager: React.FC = () => {
   });
 
   const prospectStats = {
-    total: prospects.length,
+    total: totalProspectsCount,
     qualified: prospects.filter(p => p.status === 'qualified').length,
     proposals: prospects.filter(p => p.status === 'proposal_sent').length,
     negotiating: prospects.filter(p => p.status === 'negotiating').length,

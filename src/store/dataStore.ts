@@ -25,6 +25,7 @@ interface DataState {
   affiliateCommissions: CommissionEntry[];
   prospects: Prospect[];
   hasMoreProspects: boolean;
+  totalProspectsCount: number;
 
   // Actions
   loadDashboardData: (companyId: string, timeRange?: string, force?: boolean) => Promise<void>;
@@ -50,6 +51,7 @@ export const useDataStore = create<DataState>((set, get) => ({
   affiliateCommissions: [],
   prospects: [],
   hasMoreProspects: true,
+  totalProspectsCount: 0,
 
   loadDashboardData: async (companyId: string, timeRange: string = '30d', force: boolean = false) => {
     const cacheKey = `dashboard_${companyId}_${timeRange}`;
@@ -78,9 +80,10 @@ export const useDataStore = create<DataState>((set, get) => ({
       // Revalidate in background without showing loading state
       setTimeout(async () => {
         try {
-          const [analytics, prospects] = await Promise.all([
+          const [analytics, prospects, totalCount] = await Promise.all([
             supabaseService.getAnalyticsData(companyId, timeRange),
-            supabaseService.getProspects(companyId, 50)
+            supabaseService.getProspects(companyId, 50),
+            supabaseService.getProspectsCount(companyId)
           ]);
 
           const data = { analytics, prospects };
@@ -94,7 +97,8 @@ export const useDataStore = create<DataState>((set, get) => ({
           set({
             cache: newCache,
             analyticsData: analytics,
-            prospects: prospects
+            prospects: prospects,
+            totalProspectsCount: totalCount
           });
         } catch (error) {
           console.error('Background revalidation failed:', error);
@@ -106,10 +110,11 @@ export const useDataStore = create<DataState>((set, get) => ({
     try {
       set({ dashboardLoading: true });
 
-      // Load data in parallel - only first 50 prospects for initial load
-      const [analytics, prospects] = await Promise.all([
+      // Load data in parallel - only first 50 prospects for initial load + total count
+      const [analytics, prospects, totalCount] = await Promise.all([
         supabaseService.getAnalyticsData(companyId, timeRange),
-        supabaseService.getProspects(companyId, 50)
+        supabaseService.getProspects(companyId, 50),
+        supabaseService.getProspectsCount(companyId)
       ]);
 
       const data = { analytics, prospects };
@@ -126,6 +131,7 @@ export const useDataStore = create<DataState>((set, get) => ({
         cache: newCache,
         analyticsData: analytics,
         prospects: prospects,
+        totalProspectsCount: totalCount,
         hasMoreProspects: prospects.length === 50
       });
 

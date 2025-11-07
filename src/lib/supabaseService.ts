@@ -984,6 +984,41 @@ export const supabaseService = {
   },
 
   // PROSPECT MANAGEMENT
+  async getProspectsCount(companyId: string): Promise<number> {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        return 0;
+      }
+
+      const { data: profile, error: profileError } = await supabase
+        .from('profiles')
+        .select('user_role, id')
+        .eq('user_id', user.id)
+        .single();
+
+      if (profileError) {
+        return 0;
+      }
+
+      let query = supabase
+        .from('prospects')
+        .select('*', { count: 'exact', head: true });
+
+      if (profile?.user_role === 'sales_rep') {
+        query = query.eq('assigned_rep_id', companyId);
+      } else {
+        query = query.eq('company_id', companyId);
+      }
+
+      const { count } = await query;
+      return count || 0;
+    } catch (error) {
+      console.error('[getProspectsCount] Error:', error);
+      return 0;
+    }
+  },
+
   async getProspects(companyId: string, limit?: number, offset?: number): Promise<Prospect[]> {
     try {
       // Get current user's profile to determine role
