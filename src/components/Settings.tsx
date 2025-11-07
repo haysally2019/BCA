@@ -13,11 +13,25 @@ import {
   User,
   Link as LinkIcon,
   Copy,
-  CheckCheck
+  CheckCheck,
+  Wallet,
+  DollarSign,
+  CheckCircle,
+  AlertCircle,
+  Info
 } from 'lucide-react';
 import { useAuthStore } from '../store/authStore';
 import { supabase } from '../lib/supabaseClient';
 import toast from 'react-hot-toast';
+import {
+  validateBankAccountInfo,
+  validatePayPalInfo,
+  maskAccountNumber,
+  getLastFourDigits,
+  formatRoutingNumber,
+  formatSwiftCode,
+  formatIBAN,
+} from '../lib/payoutValidation';
 
 const Settings: React.FC = () => {
   const [activeTab, setActiveTab] = useState('profile');
@@ -36,6 +50,21 @@ const Settings: React.FC = () => {
     personal_address: '',
     affiliatewp_id: ''
   });
+  const [payoutData, setPayoutData] = useState({
+    payout_method: 'bank_transfer',
+    account_holder_name: '',
+    bank_name: '',
+    account_number: '',
+    routing_number: '',
+    swift_code: '',
+    iban: '',
+    bank_country: 'US',
+    bank_currency: 'USD',
+    paypal_email: ''
+  });
+  const [payoutInfo, setPayoutInfo] = useState<any>(null);
+  const [payoutLoading, setPayoutLoading] = useState(false);
+  const [validationErrors, setValidationErrors] = useState<Record<string, string>>({});
 
   const { profile, user, signOut, updateProfile, refreshProfile } = useAuthStore();
 
@@ -136,8 +165,161 @@ const Settings: React.FC = () => {
     toast.info('Two-factor authentication setup coming soon!');
   };
 
+  useEffect(() => {
+    const fetchPayoutInfo = async () => {
+      if (!profile?.id) return;
+
+      try {
+        const { data, error } = await supabase
+          .from('payout_information')
+          .select('*')
+          .eq('profile_id', profile.id)
+          .eq('is_default', true)
+          .maybeSingle();
+
+        if (error) {
+          console.error('Error fetching payout info:', error);
+          return;
+        }
+
+        if (data) {
+          setPayoutInfo(data);
+          setPayoutData({
+            payout_method: data.payout_method || 'bank_transfer',
+            account_holder_name: data.account_holder_name || '',
+            bank_name: data.bank_name || '',
+            account_number: '',
+            routing_number: data.routing_number || '',
+            swift_code: data.swift_code || '',
+            iban: data.iban || '',
+            bank_country: data.bank_country || 'US',
+            bank_currency: data.bank_currency || 'USD',
+            paypal_email: data.paypal_email || ''
+          });
+        }
+      } catch (error) {
+        console.error('Exception fetching payout info:', error);
+      }
+    };
+
+    if (activeTab === 'payout') {
+      fetchPayoutInfo();
+    }
+  }, [activeTab, profile]);
+
+  const handlePayoutSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setValidationErrors({});
+
+    if (payoutData.payout_method === 'bank_transfer') {
+      const validation = validateBankAccountInfo({
+        accountHolderName: payoutData.account_holder_name,
+        bankName: payoutData.bank_name,
+        accountNumber: payoutData.account_number,
+        routingNumber: payoutData.routing_number,
+        swiftCode: payoutData.swift_code,
+        iban: payoutData.iban,
+        bankCountry: payoutData.bank_country,
+        bankCurrency: payoutData.bank_currency,
+      });
+
+      if (!validation.isValid) {
+        setValidationErrors(validation.errors);
+        toast.error('Please correct the validation errors');
+        return;
+      }
+    } else if (payoutData.payout_method === 'paypal') {
+      const validation = validatePayPalInfo({
+        paypalEmail: payoutData.paypal_email,
+      });
+
+      if (!validation.isValid) {
+        setValidationErrors(validation.errors);
+        toast.error('Please enter a valid PayPal email');
+        return;
+      }
+    }
+
+    setPayoutLoading(true);
+
+    try {
+      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+      const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
+
+      const payload: any = {
+        profile_id: profile?.id,
+        payout_method: payoutData.payout_method,
+      };
+
+      if (payoutData.payout_method === 'paypal') {
+        payload.paypal_email = payoutData.paypal_email;
+      } else if (payoutData.payout_method === 'bank_transfer') {
+        payload.bank_info = {
+          account_holder_name: payoutData.account_holder_name,
+          bank_name: payoutData.bank_name,
+          bank_country: payoutData.bank_country,
+          bank_currency: payoutData.bank_currency,
+        };
+      }
+
+      const response = await fetch(`${supabaseUrl}/functions/v1/update-affiliate-payout-info`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${supabaseAnonKey}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(payload),
+      });
+
+      const result = await response.json();
+
+      if (!response.ok || !result.success) {
+        throw new Error(result.error || 'Failed to update payout information');
+      }
+
+      if (payoutData.account_number) {
+        const last4 = getLastFourDigits(payoutData.account_number);
+        const { error: localUpdateError } = await supabase
+          .from('payout_information')
+          .update({
+            account_number_last4: last4,
+            routing_number: payoutData.routing_number || null,
+            swift_code: payoutData.swift_code || null,
+            iban: payoutData.iban || null,
+          })
+          .eq('id', result.payout_id);
+
+        if (localUpdateError) {
+          console.error('Error updating local payout info:', localUpdateError);
+        }
+      }
+
+      toast.success('Payout information saved successfully!');
+      await refreshProfile();
+
+      const { data: updatedData } = await supabase
+        .from('payout_information')
+        .select('*')
+        .eq('profile_id', profile?.id)
+        .eq('is_default', true)
+        .maybeSingle();
+
+      if (updatedData) {
+        setPayoutInfo(updatedData);
+      }
+
+      setPayoutData(prev => ({ ...prev, account_number: '' }));
+    } catch (error: any) {
+      console.error('Error updating payout info:', error);
+      toast.error(error.message || 'Failed to update payout information');
+    } finally {
+      setPayoutLoading(false);
+    }
+  };
+
   const tabs = [
     { id: 'profile', label: 'Profile', icon: User },
+    { id: 'payout', label: 'Payout Info', icon: Wallet },
     { id: 'notifications', label: 'Notifications', icon: Bell },
     { id: 'security', label: 'Security', icon: Shield },
   ];
@@ -324,6 +506,276 @@ const Settings: React.FC = () => {
                 >
                   <Save className="w-4 h-4" />
                   <span>{loading ? 'Saving...' : 'Save Changes'}</span>
+                </button>
+              </form>
+            </div>
+          )}
+
+          {activeTab === 'payout' && (
+            <div className="max-w-3xl">
+              <h3 className="text-lg font-semibold text-gray-900 mb-4">Payout Information</h3>
+
+              <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
+                <div className="flex items-start gap-3">
+                  <Info className="w-5 h-5 text-blue-600 flex-shrink-0 mt-0.5" />
+                  <div>
+                    <h4 className="font-medium text-blue-900 mb-1">How Payouts Work</h4>
+                    <p className="text-sm text-blue-800">
+                      Set up your payout method to receive commission payments. Your information is securely stored and synced with AffiliateWP.
+                      Payouts are typically processed within 3-5 business days after reaching the minimum threshold.
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              {payoutInfo && (
+                <div className="bg-green-50 border border-green-200 rounded-lg p-4 mb-6">
+                  <div className="flex items-center gap-2 mb-2">
+                    {payoutInfo.verification_status === 'verified' ? (
+                      <CheckCircle className="w-5 h-5 text-green-600" />
+                    ) : (
+                      <AlertCircle className="w-5 h-5 text-yellow-600" />
+                    )}
+                    <h4 className="font-medium text-gray-900">
+                      {payoutInfo.verification_status === 'verified' ? 'Payout Method Verified' : 'Payout Method Pending Verification'}
+                    </h4>
+                  </div>
+                  {payoutInfo.account_number_last4 && (
+                    <p className="text-sm text-gray-700">
+                      Account ending in {payoutInfo.account_number_last4}
+                    </p>
+                  )}
+                  <p className="text-xs text-gray-600 mt-2">
+                    Last updated: {new Date(payoutInfo.updated_at).toLocaleDateString()}
+                  </p>
+                </div>
+              )}
+
+              <form onSubmit={handlePayoutSubmit} className="space-y-6">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Payout Method
+                  </label>
+                  <select
+                    value={payoutData.payout_method}
+                    onChange={(e) => setPayoutData(prev => ({ ...prev, payout_method: e.target.value }))}
+                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  >
+                    <option value="bank_transfer">Bank Transfer</option>
+                    <option value="paypal">PayPal</option>
+                    <option value="stripe">Stripe</option>
+                  </select>
+                </div>
+
+                {payoutData.payout_method === 'bank_transfer' && (
+                  <div className="space-y-4 border-t border-gray-200 pt-4">
+                    <h4 className="font-medium text-gray-900 mb-3">Bank Account Information</h4>
+
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        Account Holder Name
+                      </label>
+                      <input
+                        type="text"
+                        value={payoutData.account_holder_name}
+                        onChange={(e) => setPayoutData(prev => ({ ...prev, account_holder_name: e.target.value }))}
+                        className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${
+                          validationErrors.accountHolderName ? 'border-red-500' : 'border-gray-300'
+                        }`}
+                        placeholder="John Smith"
+                      />
+                      {validationErrors.accountHolderName && (
+                        <p className="text-sm text-red-600 mt-1">{validationErrors.accountHolderName}</p>
+                      )}
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        Bank Name
+                      </label>
+                      <input
+                        type="text"
+                        value={payoutData.bank_name}
+                        onChange={(e) => setPayoutData(prev => ({ ...prev, bank_name: e.target.value }))}
+                        className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${
+                          validationErrors.bankName ? 'border-red-500' : 'border-gray-300'
+                        }`}
+                        placeholder="Chase Bank"
+                      />
+                      {validationErrors.bankName && (
+                        <p className="text-sm text-red-600 mt-1">{validationErrors.bankName}</p>
+                      )}
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                          Bank Country
+                        </label>
+                        <select
+                          value={payoutData.bank_country}
+                          onChange={(e) => setPayoutData(prev => ({ ...prev, bank_country: e.target.value }))}
+                          className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                        >
+                          <option value="US">United States</option>
+                          <option value="CA">Canada</option>
+                          <option value="GB">United Kingdom</option>
+                          <option value="DE">Germany</option>
+                          <option value="FR">France</option>
+                          <option value="ES">Spain</option>
+                          <option value="IT">Italy</option>
+                          <option value="AU">Australia</option>
+                          <option value="NZ">New Zealand</option>
+                        </select>
+                      </div>
+
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                          Currency
+                        </label>
+                        <select
+                          value={payoutData.bank_currency}
+                          onChange={(e) => setPayoutData(prev => ({ ...prev, bank_currency: e.target.value }))}
+                          className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                        >
+                          <option value="USD">USD - US Dollar</option>
+                          <option value="EUR">EUR - Euro</option>
+                          <option value="GBP">GBP - British Pound</option>
+                          <option value="CAD">CAD - Canadian Dollar</option>
+                          <option value="AUD">AUD - Australian Dollar</option>
+                        </select>
+                      </div>
+                    </div>
+
+                    {payoutData.bank_country === 'US' && (
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">
+                            Account Number
+                          </label>
+                          <input
+                            type="text"
+                            value={payoutData.account_number}
+                            onChange={(e) => setPayoutData(prev => ({ ...prev, account_number: e.target.value }))}
+                            className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${
+                              validationErrors.accountNumber ? 'border-red-500' : 'border-gray-300'
+                            }`}
+                            placeholder="Enter account number"
+                          />
+                          {validationErrors.accountNumber && (
+                            <p className="text-sm text-red-600 mt-1">{validationErrors.accountNumber}</p>
+                          )}
+                        </div>
+
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">
+                            Routing Number
+                          </label>
+                          <input
+                            type="text"
+                            value={payoutData.routing_number}
+                            onChange={(e) => setPayoutData(prev => ({ ...prev, routing_number: formatRoutingNumber(e.target.value) }))}
+                            className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${
+                              validationErrors.routingNumber ? 'border-red-500' : 'border-gray-300'
+                            }`}
+                            placeholder="123456789"
+                            maxLength={9}
+                          />
+                          {validationErrors.routingNumber && (
+                            <p className="text-sm text-red-600 mt-1">{validationErrors.routingNumber}</p>
+                          )}
+                        </div>
+                      </div>
+                    )}
+
+                    {payoutData.bank_country !== 'US' && (
+                      <div className="space-y-4">
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">
+                            IBAN
+                          </label>
+                          <input
+                            type="text"
+                            value={payoutData.iban}
+                            onChange={(e) => setPayoutData(prev => ({ ...prev, iban: formatIBAN(e.target.value) }))}
+                            className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${
+                              validationErrors.iban ? 'border-red-500' : 'border-gray-300'
+                            }`}
+                            placeholder="DE89 3704 0044 0532 0130 00"
+                          />
+                          {validationErrors.iban && (
+                            <p className="text-sm text-red-600 mt-1">{validationErrors.iban}</p>
+                          )}
+                        </div>
+
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">
+                            SWIFT/BIC Code
+                          </label>
+                          <input
+                            type="text"
+                            value={payoutData.swift_code}
+                            onChange={(e) => setPayoutData(prev => ({ ...prev, swift_code: formatSwiftCode(e.target.value) }))}
+                            className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${
+                              validationErrors.swiftCode ? 'border-red-500' : 'border-gray-300'
+                            }`}
+                            placeholder="DEUTDEFF"
+                            maxLength={11}
+                          />
+                          {validationErrors.swiftCode && (
+                            <p className="text-sm text-red-600 mt-1">{validationErrors.swiftCode}</p>
+                          )}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {payoutData.payout_method === 'paypal' && (
+                  <div className="border-t border-gray-200 pt-4">
+                    <h4 className="font-medium text-gray-900 mb-3">PayPal Information</h4>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        PayPal Email
+                      </label>
+                      <div className="relative">
+                        <Mail className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
+                        <input
+                          type="email"
+                          value={payoutData.paypal_email}
+                          onChange={(e) => setPayoutData(prev => ({ ...prev, paypal_email: e.target.value }))}
+                          className={`w-full pl-10 pr-4 py-3 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${
+                            validationErrors.paypalEmail ? 'border-red-500' : 'border-gray-300'
+                          }`}
+                          placeholder="your.email@paypal.com"
+                        />
+                      </div>
+                      {validationErrors.paypalEmail && (
+                        <p className="text-sm text-red-600 mt-1">{validationErrors.paypalEmail}</p>
+                      )}
+                    </div>
+                  </div>
+                )}
+
+                {payoutData.payout_method === 'stripe' && (
+                  <div className="border-t border-gray-200 pt-4">
+                    <div className="bg-gray-50 rounded-lg p-6 text-center">
+                      <DollarSign className="w-12 h-12 text-gray-400 mx-auto mb-3" />
+                      <h4 className="font-medium text-gray-900 mb-2">Stripe Payouts</h4>
+                      <p className="text-sm text-gray-600">
+                        Stripe payout integration coming soon. You'll be able to connect your Stripe account directly.
+                      </p>
+                    </div>
+                  </div>
+                )}
+
+                <button
+                  type="submit"
+                  disabled={payoutLoading}
+                  className="bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center space-x-2"
+                >
+                  <Save className="w-4 h-4" />
+                  <span>{payoutLoading ? 'Saving...' : 'Save Payout Information'}</span>
                 </button>
               </form>
             </div>

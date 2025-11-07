@@ -22,6 +22,9 @@ interface Profile {
   affiliatewp_visits?: number;
   commission_rate?: number;
   last_metrics_sync?: string;
+  preferred_payout_method?: string;
+  payout_setup_completed?: boolean;
+  last_payout_sync?: string;
   created_at: string;
   updated_at: string;
 }
