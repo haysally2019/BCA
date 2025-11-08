@@ -854,8 +854,7 @@ export const supabaseService = {
         .from('appointments')
         .select(`
           *,
-          lead:leads(name, phone),
-          appointment_type:appointment_types(name, color)
+          lead:leads(name, phone)
         `)
         .eq('company_id', companyId)
         .order('scheduled_at', { ascending: true });
@@ -879,8 +878,7 @@ export const supabaseService = {
         })
         .select(`
           *,
-          lead:leads(name, phone),
-          appointment_type:appointment_types(name, color)
+          lead:leads(name, phone)
         `)
         .single();
 
@@ -900,8 +898,7 @@ export const supabaseService = {
         .eq('id', appointmentId)
         .select(`
           *,
-          lead:leads(name, phone),
-          appointment_type:appointment_types(name, color)
+          lead:leads(name, phone)
         `)
         .single();
 
