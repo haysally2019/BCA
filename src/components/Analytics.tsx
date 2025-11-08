@@ -30,14 +30,14 @@ const Analytics: React.FC = () => {
   }, [profile, timeRange]);
 
   const fetchAnalytics = async () => {
-    if (!profile) return;
+    if (!profile || !profile.company_id) return;
 
     try {
       setLoading(true);
-      
+
       const [analytics, charts] = await Promise.all([
-        supabaseService.getAnalyticsData(profile.id, timeRange),
-        supabaseService.getChartData(profile.id, timeRange)
+        supabaseService.getAnalyticsData(profile.company_id, timeRange),
+        supabaseService.getChartData(profile.company_id, timeRange)
       ]);
 
       setAnalyticsData(analytics);

@@ -47,13 +47,13 @@ const AgencyReports: React.FC = () => {
   }, [profile, selectedPeriod]);
 
   const fetchAnalytics = async () => {
-    if (!profile) return;
+    if (!profile || !profile.company_id) return;
 
     try {
       setLoading(true);
       const timeRange = selectedPeriod === 'current_month' || selectedPeriod === 'last_month' ? '30d' :
                        selectedPeriod === 'current_quarter' || selectedPeriod === 'last_quarter' ? '90d' : '90d';
-      const analytics = await supabaseService.getAnalyticsData(profile.id, timeRange);
+      const analytics = await supabaseService.getAnalyticsData(profile.company_id, timeRange);
       setAnalyticsData(analytics);
     } catch (error) {
       console.error('Error fetching analytics:', error);
@@ -139,6 +139,61 @@ const AgencyReports: React.FC = () => {
     return colors[frequency as keyof typeof colors] || 'bg-gray-100 text-gray-800';
   };
 
+  const exportReport = async (format: 'pdf' | 'csv' | 'excel') => {
+    if (!analyticsData) {
+      toast.error('No data to export');
+      return;
+    }
+
+    try {
+      toast.info(`Generating ${format.toUpperCase()} report...`);
+
+      if (format === 'csv') {
+        const csvData = [
+          ['Metric', 'Value'],
+          ['Total Revenue', `$${analyticsData.totalRevenue.toLocaleString()}`],
+          ['Active Deals', analyticsData.totalDeals.toString()],
+          ['Pipeline Value', `$${analyticsData.pipelineValue.toLocaleString()}`],
+          ['Conversion Rate', `${analyticsData.conversionRate}%`],
+          ['Total Leads', analyticsData.totalLeads.toString()],
+          ['Total Appointments', analyticsData.totalAppointments.toString()],
+          ['Average Deal Size', `$${analyticsData.avgDealSize.toLocaleString()}`],
+          ['Call Success Rate', `${analyticsData.callSuccessRate}%`],
+          ['SMS Response Rate', `${analyticsData.smsResponseRate}%`],
+        ].map(row => row.join(',')).join('\n');
+
+        const blob = new Blob([csvData], { type: 'text/csv' });
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `sales-report-${selectedPeriod}-${new Date().toISOString().split('T')[0]}.csv`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        window.URL.revokeObjectURL(url);
+
+        toast.success('CSV report downloaded successfully');
+      } else {
+        toast.info(`${format.toUpperCase()} export coming soon`);
+      }
+    } catch (error) {
+      console.error('Error exporting report:', error);
+      toast.error('Failed to export report');
+    }
+  };
+
+  const generateReport = async (reportId: string) => {
+    try {
+      toast.info('Generating report...');
+      await new Promise(resolve => setTimeout(resolve, 1500));
+      toast.success('Report generated successfully');
+      exportReport('csv');
+    } catch (error) {
+      console.error('Error generating report:', error);
+      toast.error('Failed to generate report');
+    }
+  };
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -159,11 +214,17 @@ const AgencyReports: React.FC = () => {
             <option value="last_quarter">Last Quarter</option>
             <option value="ytd">Year to Date</option>
           </select>
-          <button className="w-full sm:w-auto bg-gray-100 text-gray-700 px-4 py-2.5 rounded-lg flex items-center justify-center space-x-2 hover:bg-gray-200 transition-colors min-h-[44px]">
-            <Settings className="w-4 h-4" />
-            <span className="sm:inline">Settings</span>
+          <button
+            onClick={() => exportReport('csv')}
+            className="w-full sm:w-auto bg-green-600 text-white px-4 py-2.5 rounded-lg flex items-center justify-center space-x-2 hover:bg-green-700 transition-colors min-h-[44px]"
+          >
+            <Download className="w-4 h-4" />
+            <span className="sm:inline">Export CSV</span>
           </button>
-          <button className="w-full sm:w-auto bg-academy-blue-600 text-white px-4 py-2.5 rounded-lg flex items-center justify-center space-x-2 hover:bg-academy-blue-700 transition-colors min-h-[44px]">
+          <button
+            onClick={() => toast.info('Custom report builder coming soon')}
+            className="w-full sm:w-auto bg-academy-blue-600 text-white px-4 py-2.5 rounded-lg flex items-center justify-center space-x-2 hover:bg-academy-blue-700 transition-colors min-h-[44px]"
+          >
             <Plus className="w-4 h-4" />
             <span className="sm:inline">New Report</span>
           </button>

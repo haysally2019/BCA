@@ -5,6 +5,7 @@ import type { User } from '@supabase/supabase-js';
 interface Profile {
   id: string;
   user_id: string;
+  company_id?: string;
   company_name: string;
   full_name?: string;
   company_phone?: string;
