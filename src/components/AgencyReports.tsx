@@ -4,8 +4,7 @@ import {
   DollarSign,
   Target,
   Award,
-  TrendingUp,
-  Plus
+  TrendingUp
 } from 'lucide-react';
 import { supabaseService, type AnalyticsData } from '../lib/supabaseService';
 import { useAuthStore } from '../store/authStore';
@@ -110,13 +109,6 @@ const AgencyReports: React.FC = () => {
             <Download className="w-4 h-4" />
             <span className="sm:inline">Export CSV</span>
           </button>
-          <button
-            onClick={() => toast.info('Custom report builder coming soon')}
-            className="w-full sm:w-auto bg-academy-blue-600 text-white px-4 py-2.5 rounded-lg flex items-center justify-center space-x-2 hover:bg-academy-blue-700 transition-colors min-h-[44px]"
-          >
-            <Plus className="w-4 h-4" />
-            <span className="sm:inline">New Report</span>
-          </button>
         </div>
       </div>
 
@@ -152,69 +144,26 @@ const AgencyReports: React.FC = () => {
               })}
             </div>
 
-            {/* Performance Breakdown */}
-            <div className="bg-white border border-gray-200 rounded-lg p-4 md:p-6">
-              <h3 className="text-base md:text-lg font-semibold text-gray-900 mb-4">Performance Breakdown</h3>
-              <div className="space-y-4">
-                {analyticsData.conversionFunnel.map((stage, index) => (
-                  <div key={index} className="flex flex-col space-y-2 md:flex-row md:items-center md:space-y-0 md:space-x-4">
-                    <div className="w-full md:w-32 text-xs md:text-sm font-medium md:font-normal text-gray-900 md:text-gray-600">{stage.stage}</div>
-                    <div className="flex items-center space-x-3 md:space-x-4 md:flex-1">
-                      <div className="flex-1 bg-gray-200 rounded-full h-3 relative">
-                        <div
-                          className="bg-academy-blue-600 h-3 rounded-full transition-all duration-500"
-                          style={{ width: `${stage.percentage}%` }}
-                        ></div>
-                      </div>
-                      <div className="w-12 md:w-16 text-sm font-medium text-gray-900">{stage.count}</div>
-                      <div className="w-12 text-sm text-gray-500">{stage.percentage}%</div>
-                    </div>
-                  </div>
-                ))}
+
+
+            {/* Revenue Performance Summary */}
+            <div className="bg-gradient-to-br from-academy-blue-50 to-white border border-academy-blue-100 rounded-lg p-4 md:p-6">
+              <h3 className="text-base md:text-lg font-semibold text-gray-900 mb-4">Team Performance Summary</h3>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div className="text-center p-4 bg-white rounded-lg shadow-sm">
+                  <div className="text-xs text-gray-500 mb-1">Average Deal Size</div>
+                  <div className="text-2xl font-bold text-gray-900">${analyticsData.avgDealSize.toLocaleString()}</div>
+                </div>
+                <div className="text-center p-4 bg-white rounded-lg shadow-sm">
+                  <div className="text-xs text-gray-500 mb-1">Total Commissions</div>
+                  <div className="text-2xl font-bold text-gray-900">${analyticsData.totalCommissions.toLocaleString()}</div>
+                </div>
+                <div className="text-center p-4 bg-white rounded-lg shadow-sm">
+                  <div className="text-xs text-gray-500 mb-1">Appointment Rate</div>
+                  <div className="text-2xl font-bold text-gray-900">{analyticsData.appointmentCompletionRate}%</div>
+                </div>
               </div>
             </div>
-
-            {/* Lead Sources */}
-            {analyticsData.leadsBySource.length > 0 && (
-              <div className="bg-white border border-gray-200 rounded-lg p-4 md:p-6">
-                <h3 className="text-base md:text-lg font-semibold text-gray-900 mb-4">Lead Sources Distribution</h3>
-                <div className="space-y-3">
-                  {analyticsData.leadsBySource.map((source, index) => {
-                    const total = analyticsData.leadsBySource.reduce((sum, s) => sum + s.count, 0);
-                    const percentage = total > 0 ? Math.round((source.count / total) * 100) : 0;
-                    return (
-                      <div key={index} className="flex items-center space-x-4">
-                        <div className="w-28 text-sm text-gray-600 capitalize">{source.source}</div>
-                        <div className="flex-1 bg-gray-200 rounded-full h-2.5 relative">
-                          <div
-                            className="bg-blue-600 h-2.5 rounded-full transition-all duration-500"
-                            style={{ width: `${percentage}%` }}
-                          ></div>
-                        </div>
-                        <div className="w-16 text-sm font-medium text-gray-900 text-right">{source.count}</div>
-                        <div className="w-12 text-sm text-gray-500 text-right">{percentage}%</div>
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-            )}
-
-            {/* Revenue Trend */}
-            {analyticsData.revenueByMonth.length > 0 && (
-              <div className="bg-white border border-gray-200 rounded-lg p-4 md:p-6">
-                <h3 className="text-base md:text-lg font-semibold text-gray-900 mb-4">Revenue by Month</h3>
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                  {analyticsData.revenueByMonth.map((month, index) => (
-                    <div key={index} className="text-center p-4 bg-gray-50 rounded-lg">
-                      <div className="text-xs text-gray-500 mb-1">{month.month}</div>
-                      <div className="text-lg md:text-xl font-bold text-gray-900">${month.revenue.toLocaleString()}</div>
-                      <div className="text-xs text-gray-600 mt-1">{month.deals} deals</div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
           </div>
         ) : (
           <div className="text-center py-8 md:py-12 px-4">
