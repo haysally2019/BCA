@@ -132,30 +132,6 @@ const AgencyReports: React.FC = () => {
           </div>
         ) : analyticsData ? (
           <div className="space-y-6">
-            {/* Key Metrics */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6">
-              {[
-                { title: 'Total Revenue', value: `$${analyticsData.totalRevenue.toLocaleString()}`, change: `${analyticsData.conversionRate}%`, icon: DollarSign, color: 'bg-green-500' },
-                { title: 'Active Deals', value: analyticsData.totalDeals.toString(), change: `${analyticsData.totalLeads} leads`, icon: Target, color: 'bg-blue-500' },
-                { title: 'Pipeline Value', value: `$${analyticsData.pipelineValue.toLocaleString()}`, change: `${analyticsData.totalAppointments} appts`, icon: Award, color: 'bg-purple-500' },
-                { title: 'Conversion Rate', value: `${analyticsData.conversionRate}%`, change: `$${analyticsData.avgDealSize} avg`, icon: TrendingUp, color: 'bg-emerald-500' }
-              ].map((metric, index) => {
-                const Icon = metric.icon;
-                return (
-                  <div key={index} className="bg-white border border-gray-200 rounded-lg p-4 md:p-6">
-                    <div className="flex items-center justify-between mb-4">
-                      <div className={`w-10 h-10 md:w-12 md:h-12 ${metric.color} rounded-lg flex items-center justify-center`}>
-                        <Icon className="w-5 h-5 md:w-6 md:h-6 text-white" />
-                      </div>
-                      <span className="text-xs md:text-sm font-medium text-gray-600">{metric.change}</span>
-                    </div>
-                    <h3 className="text-xl md:text-2xl font-bold text-gray-900 mb-1">{metric.value}</h3>
-                    <p className="text-gray-600 text-sm">{metric.title}</p>
-                  </div>
-                );
-              })}
-            </div>
-
 
 
             {/* Performance Breakdown */}
