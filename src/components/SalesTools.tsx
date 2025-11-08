@@ -9,12 +9,32 @@ import toast from 'react-hot-toast';
 const SalesTools: React.FC = () => {
   const [activeSection, setActiveSection] = useState<string | null>(null);
   const [activeLesson, setActiveLesson] = useState<number>(0);
+  const [completedLessons, setCompletedLessons] = useState<Set<string>>(new Set());
+  const [searchQuery, setSearchQuery] = useState('');
 
   const handleCopy = (text: string) => {
     navigator.clipboard.writeText(text)
       .then(() => toast.success('Copied to clipboard!'))
       .catch(() => toast.error('Failed to copy'));
   };
+
+  const markLessonComplete = (moduleId: string, lessonIndex: number) => {
+    const key = `${moduleId}-${lessonIndex}`;
+    setCompletedLessons(prev => new Set([...prev, key]));
+    localStorage.setItem('completedLessons', JSON.stringify([...completedLessons, key]));
+    toast.success('Lesson marked as complete!');
+  };
+
+  const isLessonComplete = (moduleId: string, lessonIndex: number) => {
+    return completedLessons.has(`${moduleId}-${lessonIndex}`);
+  };
+
+  React.useEffect(() => {
+    const saved = localStorage.getItem('completedLessons');
+    if (saved) {
+      setCompletedLessons(new Set(JSON.parse(saved)));
+    }
+  }, []);
 
   const trainingModules = [
     {
@@ -1294,49 +1314,98 @@ Remember: Motivation gets you started. Discipline keeps you going.`
   ];
 
   const renderLessonContent = (content: string) => {
-    return content.split('\n').map((line, index) => {
-      if (line.startsWith('•')) {
-        return (
-          <li key={index} className="ml-6 mb-2 text-gray-700">
-            {line.substring(2)}
+    const lines = content.split('\n');
+    const elements: JSX.Element[] = [];
+
+    for (let i = 0; i < lines.length; i++) {
+      const line = lines[i];
+      const trimmed = line.trim();
+
+      if (!trimmed) {
+        elements.push(<div key={`space-${i}`} className="h-3" />);
+      } else if (trimmed.startsWith('---')) {
+        elements.push(<hr key={`hr-${i}`} className="my-6 border-gray-200" />);
+      } else if (trimmed.startsWith('•') || trimmed.startsWith('-')) {
+        elements.push(
+          <li key={`bullet-${i}`} className="ml-6 mb-2 text-gray-700 list-disc">
+            {trimmed.substring(1).trim()}
           </li>
         );
-      } else if (line.match(/^[A-Z\s]+:$/) || line.match(/^THE [A-Z\s]+:$/)) {
-        return (
-          <h4 key={index} className="font-semibold text-gray-900 mt-6 mb-2 text-lg">
-            {line}
+      } else if (trimmed.startsWith('✓') || trimmed.startsWith('✗') || trimmed.startsWith('🚩')) {
+        elements.push(
+          <div key={`check-${i}`} className="flex items-start space-x-2 mb-2 ml-4">
+            <span className="text-lg">{trimmed[0]}</span>
+            <span className="text-gray-700">{trimmed.substring(1).trim()}</span>
+          </div>
+        );
+      } else if (trimmed.match(/^[A-Z\s]+:$/) || trimmed.match(/^THE [A-Z\s]+:$/) || trimmed.match(/^[A-Z][A-Z\s]+:$/)) {
+        elements.push(
+          <h4 key={`heading-${i}`} className="font-bold text-gray-900 mt-8 mb-3 text-xl">
+            {trimmed}
           </h4>
         );
-      } else if (line.includes('Why it works:') || line.includes('Why:') || line.includes('Pro Tip:') || line.includes('Remember:')) {
-        return (
-          <p key={index} className="font-medium text-blue-600 mt-4 mb-2">
-            {line}
-          </p>
+      } else if (trimmed.match(/^(SCRIPT|TEMPLATE|OBJECTION|PHASE|STEP|PART|TECHNIQUE|RESPONSE|CONCERN|RULE) (#{0,1}\d+|#\d+):/i)) {
+        elements.push(
+          <div key={`section-${i}`} className="bg-blue-50 border-l-4 border-blue-500 p-4 my-4">
+            <h5 className="font-bold text-blue-900 text-lg">{trimmed}</h5>
+          </div>
         );
-      } else if (line.trim().startsWith('✓') || line.trim().startsWith('✗') || line.trim().startsWith('🚩')) {
-        return (
-          <p key={index} className="ml-4 mb-1 text-gray-700">
-            {line}
-          </p>
+      } else if (trimmed.includes('Why it works:') || trimmed.includes('Why:') || trimmed.startsWith('Pro Tip:') || trimmed.startsWith('PRO TIP:') || trimmed.startsWith('Remember:')) {
+        elements.push(
+          <div key={`tip-${i}`} className="bg-green-50 border-l-4 border-green-500 p-3 my-3">
+            <p className="font-semibold text-green-800">{trimmed}</p>
+          </div>
         );
-      } else if (line.trim() === '') {
-        return <div key={index} className="h-3" />;
-      } else if (line.trim().startsWith('---')) {
-        return <hr key={index} className="my-6 border-gray-200" />;
-      } else if (line.match(/^[A-Z][^.!?]*[.!?]$/) && line.length < 100) {
-        return (
-          <h5 key={index} className="font-semibold text-gray-800 mt-4 mb-2">
-            {line}
-          </h5>
+      } else if (trimmed.startsWith('AVOID:') || trimmed.startsWith('DEMO DON\'TS:') || trimmed.startsWith('Watch out for:') || trimmed.startsWith('RED FLAGS')) {
+        elements.push(
+          <div key={`warning-${i}`} className="bg-red-50 border-l-4 border-red-500 p-3 my-3">
+            <h5 className="font-bold text-red-800">{trimmed}</h5>
+          </div>
+        );
+      } else if (trimmed.startsWith('"') && trimmed.endsWith('"')) {
+        elements.push(
+          <blockquote key={`quote-${i}`} className="border-l-4 border-gray-300 pl-4 py-2 my-3 italic text-gray-700 bg-gray-50">
+            {trimmed.substring(1, trimmed.length - 1)}
+          </blockquote>
+        );
+      } else if (trimmed.startsWith('You:') || trimmed.startsWith('Prospect:')) {
+        const speaker = trimmed.split(':')[0];
+        const dialogue = trimmed.substring(speaker.length + 1).trim();
+        elements.push(
+          <div key={`dialogue-${i}`} className={`p-3 my-2 rounded-lg ${speaker === 'You' ? 'bg-blue-50 ml-0' : 'bg-gray-100 ml-8'}`}>
+            <span className="font-semibold text-gray-900">{speaker}:</span>
+            <span className="text-gray-700 ml-2">{dialogue}</span>
+          </div>
+        );
+      } else if (trimmed.startsWith('Subject:')) {
+        elements.push(
+          <div key={`subject-${i}`} className="bg-yellow-50 border border-yellow-200 p-3 rounded my-3">
+            <span className="font-semibold text-yellow-900">{trimmed}</span>
+          </div>
+        );
+      } else if (trimmed.startsWith('→')) {
+        elements.push(
+          <div key={`arrow-${i}`} className="ml-8 mb-2 text-gray-600 italic flex items-start">
+            <span className="mr-2">→</span>
+            <span>{trimmed.substring(1).trim()}</span>
+          </div>
+        );
+      } else if (trimmed.match(/^\d+\./)) {
+        elements.push(
+          <div key={`numbered-${i}`} className="ml-4 mb-2 text-gray-700 font-medium">
+            {trimmed}
+          </div>
         );
       } else {
-        return (
-          <p key={index} className="mb-3 text-gray-700 leading-relaxed">
-            {line}
+        elements.push(
+          <p key={`text-${i}`} className="mb-3 text-gray-700 leading-relaxed">
+            {trimmed}
           </p>
         );
       }
-    });
+    }
+
+    return elements;
   };
 
   return (
@@ -1359,6 +1428,9 @@ Remember: Motivation gets you started. Discipline keeps you going.`
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
           {trainingModules.map((module) => {
             const Icon = module.icon;
+            const completedCount = module.lessons.filter((_, idx) => isLessonComplete(module.id, idx)).length;
+            const progressPercent = (completedCount / module.lessons.length) * 100;
+
             return (
               <div
                 key={module.id}
@@ -1383,8 +1455,23 @@ Remember: Motivation gets you started. Discipline keeps you going.`
                     {module.description}
                   </p>
 
+                  {completedCount > 0 && (
+                    <div className="mb-4">
+                      <div className="flex items-center justify-between text-sm text-gray-600 mb-2">
+                        <span>{completedCount} of {module.lessons.length} completed</span>
+                        <span className="font-semibold">{Math.round(progressPercent)}%</span>
+                      </div>
+                      <div className="w-full bg-gray-200 rounded-full h-2">
+                        <div
+                          className="bg-green-500 h-2 rounded-full transition-all duration-500"
+                          style={{ width: `${progressPercent}%` }}
+                        />
+                      </div>
+                    </div>
+                  )}
+
                   <div className="flex items-center text-blue-600 font-semibold group-hover:translate-x-2 transition-transform">
-                    <span>Start Learning</span>
+                    <span>{completedCount > 0 ? 'Continue Learning' : 'Start Learning'}</span>
                     <ChevronRight className="w-5 h-5 ml-1" />
                   </div>
                 </div>
@@ -1430,22 +1517,30 @@ Remember: Motivation gets you started. Discipline keeps you going.`
                   <div className="flex space-x-2 overflow-x-auto pb-2">
                     {trainingModules
                       .find(m => m.id === activeSection)
-                      ?.lessons.map((lesson, index) => (
-                        <button
-                          key={index}
-                          onClick={() => setActiveLesson(index)}
-                          className={`px-4 py-2 rounded-lg whitespace-nowrap text-sm font-medium transition-all flex items-center space-x-2 ${
-                            activeLesson === index
-                              ? 'bg-blue-600 text-white shadow-md'
-                              : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                          }`}
-                        >
-                          <span className="w-6 h-6 rounded-full bg-white/20 flex items-center justify-center text-xs">
-                            {index + 1}
-                          </span>
-                          <span>{lesson.title}</span>
-                        </button>
-                      ))}
+                      ?.lessons.map((lesson, index) => {
+                        const module = trainingModules.find(m => m.id === activeSection);
+                        const isComplete = module ? isLessonComplete(module.id, index) : false;
+                        return (
+                          <button
+                            key={index}
+                            onClick={() => setActiveLesson(index)}
+                            className={`px-4 py-2 rounded-lg whitespace-nowrap text-sm font-medium transition-all flex items-center space-x-2 relative ${
+                              activeLesson === index
+                                ? 'bg-blue-600 text-white shadow-md'
+                                : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                            }`}
+                          >
+                            <span className={`w-6 h-6 rounded-full flex items-center justify-center text-xs ${
+                              activeLesson === index ? 'bg-white/20' : isComplete ? 'bg-green-500 text-white' : 'bg-gray-300'
+                            }`}>
+                              {isComplete ? '✓' : index + 1}
+                            </span>
+                            <span className={isComplete ? 'line-through opacity-75' : ''}>
+                              {lesson.title}
+                            </span>
+                          </button>
+                        );
+                      })}
                   </div>
                 </div>
               </div>
@@ -1458,57 +1553,87 @@ Remember: Motivation gets you started. Discipline keeps you going.`
 
                   return (
                     <div>
-                      <div className="flex items-center justify-between mb-6">
-                        <h3 className="text-2xl font-bold text-gray-900">
-                          {lesson.title}
-                        </h3>
-                        <button
-                          onClick={() => handleCopy(lesson.content)}
-                          className="flex items-center space-x-2 px-4 py-2 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors text-sm font-medium text-gray-700"
-                        >
-                          <Copy className="w-4 h-4" />
-                          <span>Copy Content</span>
-                        </button>
+                      <div className="mb-6">
+                        <div className="flex items-center justify-between mb-4">
+                          <h3 className="text-2xl font-bold text-gray-900">
+                            {lesson.title}
+                          </h3>
+                          <div className="flex items-center space-x-2">
+                            {isLessonComplete(module.id, activeLesson) && (
+                              <div className="flex items-center space-x-1 text-green-600 bg-green-50 px-3 py-2 rounded-lg">
+                                <CheckCircle className="w-4 h-4" />
+                                <span className="text-sm font-medium">Completed</span>
+                              </div>
+                            )}
+                            <button
+                              onClick={() => handleCopy(lesson.content)}
+                              className="flex items-center space-x-2 px-4 py-2 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors text-sm font-medium text-gray-700"
+                            >
+                              <Copy className="w-4 h-4" />
+                              <span>Copy</span>
+                            </button>
+                          </div>
+                        </div>
+
+                        <div className="flex items-center space-x-4 text-sm text-gray-500">
+                          <span>{module.lessons.length} lessons in this module</span>
+                          <span>•</span>
+                          <span>
+                            {module.lessons.filter((_, idx) => isLessonComplete(module.id, idx)).length} completed
+                          </span>
+                        </div>
                       </div>
 
                       <div className="prose prose-lg max-w-none">
                         {renderLessonContent(lesson.content)}
                       </div>
 
-                      <div className="flex items-center justify-between mt-8 pt-6 border-t border-gray-200">
-                        <button
-                          onClick={() => setActiveLesson(Math.max(0, activeLesson - 1))}
-                          disabled={activeLesson === 0}
-                          className={`flex items-center space-x-2 px-6 py-3 rounded-lg font-medium transition-all ${
-                            activeLesson === 0
-                              ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
-                              : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
-                          }`}
-                        >
-                          <ChevronRight className="w-5 h-5 rotate-180" />
-                          <span>Previous Lesson</span>
-                        </button>
+                      <div className="mt-8 pt-6 border-t border-gray-200 space-y-4">
+                        {!isLessonComplete(module.id, activeLesson) && (
+                          <button
+                            onClick={() => markLessonComplete(module.id, activeLesson)}
+                            className="w-full flex items-center justify-center space-x-2 px-6 py-3 bg-green-600 text-white rounded-lg font-medium hover:bg-green-700 transition-all shadow-md"
+                          >
+                            <CheckCircle className="w-5 h-5" />
+                            <span>Mark as Complete</span>
+                          </button>
+                        )}
 
-                        <div className="text-sm text-gray-500">
-                          Lesson {activeLesson + 1} of {module?.lessons.length}
+                        <div className="flex items-center justify-between">
+                          <button
+                            onClick={() => setActiveLesson(Math.max(0, activeLesson - 1))}
+                            disabled={activeLesson === 0}
+                            className={`flex items-center space-x-2 px-6 py-3 rounded-lg font-medium transition-all ${
+                              activeLesson === 0
+                                ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                                : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                            }`}
+                          >
+                            <ChevronRight className="w-5 h-5 rotate-180" />
+                            <span>Previous</span>
+                          </button>
+
+                          <div className="text-sm text-gray-500 font-medium">
+                            Lesson {activeLesson + 1} of {module?.lessons.length}
+                          </div>
+
+                          <button
+                            onClick={() => {
+                              if (module && activeLesson < module.lessons.length - 1) {
+                                setActiveLesson(activeLesson + 1);
+                              }
+                            }}
+                            disabled={!module || activeLesson === module.lessons.length - 1}
+                            className={`flex items-center space-x-2 px-6 py-3 rounded-lg font-medium transition-all ${
+                              !module || activeLesson === module.lessons.length - 1
+                                ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                                : 'bg-blue-600 text-white hover:bg-blue-700 shadow-md'
+                            }`}
+                          >
+                            <span>Next</span>
+                            <ChevronRight className="w-5 h-5" />
+                          </button>
                         </div>
-
-                        <button
-                          onClick={() => {
-                            if (module && activeLesson < module.lessons.length - 1) {
-                              setActiveLesson(activeLesson + 1);
-                            }
-                          }}
-                          disabled={!module || activeLesson === module.lessons.length - 1}
-                          className={`flex items-center space-x-2 px-6 py-3 rounded-lg font-medium transition-all ${
-                            !module || activeLesson === module.lessons.length - 1
-                              ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
-                              : 'bg-blue-600 text-white hover:bg-blue-700 shadow-md'
-                          }`}
-                        >
-                          <span>Next Lesson</span>
-                          <ChevronRight className="w-5 h-5" />
-                        </button>
                       </div>
                     </div>
                   );
