@@ -19,6 +19,7 @@ import Auth from './components/Auth';
 import ChangePassword from './components/ChangePassword';
 import ErrorBoundary from './components/ErrorBoundary';
 import { useAuthStore } from './store/authStore';
+import { useDataStore } from './store/dataStore';
 import { supabase } from './lib/supabaseClient';
 import { logError } from './lib/errorUtils';
 
@@ -125,12 +126,13 @@ function AppContent() {
     const handleVisibilityChange = async () => {
       const currentUser = useAuthStore.getState().user;
       const currentProfile = useAuthStore.getState().profile;
+      const isInitialized = useAuthStore.getState().initialized;
 
       if (document.visibilityState === 'hidden' && currentUser && currentProfile && location.pathname !== '/') {
         console.log('[App] Tab becoming hidden - saving current route:', location.pathname);
         sessionStorage.setItem('currentRoute', location.pathname);
-      } else if (document.visibilityState === 'visible' && currentUser && currentProfile) {
-        console.log('[App] Tab becoming visible - validating session in background');
+      } else if (document.visibilityState === 'visible') {
+        console.log('[App] Tab becoming visible - validating session and refreshing data');
 
         // Validate session in background without disrupting UI
         setTimeout(async () => {
@@ -152,8 +154,11 @@ function AppContent() {
               navigate('/');
             } else {
               console.log('[App] Session validated successfully on tab focus');
-              // Silently refresh profile without triggering loading states
+              // Refresh profile to ensure latest data is loaded
               await useAuthStore.getState().refreshProfile();
+
+              // Invalidate data cache to trigger fresh data load on next component mount
+              useDataStore.getState().invalidateCache();
             }
           } catch (error) {
             console.error('[App] Error during session refresh on tab focus:', error);

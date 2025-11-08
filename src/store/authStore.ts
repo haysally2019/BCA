@@ -203,11 +203,22 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   initialize: async () => {
     const { user: currentUser, initialized, loading } = get();
 
-    if (initialized && currentUser && get().profile) {
-      console.log('[AuthStore] Already initialized with valid user and profile, skipping');
-      if (loading) {
-        set({ loading: false });
-      }
+    if (initialized && currentUser && get().profile && loading === false) {
+      console.log('[AuthStore] Already initialized with valid user and profile');
+
+      // Validate session in background to ensure it's still valid
+      setTimeout(async () => {
+        try {
+          const { data: { session } } = await supabase.auth.getSession();
+          if (!session) {
+            console.log('[AuthStore] Session expired during initialization check');
+            set({ user: null, profile: null, initialized: false });
+          }
+        } catch (error) {
+          console.error('[AuthStore] Session check error:', error);
+        }
+      }, 0);
+
       return null;
     }
 
