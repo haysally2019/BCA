@@ -23,13 +23,25 @@ const AgencyReports: React.FC = () => {
   }, [profile, selectedPeriod]);
 
   const fetchAnalytics = async () => {
-    if (!profile || !profile.company_id) return;
+    if (!profile) {
+      console.log('No profile available');
+      setLoading(false);
+      return;
+    }
+
+    const companyId = profile.company_id || profile.id;
+    console.log('Fetching analytics:', {
+      profileId: profile.id,
+      companyId,
+      usingFallback: !profile.company_id
+    });
 
     try {
       setLoading(true);
       const timeRange = selectedPeriod === 'current_month' || selectedPeriod === 'last_month' ? '30d' :
                        selectedPeriod === 'current_quarter' || selectedPeriod === 'last_quarter' ? '90d' : '90d';
-      const analytics = await supabaseService.getAnalyticsData(profile.company_id, timeRange);
+      const analytics = await supabaseService.getAnalyticsData(companyId, timeRange);
+      console.log('Analytics loaded:', analytics);
       setAnalyticsData(analytics);
     } catch (error) {
       console.error('Error fetching analytics:', error);
