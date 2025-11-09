@@ -213,6 +213,17 @@ export interface AnalyticsData {
     due: string;
     type: string;
   }>;
+  affiliateOverview: {
+    paidEarnings: number;
+    unpaidEarnings: number;
+    totalReferrals: number;
+    totalVisits: number;
+    visitToSignupRate: number;
+    averageCommission: number;
+  };
+  referralTrends: Array<{ date: string; referrals: number; paidEarnings: number; unpaidEarnings: number }>;
+  commissionStatusBreakdown: Array<{ status: string; amount: number; count: number }>;
+  topCreatives: Array<{ name: string; referrals: number; earnings: number }>;
 }
 
 export interface Profile {
@@ -1315,10 +1326,11 @@ export const supabaseService = {
       const startDate = new Date(now.getTime() - daysBack * 24 * 60 * 60 * 1000);
 
       // Fetch core data first (most important)
-      const [leads, deals, prospects] = await Promise.all([
+      const [leads, deals, prospects, profiles] = await Promise.all([
         this.getLeads(companyId),
         this.getDeals(companyId),
-        this.getProspects(companyId)
+        this.getProspects(companyId),
+        this.getProfilesByCompany(companyId)
       ]);
 
       // Fetch secondary data (can be loaded later if needed)
@@ -1348,6 +1360,81 @@ export const supabaseService = {
       const filteredDeals = deals.filter(d => new Date(d.created_at) >= startDate);
       const filteredAppointments = appointments.filter(a => new Date(a.created_at) >= startDate);
       const filteredAffiliateCommissions = affiliateCommissions.filter(c => new Date(c.created_at) >= startDate);
+
+      const paidEarnings = filteredAffiliateCommissions
+        .filter(commission => commission.status === 'paid')
+        .reduce((sum, commission) => sum + commission.commission_amount, 0);
+
+      const unpaidEarnings = filteredAffiliateCommissions
+        .filter(commission => commission.status === 'pending' || commission.status === 'approved')
+        .reduce((sum, commission) => sum + commission.commission_amount, 0);
+
+      const totalReferrals = filteredAffiliateCommissions.length;
+
+      const averageCommission = filteredAffiliateCommissions.length > 0
+        ? filteredAffiliateCommissions.reduce((sum, commission) => sum + commission.commission_amount, 0) / filteredAffiliateCommissions.length
+        : 0;
+
+      const totalVisits = profiles.reduce((sum, profile) => sum + (profile.affiliatewp_visits || 0), 0);
+      const profileReferralTotal = profiles.reduce((sum, profile) => sum + (profile.affiliatewp_referrals || 0), 0);
+
+      const visitToSignupRate = totalVisits > 0
+        ? Math.round((profileReferralTotal / totalVisits) * 1000) / 10
+        : 0;
+
+      const referralTrendMap = new Map<string, { referrals: number; paidEarnings: number; unpaidEarnings: number }>();
+      filteredAffiliateCommissions.forEach(commission => {
+        const dateKey = new Date(commission.created_at).toISOString().split('T')[0];
+        const current = referralTrendMap.get(dateKey) || { referrals: 0, paidEarnings: 0, unpaidEarnings: 0 };
+        current.referrals += 1;
+        if (commission.status === 'paid') {
+          current.paidEarnings += commission.commission_amount;
+        } else if (commission.status === 'pending' || commission.status === 'approved') {
+          current.unpaidEarnings += commission.commission_amount;
+        }
+        referralTrendMap.set(dateKey, current);
+      });
+
+      const referralTrends = Array.from(referralTrendMap.entries())
+        .sort(([dateA], [dateB]) => new Date(dateA).getTime() - new Date(dateB).getTime())
+        .map(([dateKey, data]) => ({
+          date: new Date(dateKey).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
+          ...data
+        }));
+
+      const commissionStatusMap = new Map<string, { amount: number; count: number }>();
+      filteredAffiliateCommissions.forEach(commission => {
+        const statusKey = commission.status || 'unknown';
+        const current = commissionStatusMap.get(statusKey) || { amount: 0, count: 0 };
+        current.amount += commission.commission_amount;
+        current.count += 1;
+        commissionStatusMap.set(statusKey, current);
+      });
+
+      const commissionStatusBreakdown = Array.from(commissionStatusMap.entries()).map(([status, data]) => ({
+        status: status.charAt(0).toUpperCase() + status.slice(1),
+        amount: data.amount,
+        count: data.count
+      }));
+
+      const creativeMap = new Map<string, { referrals: number; earnings: number }>();
+      filteredAffiliateCommissions.forEach(commission => {
+        const creativeName =
+          (commission.webhook_data && typeof commission.webhook_data === 'object'
+            ? (commission.webhook_data as Record<string, any>).creative_name || (commission.webhook_data as Record<string, any>).campaign || ''
+            : '')
+          || commission.product_name
+          || 'Unknown Creative';
+        const current = creativeMap.get(creativeName) || { referrals: 0, earnings: 0 };
+        current.referrals += 1;
+        current.earnings += commission.commission_amount;
+        creativeMap.set(creativeName, current);
+      });
+
+      const topCreatives = Array.from(creativeMap.entries())
+        .map(([name, data]) => ({ name, ...data }))
+        .sort((a, b) => b.referrals - a.referrals || b.earnings - a.earnings)
+        .slice(0, 6);
 
       // Calculate metrics - prioritize AffiliateWP data
       const affiliateRevenue = filteredAffiliateCommissions
@@ -1418,6 +1505,17 @@ export const supabaseService = {
         conversionFunnel,
         recentActivities,
         upcomingTasks,
+        affiliateOverview: {
+          paidEarnings,
+          unpaidEarnings,
+          totalReferrals,
+          totalVisits,
+          visitToSignupRate,
+          averageCommission: Math.round(averageCommission),
+        },
+        referralTrends,
+        commissionStatusBreakdown,
+        topCreatives,
       };
     } catch (error) {
       console.error('Error getting analytics data:', error);
@@ -1442,6 +1540,17 @@ export const supabaseService = {
         conversionFunnel: [],
         recentActivities: [],
         upcomingTasks: [],
+        affiliateOverview: {
+          paidEarnings: 0,
+          unpaidEarnings: 0,
+          totalReferrals: 0,
+          totalVisits: 0,
+          visitToSignupRate: 0,
+          averageCommission: 0,
+        },
+        referralTrends: [],
+        commissionStatusBreakdown: [],
+        topCreatives: [],
       };
     }
   },
@@ -1711,78 +1820,85 @@ export const supabaseService = {
 
   // CHART DATA GENERATION
   async getChartData(companyId: string, timeRange: string = '30d'): Promise<{
-    dailyActivity: Array<{ date: string; leads: number; calls: number; revenue: number; appointments: number }>;
-    leadSources: Array<{ name: string; value: number }>;
-    callOutcomes: Array<{ outcome: string; count: number }>;
+    referralTrends: Array<{ date: string; referrals: number; paidEarnings: number; unpaidEarnings: number }>;
+    commissionStatusBreakdown: Array<{ status: string; amount: number; count: number }>;
+    topCreatives: Array<{ name: string; referrals: number; earnings: number }>;
   }> {
     try {
       const daysBack = timeRange === '7d' ? 7 : timeRange === '30d' ? 30 : 90;
       const startDate = new Date();
       startDate.setDate(startDate.getDate() - daysBack);
 
-      const [leads, deals, activities] = await Promise.all([
-        this.getLeads(companyId),
-        this.getDeals(companyId),
-        this.getRecentLeadActivities(companyId, 1000)
-      ]);
+      const affiliateCommissions = await commissionService.getCommissionEntries();
+      const filteredAffiliateCommissions = affiliateCommissions.filter(commission =>
+        new Date(commission.created_at) >= startDate
+      );
 
-      // Generate daily activity data
-      const dailyActivity = [];
-      for (let i = daysBack - 1; i >= 0; i--) {
-        const date = new Date();
-        date.setDate(date.getDate() - i);
-        const dateStr = date.toISOString().split('T')[0];
-
-        const dayLeads = leads.filter(l => l.created_at.startsWith(dateStr)).length;
-        const dayCalls = activities.filter(a => 
-          a.activity_type === 'call' && a.created_at.startsWith(dateStr)
-        ).length;
-        const dayRevenue = deals.filter(d => 
-          d.status === 'won' && d.actual_close_date?.startsWith(dateStr)
-        ).reduce((sum, d) => sum + d.value, 0);
-        const dayAppointments = activities.filter(a => 
-          a.activity_type === 'appointment' && a.created_at.startsWith(dateStr)
-        ).length;
-
-        dailyActivity.push({
-          date: date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
-          leads: dayLeads,
-          calls: dayCalls,
-          revenue: dayRevenue,
-          appointments: dayAppointments
-        });
-      }
-
-      // Lead sources
-      const leadSources = this.calculateLeadsBySource(leads).map(item => ({
-        name: item.source,
-        value: item.count
-      }));
-
-      // Call outcomes
-      const callActivities = activities.filter(a => a.activity_type === 'call');
-      const outcomeMap = new Map<string, number>();
-      callActivities.forEach(activity => {
-        const outcome = activity.outcome || 'unknown';
-        outcomeMap.set(outcome, (outcomeMap.get(outcome) || 0) + 1);
+      const referralTrendMap = new Map<string, { referrals: number; paidEarnings: number; unpaidEarnings: number }>();
+      filteredAffiliateCommissions.forEach(commission => {
+        const dateKey = new Date(commission.created_at).toISOString().split('T')[0];
+        const current = referralTrendMap.get(dateKey) || { referrals: 0, paidEarnings: 0, unpaidEarnings: 0 };
+        current.referrals += 1;
+        if (commission.status === 'paid') {
+          current.paidEarnings += commission.commission_amount;
+        } else if (commission.status === 'pending' || commission.status === 'approved') {
+          current.unpaidEarnings += commission.commission_amount;
+        }
+        referralTrendMap.set(dateKey, current);
       });
 
-      const callOutcomes = Array.from(outcomeMap.entries()).map(([outcome, count]) => ({
-        outcome: outcome.toUpperCase(),
-        count
+      const referralTrends = Array.from(referralTrendMap.entries())
+        .sort(([dateA], [dateB]) => new Date(dateA).getTime() - new Date(dateB).getTime())
+        .map(([dateKey, data]) => ({
+          date: new Date(dateKey).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
+          ...data
+        }));
+
+      const commissionStatusMap = new Map<string, { amount: number; count: number }>();
+      filteredAffiliateCommissions.forEach(commission => {
+        const statusKey = commission.status || 'unknown';
+        const current = commissionStatusMap.get(statusKey) || { amount: 0, count: 0 };
+        current.amount += commission.commission_amount;
+        current.count += 1;
+        commissionStatusMap.set(statusKey, current);
+      });
+
+      const commissionStatusBreakdown = Array.from(commissionStatusMap.entries()).map(([status, data]) => ({
+        status: status.charAt(0).toUpperCase() + status.slice(1),
+        amount: data.amount,
+        count: data.count
       }));
 
+      const creativeMap = new Map<string, { referrals: number; earnings: number }>();
+      filteredAffiliateCommissions.forEach(commission => {
+        const creativeName =
+          (commission.webhook_data && typeof commission.webhook_data === 'object'
+            ? (commission.webhook_data as Record<string, any>).creative_name || (commission.webhook_data as Record<string, any>).campaign || ''
+            : '')
+          || commission.product_name
+          || 'Unknown Creative';
+        const current = creativeMap.get(creativeName) || { referrals: 0, earnings: 0 };
+        current.referrals += 1;
+        current.earnings += commission.commission_amount;
+        creativeMap.set(creativeName, current);
+      });
+
+      const topCreatives = Array.from(creativeMap.entries())
+        .map(([name, data]) => ({ name, ...data }))
+        .sort((a, b) => b.referrals - a.referrals || b.earnings - a.earnings)
+        .slice(0, 6);
+
       return {
-        dailyActivity,
-        leadSources,
-        callOutcomes
+        referralTrends,
+        commissionStatusBreakdown,
+        topCreatives
       };
     } catch (error) {
       console.error('Error generating chart data:', error);
       return {
-        dailyActivity: [],
-        leadSources: [],
-        callOutcomes: []
+        referralTrends: [],
+        commissionStatusBreakdown: [],
+        topCreatives: []
       };
     }
   },
