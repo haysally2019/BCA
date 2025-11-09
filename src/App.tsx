@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Routes, Route, Navigate, useLocation, useNavigate } from 'react-router-dom';
 import { Toaster } from 'react-hot-toast';
 import Sidebar from './components/Sidebar';
@@ -122,55 +122,84 @@ function AppContent() {
     }
   }, [location.pathname, user, profile]);
 
+  const sessionValidationTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const sessionValidationInProgressRef = useRef(false);
+
   useEffect(() => {
-    const handleVisibilityChange = async () => {
-      const currentUser = useAuthStore.getState().user;
-      const currentProfile = useAuthStore.getState().profile;
-      const isInitialized = useAuthStore.getState().initialized;
+    const handleVisibilityOrFocus = () => {
+      const { user: currentUser, profile: currentProfile, initialized: isInitialized } = useAuthStore.getState();
 
       if (document.visibilityState === 'hidden' && currentUser && currentProfile && location.pathname !== '/') {
         console.log('[App] Tab becoming hidden - saving current route:', location.pathname);
         sessionStorage.setItem('currentRoute', location.pathname);
-      } else if (document.visibilityState === 'visible') {
-        console.log('[App] Tab becoming visible - validating session and refreshing data');
+        return;
+      }
 
-        // Validate session in background without disrupting UI
-        setTimeout(async () => {
-          try {
-            const { data: { session }, error } = await supabase.auth.getSession();
+      if (!isInitialized || !currentUser || !currentProfile) {
+        return;
+      }
 
-            if (error) {
-              console.error('[App] Session validation error on tab focus:', error);
-              if (error.message.includes('Invalid Refresh Token') ||
-                  error.message.includes('Invalid login credentials') ||
-                  error.message.includes('refresh_token_not_found')) {
-                console.log('[App] Invalid session detected - signing out');
-                await useAuthStore.getState().signOut();
-                navigate('/');
-              }
-            } else if (!session) {
-              console.log('[App] No session found on tab focus - signing out');
+      if (document.visibilityState !== 'visible') {
+        return;
+      }
+
+      if (sessionValidationInProgressRef.current) {
+        return;
+      }
+
+      sessionValidationInProgressRef.current = true;
+
+      if (sessionValidationTimeoutRef.current) {
+        clearTimeout(sessionValidationTimeoutRef.current);
+      }
+
+      console.log('[App] Tab becoming visible - validating session and refreshing data');
+
+      sessionValidationTimeoutRef.current = window.setTimeout(async () => {
+        try {
+          const { data: { session }, error } = await supabase.auth.getSession();
+
+          if (error) {
+            console.error('[App] Session validation error on tab focus:', error);
+            if (error.message.includes('Invalid Refresh Token') ||
+                error.message.includes('Invalid login credentials') ||
+                error.message.includes('refresh_token_not_found')) {
+              console.log('[App] Invalid session detected - signing out');
               await useAuthStore.getState().signOut();
               navigate('/');
-            } else {
-              console.log('[App] Session validated successfully on tab focus');
-              // Refresh profile to ensure latest data is loaded
-              await useAuthStore.getState().refreshProfile();
-
-              // Invalidate data cache to trigger fresh data load on next component mount
-              useDataStore.getState().invalidateCache();
             }
-          } catch (error) {
-            console.error('[App] Error during session refresh on tab focus:', error);
+          } else if (!session) {
+            console.log('[App] No session found on tab focus - signing out');
+            await useAuthStore.getState().signOut();
+            navigate('/');
+          } else {
+            console.log('[App] Session validated successfully on tab focus');
+            await useAuthStore.getState().refreshProfile();
+            useDataStore.getState().invalidateCache();
           }
-        }, 100);
-      }
+        } catch (error) {
+          console.error('[App] Error during session refresh on tab focus:', error);
+        } finally {
+          if (sessionValidationTimeoutRef.current) {
+            clearTimeout(sessionValidationTimeoutRef.current);
+            sessionValidationTimeoutRef.current = null;
+          }
+          sessionValidationInProgressRef.current = false;
+        }
+      }, 120);
     };
 
-    document.addEventListener('visibilitychange', handleVisibilityChange);
+    document.addEventListener('visibilitychange', handleVisibilityOrFocus);
+    window.addEventListener('focus', handleVisibilityOrFocus);
 
     return () => {
-      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      document.removeEventListener('visibilitychange', handleVisibilityOrFocus);
+      window.removeEventListener('focus', handleVisibilityOrFocus);
+      if (sessionValidationTimeoutRef.current) {
+        clearTimeout(sessionValidationTimeoutRef.current);
+        sessionValidationTimeoutRef.current = null;
+      }
+      sessionValidationInProgressRef.current = false;
     };
   }, [location.pathname, navigate]);
 
