@@ -1,5 +1,6 @@
 import React from 'react';
 import ReactDOM from 'react-dom/client';
+import { BrowserRouter } from 'react-router-dom';
 import App from './App.tsx';
 import { ErrorBoundary } from 'react-error-boundary';
 import './index.css';
@@ -17,11 +18,19 @@ const ErrorFallback = ({ error }: { error: Error }) => (
   </div>
 );
 
+function Root() {
+  return (
+    <BrowserRouter basename="/">
+      <App />
+    </BrowserRouter>
+  );
+}
+
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
     <ErrorBoundary FallbackComponent={ErrorFallback}>
       <React.Suspense fallback={<div className="p-6 text-center">Loading...</div>}>
-        <App />
+        <Root />
       </React.Suspense>
     </ErrorBoundary>
   </React.StrictMode>
