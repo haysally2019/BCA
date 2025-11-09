@@ -1,4 +1,5 @@
 import { create } from 'zustand';
+import { persist } from 'zustand/middleware';
 import { supabaseService, type AnalyticsData, type Deal, type Commission, type Prospect } from '../lib/supabaseService';
 import { commissionService, type CommissionEntry } from '../lib/commissionService';
 
@@ -43,6 +44,7 @@ interface DataState {
   loadCommissionsData: (companyId: string, force?: boolean) => Promise<void>;
   addContact: (contact: Contact) => void;
   setContacts: (contacts: Contact[]) => void;
+  clearContacts: () => void;
   clearCache: () => void;
   invalidateCache: (keys?: string[]) => void;
 }
@@ -339,6 +341,8 @@ export const useDataStore = create<DataState>((set, get) => ({
 
   setContacts: (contacts) => set({ contacts }),
 
+  clearContacts: () => set({ contacts: [] }),
+
   clearCache: () => {
     set({ cache: new Map() });
   },
@@ -356,3 +360,25 @@ export const useDataStore = create<DataState>((set, get) => ({
     set({ cache: newCache });
   }
 }));
+
+interface ContactsStore {
+  contacts: Contact[];
+  addContact: (contact: Contact) => void;
+  setContacts: (contacts: Contact[]) => void;
+  clearContacts: () => void;
+}
+
+export const useContactsStore = create<ContactsStore>()(
+  persist(
+    (set) => ({
+      contacts: [],
+      addContact: (contact) =>
+        set((state) => ({ contacts: [...state.contacts, contact] })),
+      setContacts: (contacts) => set({ contacts }),
+      clearContacts: () => set({ contacts: [] }),
+    }),
+    {
+      name: "bca-datastore",
+    }
+  )
+);
