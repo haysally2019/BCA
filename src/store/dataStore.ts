@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
-import { supabaseService, type AnalyticsData, type Deal, type Commission, type Prospect } from '../lib/supabaseService';
+import { supabaseService, type Commission } from '../lib/supabaseService';
 import { commissionService, type CommissionEntry } from '../lib/commissionService';
 
 interface Contact {
@@ -17,30 +17,71 @@ interface CachedData {
   expiry: number;
 }
 
+interface AffiliateReferral {
+  id: number;
+  affiliate_id: number;
+  referral_id: string;
+  status?: string | null;
+  amount?: number | null;
+  description?: string | null;
+  origin_url?: string | null;
+  order_id?: string | null;
+  created_at?: string | null;
+}
+
+interface AffiliateMetricPoint {
+  date: string;
+  visits: number;
+  referrals: number;
+  earnings: number;
+  unpaid_earnings: number;
+}
+
+interface AffiliateDashboardSnapshot {
+  overview: {
+    totalEarnings: number;
+    paidEarnings: number;
+    unpaidEarnings: number;
+    referrals: number;
+    visits: number;
+    conversionRate: number;
+    commissionRate: number;
+  };
+  syncStatus: {
+    lastSync: string | null;
+  };
+  referralFeed: AffiliateReferral[];
+  performance: AffiliateMetricPoint[];
+  payoutQueue: CommissionEntry[];
+}
+
+interface DashboardProfileContext {
+  id: string;
+  affiliatewp_id?: number | null;
+  affiliatewp_earnings?: number | null;
+  affiliatewp_unpaid_earnings?: number | null;
+  affiliatewp_referrals?: number | null;
+  affiliatewp_visits?: number | null;
+  commission_rate?: number | null;
+  last_metrics_sync?: string | null;
+}
+
 interface DataState {
   // Cache storage
   cache: Map<string, CachedData>;
 
   // Loading states
   dashboardLoading: boolean;
-  pipelineLoading: boolean;
   commissionsLoading: boolean;
-  prospectsLoadingMore: boolean;
 
   // Cached data
-  analyticsData: AnalyticsData | null;
-  deals: Deal[];
+  affiliateDashboard: AffiliateDashboardSnapshot | null;
   commissions: Commission[];
   affiliateCommissions: CommissionEntry[];
-  prospects: Prospect[];
-  hasMoreProspects: boolean;
-  totalProspectsCount: number;
   contacts: Contact[];
 
   // Actions
-  loadDashboardData: (companyId: string, timeRange?: string, force?: boolean) => Promise<void>;
-  loadMoreProspects: (companyId: string) => Promise<void>;
-  loadPipelineData: (companyId: string, force?: boolean) => Promise<void>;
+  loadDashboardData: (profile: DashboardProfileContext, timeRange?: string, force?: boolean) => Promise<void>;
   loadCommissionsData: (companyId: string, force?: boolean) => Promise<void>;
   addContact: (contact: Contact) => void;
   setContacts: (contacts: Contact[]) => void;
@@ -72,199 +113,150 @@ if (typeof document !== 'undefined') {
 export const useDataStore = create<DataState>((set, get) => ({
   cache: new Map(),
   dashboardLoading: false,
-  pipelineLoading: false,
   commissionsLoading: false,
-  prospectsLoadingMore: false,
-  analyticsData: null,
-  deals: [],
+  affiliateDashboard: null,
   commissions: [],
   affiliateCommissions: [],
-  prospects: [],
-  hasMoreProspects: true,
-  totalProspectsCount: 0,
   contacts: [],
 
-  loadDashboardData: async (companyId: string, timeRange: string = '30d', force: boolean = false) => {
-    const cacheKey = `dashboard_${companyId}_${timeRange}`;
+  loadDashboardData: async (
+    profile: DashboardProfileContext,
+    timeRange: string = '30d',
+    force: boolean = false
+  ) => {
+    const affiliateId = profile.affiliatewp_id ?? null;
+    const cacheKey = `affiliate_dashboard_${profile.id}_${affiliateId ?? 'none'}_${timeRange}`;
     const { cache } = get();
     const cached = cache.get(cacheKey);
     const now = Date.now();
 
-    // Always get total count (it's fast and needed for hasMoreProspects)
-    const totalCount = await supabaseService.getProspectsCount(companyId);
+    const buildSnapshot = (
+      referrals: AffiliateReferral[],
+      performance: AffiliateMetricPoint[],
+      payoutQueue: CommissionEntry[]
+    ): AffiliateDashboardSnapshot => {
+      const paid = profile.affiliatewp_earnings ?? 0;
+      const unpaid = profile.affiliatewp_unpaid_earnings ?? 0;
+      const visits = profile.affiliatewp_visits ?? 0;
+      const totalReferrals = profile.affiliatewp_referrals ?? 0;
+      const conversion = visits > 0 ? (totalReferrals / visits) * 100 : 0;
 
-    // Return cached data immediately if valid and not forced
+      return {
+        overview: {
+          totalEarnings: paid + unpaid,
+          paidEarnings: paid,
+          unpaidEarnings: unpaid,
+          referrals: totalReferrals,
+          visits,
+          conversionRate: Number(conversion.toFixed(2)),
+          commissionRate: profile.commission_rate ?? 0,
+        },
+        syncStatus: {
+          lastSync: profile.last_metrics_sync ?? null,
+        },
+        referralFeed: referrals,
+        performance,
+        payoutQueue,
+      };
+    };
+
     if (!force && cached && now < cached.expiry) {
       set({
-        analyticsData: cached.data.analytics,
-        prospects: cached.data.prospects || [],
-        totalProspectsCount: totalCount,
-        hasMoreProspects: (cached.data.prospects || []).length < totalCount,
-        dashboardLoading: false
+        affiliateDashboard: cached.data as AffiliateDashboardSnapshot,
+        dashboardLoading: false,
       });
       return;
     }
 
-    // Use stale data while revalidating (but don't trigger loading state)
     if (!force && cached && now < cached.timestamp + STALE_WHILE_REVALIDATE) {
       set({
-        analyticsData: cached.data.analytics,
-        prospects: cached.data.prospects || [],
-        totalProspectsCount: totalCount,
-        hasMoreProspects: (cached.data.prospects || []).length < totalCount,
-        dashboardLoading: false
+        affiliateDashboard: cached.data as AffiliateDashboardSnapshot,
+        dashboardLoading: false,
       });
 
-      // Revalidate in background without showing loading state
       setTimeout(async () => {
         try {
-          const [analytics, prospects, updatedTotalCount] = await Promise.all([
-            supabaseService.getAnalyticsData(companyId, timeRange),
-            supabaseService.getProspects(companyId, 50),
-            supabaseService.getProspectsCount(companyId)
-          ]);
-
-          const data = { analytics, prospects };
-          const newCache = new Map(get().cache);
-          newCache.set(cacheKey, {
-            data,
-            timestamp: Date.now(),
-            expiry: Date.now() + CACHE_DURATION
-          });
-
-          set({
-            cache: newCache,
-            analyticsData: analytics,
-            prospects: prospects,
-            totalProspectsCount: updatedTotalCount,
-            hasMoreProspects: prospects.length < updatedTotalCount
-          });
+          const refreshed = await get().loadDashboardData(profile, timeRange, true);
+          return refreshed;
         } catch (error) {
-          console.error('Background revalidation failed:', error);
+          console.error('Background affiliate dashboard refresh failed:', error);
         }
       }, 100);
+      return;
+    }
+
+    if (!affiliateId) {
+      const snapshot = buildSnapshot([], [], []);
+      set({ affiliateDashboard: snapshot, dashboardLoading: false });
+      const newCache = new Map(cache);
+      newCache.set(cacheKey, {
+        data: snapshot,
+        timestamp: now,
+        expiry: now + CACHE_DURATION,
+      });
+      set({ cache: newCache });
       return;
     }
 
     try {
       set({ dashboardLoading: true });
 
-      // Load data in parallel - only first 50 prospects for initial load + total count
-      const [analytics, prospects, totalCount] = await Promise.all([
-        supabaseService.getAnalyticsData(companyId, timeRange),
-        supabaseService.getProspects(companyId, 50),
-        supabaseService.getProspectsCount(companyId)
+      const rangeToDays = (range: string) => {
+        switch (range) {
+          case '7d':
+            return 7;
+          case '90d':
+            return 90;
+          default:
+            return 30;
+        }
+      };
+
+      const days = rangeToDays(timeRange);
+
+      const [referrals, dailyMetrics, commissionEntries] = await Promise.all([
+        commissionService.getAffiliateReferrals(affiliateId, 50),
+        commissionService.getAffiliateMetrics(affiliateId, days),
+        commissionService.getCommissionEntries(),
       ]);
 
-      const data = { analytics, prospects };
+      const normalizedMetrics: AffiliateMetricPoint[] = (dailyMetrics || []).map((metric: any) => ({
+        date: metric.date,
+        visits: Number(metric.visits ?? 0),
+        referrals: Number(metric.referrals ?? 0),
+        earnings: Number(metric.earnings ?? 0),
+        unpaid_earnings: Number(metric.unpaid_earnings ?? 0),
+      }));
 
-      // Update cache
+      const payoutQueue = commissionEntries
+        .filter((entry) =>
+          entry.affiliate?.affiliatewp_id === affiliateId &&
+          (entry.status === 'pending' || entry.status === 'approved')
+        )
+        .slice(0, 20);
+
+      const snapshot = buildSnapshot(referrals || [], normalizedMetrics, payoutQueue);
+
       const newCache = new Map(cache);
       newCache.set(cacheKey, {
-        data,
+        data: snapshot,
         timestamp: now,
-        expiry: now + CACHE_DURATION
+        expiry: now + CACHE_DURATION,
       });
 
       set({
         cache: newCache,
-        analyticsData: analytics,
-        prospects: prospects,
-        totalProspectsCount: totalCount,
-        hasMoreProspects: prospects.length < totalCount
+        affiliateDashboard: snapshot,
       });
-
     } catch (error) {
-      console.error('Error loading dashboard data:', error);
-      // Use cached data if available on error
+      console.error('Error loading affiliate dashboard data:', error);
       if (cached) {
         set({
-          analyticsData: cached.data.analytics,
-          prospects: cached.data.prospects || []
+          affiliateDashboard: cached.data as AffiliateDashboardSnapshot,
         });
       }
     } finally {
       set({ dashboardLoading: false });
-    }
-  },
-
-  loadMoreProspects: async (companyId: string) => {
-    const { prospects, prospectsLoadingMore, hasMoreProspects, totalProspectsCount } = get();
-
-    // Don't load if already loading or no more data
-    if (prospectsLoadingMore || !hasMoreProspects) return;
-
-    try {
-      set({ prospectsLoadingMore: true });
-
-      // Fetch next batch starting from current length
-      const offset = prospects.length;
-      const newProspects = await supabaseService.getProspects(companyId, 50, offset);
-
-      const updatedProspects = [...prospects, ...newProspects];
-      set({
-        prospects: updatedProspects,
-        hasMoreProspects: updatedProspects.length < totalProspectsCount
-      });
-    } catch (error) {
-      console.error('Error loading more prospects:', error);
-    } finally {
-      set({ prospectsLoadingMore: false });
-    }
-  },
-
-  loadPipelineData: async (companyId: string, force: boolean = false) => {
-    const cacheKey = `pipeline_${companyId}`;
-    const { cache } = get();
-    const cached = cache.get(cacheKey);
-    const now = Date.now();
-
-    // Return cached data if valid and not forced
-    if (!force && cached && now < cached.expiry) {
-      set({ deals: cached.data.deals || [] });
-      return;
-    }
-
-    // Use stale data while revalidating
-    if (!force && cached && now < cached.timestamp + STALE_WHILE_REVALIDATE) {
-      set({ deals: cached.data.deals || [] });
-      
-      // Revalidate in background
-      setTimeout(() => get().loadPipelineData(companyId, true), 100);
-      return;
-    }
-
-    try {
-      set({ pipelineLoading: true });
-
-      const [deals, stages] = await Promise.all([
-        supabaseService.getDeals(companyId),
-        supabaseService.getDealStages(companyId)
-      ]);
-
-      const data = { deals, stages };
-
-      // Update cache
-      const newCache = new Map(cache);
-      newCache.set(cacheKey, {
-        data,
-        timestamp: now,
-        expiry: now + CACHE_DURATION
-      });
-
-      set({
-        cache: newCache,
-        deals: deals
-      });
-
-    } catch (error) {
-      // Error loading pipeline data
-      // Use cached data if available on error
-      if (cached) {
-        set({ deals: cached.data.deals || [] });
-      }
-    } finally {
-      set({ pipelineLoading: false });
     }
   },
 
