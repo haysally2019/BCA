@@ -1,29 +1,35 @@
 import { useEffect } from "react";
 
 /**
- * useAutoRefetchOnFocus
- * Triggers a callback whenever the tab regains focus or visibility.
- * Perfect for refreshing Supabase data after tab sleep or idle.
- *
+ * Global focus/visibility hook.
+ * Any component can subscribe to auto-refetch when the tab regains focus.
  * Example:
- *   useAutoRefetchOnFocus(loadData)
+ *   const loadData = async () => { ... };
+ *   useAutoRefetchOnFocus(loadData);
  */
 export const useAutoRefetchOnFocus = (callback: () => void) => {
   useEffect(() => {
-    const handleFocus = () => {
-      callback();
-    };
+    const run = () => callback();
 
-    const handleVisibilityChange = () => {
-      if (document.visibilityState === "visible") callback();
-    };
-
-    window.addEventListener("focus", handleFocus);
-    document.addEventListener("visibilitychange", handleVisibilityChange);
+    window.addEventListener("refresh-data", run);
 
     return () => {
-      window.removeEventListener("focus", handleFocus);
-      document.removeEventListener("visibilitychange", handleVisibilityChange);
+      window.removeEventListener("refresh-data", run);
     };
   }, [callback]);
+};
+
+/**
+ * Initializes a global visibility + focus listener.
+ * Should be called ONCE at the top of the app (e.g., in App.tsx).
+ */
+export const initGlobalFocusWatcher = () => {
+  const broadcast = () => {
+    if (document.visibilityState === "visible") {
+      window.dispatchEvent(new Event("refresh-data"));
+    }
+  };
+
+  window.addEventListener("focus", broadcast);
+  document.addEventListener("visibilitychange", broadcast);
 };

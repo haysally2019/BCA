@@ -22,6 +22,7 @@ import { useAuthStore } from './store/authStore';
 import { useDataStore } from './store/dataStore';
 import { supabase } from './lib/supabaseClient';
 import { logError } from './lib/errorUtils';
+import { initGlobalFocusWatcher } from './hooks/useAutoRefetchOnFocus';
 
 function ScrollToTop() {
   const { pathname } = useLocation();
@@ -345,6 +346,10 @@ function AppContent() {
 }
 
 function App() {
+  useEffect(() => {
+    initGlobalFocusWatcher();
+  }, []);
+
   return <AppContent />;
 }
 
