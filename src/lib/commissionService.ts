@@ -801,7 +801,7 @@ export const commissionService = {
   async updateAffiliatePerformance(affiliateId: string): Promise<void> {
     try {
       const commissions = await this.getCommissionEntriesByAffiliate(affiliateId);
-      
+
       const totalSales = commissions.reduce((sum, entry) => sum + entry.order_total, 0);
       const totalCommissions = commissions.reduce((sum, entry) => sum + entry.commission_amount, 0);
 
@@ -811,6 +811,44 @@ export const commissionService = {
       });
     } catch (error) {
       console.error('Error updating affiliate performance:', error);
+      throw error;
+    }
+  },
+
+  // AffiliateWP Integration - Referrals
+  async getAffiliateReferrals(affiliateWpId: number, limit = 50): Promise<any[]> {
+    try {
+      const { data, error } = await supabase
+        .from('affiliate_referrals')
+        .select('*')
+        .eq('affiliate_id', affiliateWpId)
+        .order('created_at', { ascending: false })
+        .limit(limit);
+
+      if (error) throw error;
+      return data || [];
+    } catch (error) {
+      console.error('Error fetching affiliate referrals:', error);
+      throw error;
+    }
+  },
+
+  // AffiliateWP Integration - Daily Metrics
+  async getAffiliateMetrics(affiliateWpId: number, days = 30): Promise<any[]> {
+    try {
+      const since = new Date(Date.now() - days * 86400000).toISOString().slice(0, 10);
+
+      const { data, error } = await supabase
+        .from('affiliate_metrics_daily')
+        .select('*')
+        .eq('affiliate_id', affiliateWpId)
+        .gte('date', since)
+        .order('date', { ascending: true });
+
+      if (error) throw error;
+      return data || [];
+    } catch (error) {
+      console.error('Error fetching affiliate metrics:', error);
       throw error;
     }
   }
