@@ -1,6 +1,7 @@
 import React from 'react';
 import ReactDOM from 'react-dom/client';
 import { BrowserRouter } from 'react-router-dom';
+import { Toaster } from 'react-hot-toast';
 import App from './App.tsx';
 import { SupabaseProvider } from './context/SupabaseProvider';
 import { ErrorBoundary } from 'react-error-boundary';
@@ -34,6 +35,7 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
         <React.Suspense fallback={<div className="p-6 text-center">Loading...</div>}>
           <Root />
         </React.Suspense>
+        <Toaster position="bottom-center" />
       </SupabaseProvider>
     </ErrorBoundary>
   </React.StrictMode>
