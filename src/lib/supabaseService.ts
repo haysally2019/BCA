@@ -1,6 +1,22 @@
 import { supabase } from './supabaseClient';
 import { commissionService } from './commissionService';
 
+export interface Affiliate {
+  id: string;
+  affiliate_id: string;
+  name: string;
+  email: string;
+  phone?: string;
+}
+
+export const normalizeAffiliate = (item: any): Affiliate => ({
+  id: item.id?.toString(),
+  affiliate_id: item.id?.toString(),
+  name: item.name,
+  email: item.email,
+  phone: item.phone ?? "",
+});
+
 export interface Lead {
   id: string;
   company_id: string;
