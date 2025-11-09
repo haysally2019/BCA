@@ -1,35 +1,29 @@
 import { useEffect } from "react";
+import toast from "react-hot-toast";
 
-/**
- * Global focus/visibility hook.
- * Any component can subscribe to auto-refetch when the tab regains focus.
- * Example:
- *   const loadData = async () => { ... };
- *   useAutoRefetchOnFocus(loadData);
- */
 export const useAutoRefetchOnFocus = (callback: () => void) => {
   useEffect(() => {
-    const run = () => callback();
-
-    window.addEventListener("refresh-data", run);
-
-    return () => {
-      window.removeEventListener("refresh-data", run);
+    const handler = async () => {
+      const id = toast.loading("Syncing data...");
+      try {
+        await callback();
+        toast.success("Data synced!", { id });
+      } catch {
+        toast.error("Sync failed", { id });
+      }
     };
+
+    window.addEventListener("refresh-data", handler);
+    return () => window.removeEventListener("refresh-data", handler);
   }, [callback]);
 };
 
-/**
- * Initializes a global visibility + focus listener.
- * Should be called ONCE at the top of the app (e.g., in App.tsx).
- */
 export const initGlobalFocusWatcher = () => {
   const broadcast = () => {
     if (document.visibilityState === "visible") {
       window.dispatchEvent(new Event("refresh-data"));
     }
   };
-
   window.addEventListener("focus", broadcast);
   document.addEventListener("visibilitychange", broadcast);
 };
