@@ -1,23 +1,30 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
-import { createClient } from "npm:@supabase/supabase-js@2";
-import { getCredentials } from "../_shared/get-credentials.ts";
+import { affwpRequest, sqlDate } from "../_shared/affwp.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
+  "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
   "Access-Control-Allow-Headers": "Content-Type, Authorization, X-Client-Info, Apikey",
 };
 
-interface AffiliateStats {
-  affiliate_id: number;
-  earnings: number;
-  unpaid_earnings: number;
-  referrals: number;
-  visits: number;
-  rate: number;
+const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
+const SERVICE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+
+async function upsert(path: string, rows: unknown[]) {
+  const res = await fetch(`${SUPABASE_URL}/rest/v1/${path}`, {
+    method: "POST",
+    headers: {
+      apikey: SERVICE_KEY,
+      Authorization: `Bearer ${SERVICE_KEY}`,
+      "Content-Type": "application/json",
+      Prefer: "resolution=merge-duplicates",
+    },
+    body: JSON.stringify(rows),
+  });
+  if (!res.ok) throw new Error(await res.text());
 }
 
-Deno.serve(async (req: Request) => {
+Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, {
       status: 200,
@@ -26,143 +33,62 @@ Deno.serve(async (req: Request) => {
   }
 
   try {
-    const supabase = createClient(
-      Deno.env.get("SUPABASE_URL") ?? "",
-      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? ""
-    );
+    const url = new URL(req.url);
+    const days = Number(url.searchParams.get("days") ?? "30");
+    const requestedAffiliateId = url.searchParams.get("affiliate_id");
 
-    // Get AffiliateWP credentials
-    const credentials = await getCredentials(supabase);
-
-    if (!credentials) {
-      return new Response(
-        JSON.stringify({
-          success: false,
-          error: "AffiliateWP credentials not configured. Please configure credentials in Settings.",
-          credentials_missing: true
-        }),
-        {
-          status: 200,
-          headers: {
-            ...corsHeaders,
-            "Content-Type": "application/json",
-          },
-        }
-      );
-    }
-
-    // Fetch all affiliates from AffiliateWP with pagination
-    const allAffiliates = [];
-    let page = 1;
-    const perPage = 100;
-
-    while (true) {
-      const affiliateResponse = await fetch(
-        `${credentials.wordpress_site_url}/wp-json/affwp/v1/affiliates?number=${perPage}&offset=${(page - 1) * perPage}`,
-        {
-          method: "GET",
-          headers: {
-            "Authorization": `Basic ${btoa(`${credentials.consumer_key}:${credentials.consumer_secret}`)}`,
-            "Content-Type": "application/json",
-          },
-        }
-      );
-
-      if (!affiliateResponse.ok) {
-        throw new Error(`AffiliateWP API error: ${affiliateResponse.status}`);
-      }
-
-      const pageAffiliates = await affiliateResponse.json();
-      console.log(`Page ${page}: Fetched ${pageAffiliates.length} affiliates`);
-
-      if (pageAffiliates.length === 0) {
-        break;
-      }
-
-      allAffiliates.push(...pageAffiliates);
-
-      if (pageAffiliates.length < perPage) {
-        break;
-      }
-
-      page++;
-    }
-
-    const affiliates = allAffiliates;
-    console.log(`Fetched ${affiliates.length} total affiliates from AffiliateWP`);
-
-    // Extract metrics for each affiliate
-    const metrics: AffiliateStats[] = affiliates.map((affiliate: any) => {
-      const rate = parseFloat(affiliate.rate || "0");
-      // AffiliateWP may return rate as decimal (0.30) or percentage (30)
-      // If rate is less than 1, it's likely a decimal, convert to percentage
-      const normalizedRate = rate < 1 && rate > 0 ? rate * 100 : rate;
-
-      return {
-        affiliate_id: affiliate.affiliate_id,
-        earnings: parseFloat(affiliate.earnings || "0"),
-        unpaid_earnings: parseFloat(affiliate.unpaid_earnings || "0"),
-        referrals: parseInt(affiliate.referrals || "0", 10),
-        visits: parseInt(affiliate.visits || "0", 10),
-        rate: normalizedRate,
-      };
+    const affRes = await fetch(`${SUPABASE_URL}/rest/v1/affiliates?select=affiliate_id,affiliatewp_id`, {
+      headers: { apikey: SERVICE_KEY, Authorization: `Bearer ${SERVICE_KEY}` },
     });
+    const affiliates = (await affRes.json()) as { affiliate_id: number; affiliatewp_id: string }[];
 
-    // Update profiles with latest metrics
-    let updatedCount = 0;
-    for (const metric of metrics) {
-      const { data, error } = await supabase
-        .from("profiles")
-        .update({
-          affiliatewp_earnings: metric.earnings,
-          affiliatewp_unpaid_earnings: metric.unpaid_earnings,
-          affiliatewp_referrals: metric.referrals,
-          affiliatewp_visits: metric.visits,
-          commission_rate: metric.rate > 0 ? metric.rate : undefined,
-          last_metrics_sync: new Date().toISOString(),
-        })
-        .eq("affiliatewp_id", metric.affiliate_id)
-        .select();
+    const filteredAffiliates = requestedAffiliateId
+      ? affiliates.filter(a => a.affiliatewp_id === requestedAffiliateId || String(a.affiliate_id) === requestedAffiliateId)
+      : affiliates;
 
-      if (data && data.length > 0) {
-        updatedCount++;
-        console.log(`Updated affiliate ${metric.affiliate_id} with rate ${metric.rate}%`);
-      } else if (error) {
-        console.error(`Failed to update affiliate ${metric.affiliate_id}:`, error);
-      } else {
-        console.log(`No profile found for affiliate_id ${metric.affiliate_id}`);
+    const rows: any[] = [];
+    const today = sqlDate(new Date());
+
+    for (const a of filteredAffiliates) {
+      try {
+        const stats = await affwpRequest("affiliates", {
+          affiliate_id: a.affiliate_id,
+        });
+
+        if (stats && stats[0]) {
+          const affiliate = stats[0];
+          rows.push({
+            affiliate_id: a.affiliate_id,
+            date: today,
+            visits: Number(affiliate.visits ?? 0),
+            referrals: Number(affiliate.referrals ?? 0),
+            earnings: Number(affiliate.earnings ?? 0),
+            unpaid_earnings: Number(affiliate.unpaid_earnings ?? 0),
+          });
+        }
+      } catch (err) {
+        console.error(`Failed to fetch stats for affiliate ${a.affiliate_id}:`, err);
       }
     }
 
-    console.log(`Successfully updated ${updatedCount} out of ${metrics.length} profiles`);
+    if (rows.length) {
+      await upsert("affiliate_metrics_daily", rows);
+    }
 
     return new Response(
-      JSON.stringify({
-        success: true,
-        message: "Affiliate metrics synced successfully",
-        metrics_count: metrics.length,
-        updated_count: updatedCount,
-      }),
+      JSON.stringify({ ok: true, count: rows.length }),
       {
-        headers: {
-          ...corsHeaders,
-          "Content-Type": "application/json",
-        },
+        status: 200,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
       }
     );
-  } catch (error) {
-    console.error("Error fetching affiliate metrics:", error);
+  } catch (e) {
+    console.error("Metrics fetch error:", e);
     return new Response(
-      JSON.stringify({
-        success: false,
-        error: error.message,
-      }),
+      JSON.stringify({ ok: false, error: e instanceof Error ? e.message : "Unknown error" }),
       {
         status: 500,
-        headers: {
-          ...corsHeaders,
-          "Content-Type": "application/json",
-        },
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
       }
     );
   }
