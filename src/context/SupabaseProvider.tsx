@@ -1,38 +1,19 @@
-import React, { createContext, useContext, useEffect, useState } from "react";
-import { createClient, SupabaseClient } from "@supabase/supabase-js";
-
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL!;
-const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY!;
-
-const client = createClient(supabaseUrl, supabaseAnonKey, {
-  auth: {
-    persistSession: true,
-    autoRefreshToken: true,
-    detectSessionInUrl: true,
-  },
-});
+import React, { createContext, useContext, useEffect } from "react";
+import { SupabaseClient } from "@supabase/supabase-js";
+import { supabase } from "../lib/supabaseClient";
 
 interface SupabaseContextType {
   supabase: SupabaseClient;
 }
 
-const SupabaseContext = createContext<SupabaseContextType>({ supabase: client });
+const SupabaseContext = createContext<SupabaseContextType>({ supabase });
 
 export const useSupabase = () => useContext(SupabaseContext);
 
 export const SupabaseProvider = ({ children }: { children: React.ReactNode }) => {
-  const [supabase, setSupabase] = useState(client);
-
   useEffect(() => {
     const handleFocus = () => {
-      const newClient = createClient(supabaseUrl, supabaseAnonKey, {
-        auth: {
-          persistSession: true,
-          autoRefreshToken: true,
-          detectSessionInUrl: true,
-        },
-      });
-      setSupabase(newClient);
+      supabase.auth.getSession();
     };
 
     window.addEventListener("focus", handleFocus);
