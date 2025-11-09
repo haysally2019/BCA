@@ -122,7 +122,7 @@ We turn that into out-of-the-box stages, with commission math and AffiliateWP fo
 ];
 
 export default function SalesToolsPage() {
-  const tabs = ["Scripts", "Pricing & Commission", "ROI Calculator", "Proposal", "Affiliate Links"] as const;
+  const tabs = ["Scripts", "Pricing & Commission", "ROI Calculator", "Proposals", "BCA Proposals", "Affiliate Links"] as const;
   const [tab, setTab] = useState<typeof tabs[number]>("Scripts");
 
   return (
@@ -148,7 +148,8 @@ export default function SalesToolsPage() {
       {tab === "Scripts" && <ScriptsLibrary />}
       {tab === "Pricing & Commission" && <PricingCommission />}
       {tab === "ROI Calculator" && <RoiCalculator />}
-      {tab === "Proposal" && <ProposalGenerator />}
+      {tab === "Proposals" && <ProposalToolsPage />}
+      {tab === "BCA Proposals" && <BCAProposalGenerator />}
       {tab === "Affiliate Links" && <AffiliateLinksHelper />}
     </div>
   );
@@ -435,7 +436,7 @@ function RoiCalculator() {
   );
 }
 
-function ProposalGenerator() {
+function ProposalToolsPage() {
   const { supabase } = useSupabase() || {};
   const { profile } = useAuthStore();
   const [client, setClient] = useState({
