@@ -137,7 +137,7 @@ const Dashboard: React.FC = () => {
               </div>
             </div>
           </div>
-          <div className="flex items-center gap-2 bg-white rounded-lg p-3 border border-gray-200">
+          <div className="info-banner">
             <code className="flex-1 text-xs sm:text-sm text-gray-700 font-mono overflow-x-auto whitespace-nowrap">
               {profile?.affiliate_referral_url || 'https://bluecollaracademy.info/?ref=3'}
             </code>
@@ -181,7 +181,7 @@ const Dashboard: React.FC = () => {
               </div>
             </div>
           </div>
-          <div className="flex items-center gap-2 bg-white rounded-lg p-3 border border-gray-200">
+          <div className="info-banner">
             <code className="flex-1 text-xs sm:text-sm text-gray-700 font-mono overflow-x-auto whitespace-nowrap">
               {profile?.affiliate_referral_url || 'https://bluecollaracademy.info/?ref=3'}
             </code>
@@ -322,7 +322,7 @@ const Dashboard: React.FC = () => {
         {stats.map((stat, index) => {
           const Icon = stat.icon;
           return (
-            <div key={index} className="bg-white rounded-lg p-2.5 sm:p-4 lg:p-5 shadow-sm border border-gray-100 hover:shadow-md transition-all duration-200">
+            <div key={index} className="card card--padded-md hover:shadow-md transition-all duration-200">
               <div className="flex items-center justify-between mb-2 sm:mb-3 lg:mb-4">
                 <div className={`w-7 h-7 sm:w-9 sm:h-9 lg:w-10 lg:h-10 ${stat.color} rounded-lg flex items-center justify-center`}>
                   <Icon className="w-3.5 h-3.5 sm:w-4 sm:h-4 lg:w-5 lg:h-5 text-white" />
@@ -369,7 +369,7 @@ const Dashboard: React.FC = () => {
             </div>
           </div>
         </div>
-        <div className="flex items-center gap-2 bg-white rounded-lg p-3 border border-gray-200">
+        <div className="info-banner">
           <code className="flex-1 text-xs sm:text-sm text-gray-700 font-mono overflow-x-auto whitespace-nowrap">
             {profile?.affiliate_referral_url || 'https://bluecollaracademy.info/?ref=3'}
           </code>
@@ -425,7 +425,7 @@ const Dashboard: React.FC = () => {
       {chartData && (
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 sm:gap-4 lg:gap-6">
           {/* Daily Activity Chart */}
-          <div className="bg-white rounded-lg sm:rounded-xl p-3 sm:p-5 lg:p-6 shadow-sm border border-gray-100">
+          <div className="card card--padded">
             <h3 className="text-sm sm:text-base lg:text-lg font-semibold text-gray-900 mb-3 sm:mb-4">Daily Activity</h3>
             <ResponsiveContainer width="100%" height={200}>
               <LineChart data={chartData.dailyActivity}>
@@ -441,7 +441,7 @@ const Dashboard: React.FC = () => {
           </div>
 
           {/* Lead Sources Chart */}
-          <div className="bg-white rounded-lg sm:rounded-xl p-3 sm:p-5 lg:p-6 shadow-sm border border-gray-100">
+          <div className="card card--padded">
             <h3 className="text-sm sm:text-base lg:text-lg font-semibold text-gray-900 mb-3 sm:mb-4">Lead Sources</h3>
             <ResponsiveContainer width="100%" height={200}>
               <BarChart data={chartData.leadSources}>
@@ -459,7 +459,7 @@ const Dashboard: React.FC = () => {
       {/* Activity and Tasks Row */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 sm:gap-4">
         {/* Recent Activity */}
-        <div className="bg-white rounded-lg p-3 sm:p-4 lg:p-5 shadow-sm border border-gray-100">
+        <div className="card card--padded-md">
           <div className="flex items-center justify-between mb-3 sm:mb-4 lg:mb-6">
             <h3 className="text-sm sm:text-base lg:text-lg font-semibold text-gray-900">Recent Activity</h3>
             <Activity className="w-5 h-5 text-gray-400" />
@@ -496,7 +496,7 @@ const Dashboard: React.FC = () => {
         </div>
 
         {/* Upcoming Tasks */}
-        <div className="bg-white rounded-lg p-3 sm:p-4 lg:p-5 shadow-sm border border-gray-100">
+        <div className="card card--padded-md">
           <div className="flex items-center justify-between mb-3 sm:mb-4 lg:mb-6">
             <h3 className="text-sm sm:text-base lg:text-lg font-semibold text-gray-900">Upcoming Tasks</h3>
             <Clock className="w-5 h-5 text-gray-400" />
@@ -534,7 +534,7 @@ const Dashboard: React.FC = () => {
       </div>
 
       {/* Quick Actions */}
-      <div className="bg-white rounded-lg p-3 sm:p-4 lg:p-6 shadow-sm border border-gray-100">
+      <div className="card card--padded">
         <h3 className="text-sm sm:text-base lg:text-lg font-semibold text-gray-900 mb-3 sm:mb-4">Quick Actions</h3>
         <div className="grid grid-cols-2 md:grid-cols-4 gap-2 sm:gap-3 lg:gap-4">
           {[
@@ -628,7 +628,7 @@ const Dashboard: React.FC = () => {
 
       {/* Conversion Funnel */}
       {analyticsData.conversionFunnel.length > 0 && (
-        <div className="bg-white rounded-lg sm:rounded-xl p-3 sm:p-5 lg:p-6 shadow-sm border border-gray-100">
+        <div className="card card--padded">
           <h3 className="text-sm sm:text-base lg:text-lg font-semibold text-gray-900 mb-3 sm:mb-4">Lead Conversion Funnel</h3>
           <div className="space-y-4">
             {analyticsData.conversionFunnel.map((stage, index) => (

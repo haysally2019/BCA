@@ -208,7 +208,7 @@ const ChangePassword: React.FC<ChangePasswordProps> = ({ onSuccess }) => {
                 type={showPassword ? 'text' : 'password'}
                 value={newPassword}
                 onChange={(e) => setNewPassword(e.target.value)}
-                className="w-full pl-10 pr-12 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500"
+                className="input pl-10 pr-12 py-3 border-gray-300 focus:ring-2 focus:ring-red-500 focus:border-red-500"
                 placeholder="Enter new password"
                 required
               />
@@ -232,7 +232,7 @@ const ChangePassword: React.FC<ChangePasswordProps> = ({ onSuccess }) => {
                 type={showPassword ? 'text' : 'password'}
                 value={confirmPassword}
                 onChange={(e) => setConfirmPassword(e.target.value)}
-                className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500"
+                className="input pl-10 pr-4 py-3 border-gray-300 focus:ring-2 focus:ring-red-500 focus:border-red-500"
                 placeholder="Confirm new password"
                 required
               />
@@ -279,7 +279,7 @@ const ChangePassword: React.FC<ChangePasswordProps> = ({ onSuccess }) => {
           <button
             type="submit"
             disabled={loading || !allRequirementsMet || !passwordsMatch}
-            className="w-full bg-red-600 text-white py-3 rounded-lg font-medium hover:bg-red-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center space-x-2"
+            className="btn btn-primary w-full py-3"
           >
             {loading ? (
               <>
