@@ -437,8 +437,7 @@ function RoiCalculator() {
 
 function ProposalGenerator() {
   const { supabase } = useSupabase() || {};
-  const { user } = useAuthStore();
-
+  const { profile } = useAuthStore();
   const [client, setClient] = useState({
     company: "",
     contact: "",
@@ -462,51 +461,82 @@ function ProposalGenerator() {
     schedule: "Installation within 14–21 days of signed proposal",
     notes: "",
   });
+  const [template, setTemplate] = useState("");
+  const [loading, setLoading] = useState(true);
+  const [isManager, setIsManager] = useState(false);
 
   const total = useMemo(() => scope.roofSquares * scope.pricePerSquare, [scope]);
-  const proposalText = useMemo(
-    () => `PROPOSAL
-Client: ${client.company} (${client.contact})
-Address: ${client.address}, ${client.city}, ${client.state} ${client.zip}
-Email/Phone: ${client.email} / ${client.phone}
 
-Scope of Work:
-- Roofing: ${scope.roofSquares} squares, ${scope.material}
-- Tear-off: ${scope.tearOff ? "Yes" : "No"}
-- Gutters: ${scope.gutters ? "Included" : "No"}
-- Unit Price: $${scope.pricePerSquare}/sq
-- Project Total: ${money(total)}
-
-Terms:
-- Payment: ${terms.payment}
-- Warranty: ${terms.warranty}
-- Schedule: ${terms.schedule}
-${terms.notes ? "- Notes: " + terms.notes : ""}
-
-Thank you for considering us!
-`,
-    [client, scope, terms, total]
-  );
-
-  const copy = async () => {
-    await navigator.clipboard.writeText(proposalText);
-    alert("Proposal copied");
+  const placeholders: Record<string, string> = {
+    "{{client_company}}": client.company,
+    "{{client_contact}}": client.contact,
+    "{{client_email}}": client.email,
+    "{{client_phone}}": client.phone,
+    "{{client_address}}": client.address,
+    "{{client_city}}": client.city,
+    "{{client_state}}": client.state,
+    "{{client_zip}}": client.zip,
+    "{{roof_squares}}": scope.roofSquares.toString(),
+    "{{material}}": scope.material,
+    "{{price_per_square}}": `$${scope.pricePerSquare}`,
+    "{{tear_off}}": scope.tearOff ? "Yes" : "No",
+    "{{gutters}}": scope.gutters ? "Included" : "No",
+    "{{project_total}}": money(total),
+    "{{payment_terms}}": terms.payment,
+    "{{warranty}}": terms.warranty,
+    "{{schedule}}": terms.schedule,
+    "{{notes}}": terms.notes,
   };
 
-  const save = async () => {
-    if (!supabase || !user?.id) return;
-    const row: TemplateRow = {
-      user_id: user.id,
-      title: `${client.company || "Proposal"} – ${new Date().toLocaleDateString()}`,
-      kind: "proposal",
-      content: proposalText,
-    } as any;
-    await supabase.from("sales_templates").insert(row);
-    alert("Saved to templates");
+  const filledTemplate = useMemo(() => {
+    let result = template;
+    for (const [key, val] of Object.entries(placeholders)) {
+      result = result.replaceAll(key, val || "");
+    }
+    return result;
+  }, [template, client, scope, terms, total]);
+
+  async function loadTemplate() {
+    if (!supabase) return;
+    setLoading(true);
+    const { data } = await supabase
+      .from("sales_material")
+      .select("content")
+      .eq("category", "proposal_template")
+      .maybeSingle();
+    if (data?.content) setTemplate(data.content);
+    setLoading(false);
+  }
+
+  async function saveTemplate() {
+    if (!supabase || !profile?.id) return;
+    await supabase.from("sales_material").upsert({
+      category: "proposal_template",
+      content: template,
+      updated_by: profile.id,
+    });
+    alert("Proposal template updated successfully.");
+  }
+
+  useEffect(() => {
+    const role = (profile?.user_role || "").toLowerCase();
+    setIsManager(["owner", "admin", "manager"].includes(role));
+    loadTemplate();
+  }, [profile?.id]);
+
+  useAutoRefetchOnFocus(loadTemplate);
+
+  const copy = async () => {
+    await navigator.clipboard.writeText(filledTemplate);
+    alert("Proposal copied to clipboard");
   };
 
   return (
     <Section title="Proposal Generator">
+      <p className="text-sm text-gray-600 mb-4">
+        Create professional roofing proposals with customizable templates.
+      </p>
+
       <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
         <div className="space-y-4">
           <h4 className="font-semibold text-gray-800 mb-1">Client</h4>
@@ -568,12 +598,37 @@ Thank you for considering us!
 
       <div className="mt-6">
         <h4 className="font-semibold text-gray-800 mb-2">Preview</h4>
-        <pre className="whitespace-pre-wrap bg-gray-50 border border-gray-200 rounded-lg p-4 text-sm text-gray-800">{proposalText}</pre>
-        <div className="mt-3 flex gap-2">
-          <Btn onClick={copy}>Copy</Btn>
-          <Btn tone="ghost" onClick={save}>Save to Templates</Btn>
-        </div>
+        {loading ? (
+          <p className="text-sm text-gray-500">Loading template...</p>
+        ) : (
+          <>
+            <pre className="whitespace-pre-wrap bg-gray-50 border border-gray-200 rounded-lg p-4 text-sm text-gray-800 min-h-[300px]">
+              {filledTemplate || "No template configured yet. Managers can edit below."}
+            </pre>
+            <div className="mt-3">
+              <Btn onClick={copy}>Copy Proposal</Btn>
+            </div>
+          </>
+        )}
       </div>
+
+      {isManager && (
+        <div className="mt-8 border-t pt-6">
+          <h4 className="font-semibold text-gray-800 mb-3">Edit Template (Manager Only)</h4>
+          <p className="text-sm text-gray-600 mb-3">
+            Available placeholders: {'{{client_company}}'}, {'{{client_contact}}'}, {'{{client_email}}'}, {'{{client_phone}}'}, {'{{client_address}}'}, {'{{client_city}}'}, {'{{client_state}}'}, {'{{client_zip}}'}, {'{{roof_squares}}'}, {'{{material}}'}, {'{{price_per_square}}'}, {'{{tear_off}}'}, {'{{gutters}}'}, {'{{project_total}}'}, {'{{payment_terms}}'}, {'{{warranty}}'}, {'{{schedule}}'}, {'{{notes}}'}
+          </p>
+          <TextArea
+            value={template}
+            onChange={(e) => setTemplate(e.target.value)}
+            placeholder="Enter your proposal template here..."
+            className="min-h-[250px]"
+          />
+          <div className="mt-3">
+            <Btn onClick={saveTemplate}>Save Template</Btn>
+          </div>
+        </div>
+      )}
     </Section>
   );
 }
