@@ -2,6 +2,14 @@ import { create } from 'zustand';
 import { supabaseService, type AnalyticsData, type Deal, type Commission, type Prospect } from '../lib/supabaseService';
 import { commissionService, type CommissionEntry } from '../lib/commissionService';
 
+interface Contact {
+  id?: string;
+  name: string;
+  phone: string;
+  email: string;
+  affiliate_id?: string;
+}
+
 interface CachedData {
   data: any;
   timestamp: number;
@@ -26,12 +34,15 @@ interface DataState {
   prospects: Prospect[];
   hasMoreProspects: boolean;
   totalProspectsCount: number;
+  contacts: Contact[];
 
   // Actions
   loadDashboardData: (companyId: string, timeRange?: string, force?: boolean) => Promise<void>;
   loadMoreProspects: (companyId: string) => Promise<void>;
   loadPipelineData: (companyId: string, force?: boolean) => Promise<void>;
   loadCommissionsData: (companyId: string, force?: boolean) => Promise<void>;
+  addContact: (contact: Contact) => void;
+  setContacts: (contacts: Contact[]) => void;
   clearCache: () => void;
   invalidateCache: (keys?: string[]) => void;
 }
@@ -69,6 +80,7 @@ export const useDataStore = create<DataState>((set, get) => ({
   prospects: [],
   hasMoreProspects: true,
   totalProspectsCount: 0,
+  contacts: [],
 
   loadDashboardData: async (companyId: string, timeRange: string = '30d', force: boolean = false) => {
     const cacheKey = `dashboard_${companyId}_${timeRange}`;
@@ -320,6 +332,13 @@ export const useDataStore = create<DataState>((set, get) => ({
     }
   },
 
+  addContact: (contact) =>
+    set((state) => ({
+      contacts: [...state.contacts, contact],
+    })),
+
+  setContacts: (contacts) => set({ contacts }),
+
   clearCache: () => {
     set({ cache: new Map() });
   },
@@ -327,13 +346,13 @@ export const useDataStore = create<DataState>((set, get) => ({
   invalidateCache: (keys?: string[]) => {
     const { cache } = get();
     const newCache = new Map(cache);
-    
+
     if (keys) {
       keys.forEach(key => newCache.delete(key));
     } else {
       newCache.clear();
     }
-    
+
     set({ cache: newCache });
   }
 }));
