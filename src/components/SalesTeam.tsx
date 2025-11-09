@@ -5,6 +5,7 @@ import { teamService, type TeamMember } from '../lib/teamService';
 import { supabaseService } from '../lib/supabaseService';
 import { supabase } from '../lib/supabaseClient';
 import { useAuthStore } from '../store/authStore';
+import { useAutoRefetchOnFocus } from '../hooks/useAutoRefetchOnFocus';
 import AddTeamMemberModal from './modals/AddTeamMemberModal';
 import EditTeamMemberModal from './modals/EditTeamMemberModal';
 import TeamMemberDetailModal from './modals/TeamMemberDetailModal';
@@ -91,6 +92,8 @@ const SalesTeam: React.FC = () => {
       setLoading(false);
     }
   };
+
+  useAutoRefetchOnFocus(loadTeamData);
 
   const syncAllAffiliateMetrics = async () => {
     setSyncing(true);

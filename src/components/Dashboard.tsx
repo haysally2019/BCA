@@ -24,6 +24,7 @@ import { useAuthStore } from '../store/authStore';
 import { useDataStore } from '../store/dataStore';
 import { supabaseService, type AnalyticsData } from '../lib/supabaseService';
 import { supabase } from '../lib/supabaseClient';
+import { useAutoRefetchOnFocus } from '../hooks/useAutoRefetchOnFocus';
 import toast from 'react-hot-toast';
 
 const Dashboard: React.FC = () => {
@@ -50,6 +51,12 @@ const Dashboard: React.FC = () => {
       loadDashboardData(profile.id, timeRange);
     }
   }, [profile?.id, timeRange]);
+
+  useAutoRefetchOnFocus(() => {
+    if (profile) {
+      loadDashboardData(profile.id, timeRange);
+    }
+  });
 
   useEffect(() => {
     if (!profile?.affiliatewp_id) return;

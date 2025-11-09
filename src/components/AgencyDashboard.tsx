@@ -5,6 +5,7 @@ import { useNavigate } from 'react-router-dom';
 import { useAuthStore } from '../store/authStore';
 import { useDataStore } from '../store/dataStore';
 import { supabaseService, type AnalyticsData } from '../lib/supabaseService';
+import { useAutoRefetchOnFocus } from '../hooks/useAutoRefetchOnFocus';
 import LoadingSpinner from './LoadingSpinner';
 import toast from 'react-hot-toast';
 
@@ -38,6 +39,13 @@ const AgencyDashboard: React.FC = () => {
       loadSalesRepsCount();
     }
   }, [profile?.id, timeRange, loadSalesRepsCount]);
+
+  useAutoRefetchOnFocus(() => {
+    if (profile) {
+      loadDashboardData(profile.id, timeRange);
+      loadSalesRepsCount();
+    }
+  });
 
   const createAgencySampleData = async () => {
     if (!profile) return;

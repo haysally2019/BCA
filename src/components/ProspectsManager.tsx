@@ -3,6 +3,7 @@ import { Search, Filter, Plus, Phone, Mail, MapPin, Star, Calendar, Users, Credi
 import { supabaseService, type Prospect } from '../lib/supabaseService';
 import { useAuthStore } from '../store/authStore';
 import { useDataStore } from '../store/dataStore';
+import { useAutoRefetchOnFocus } from '../hooks/useAutoRefetchOnFocus';
 import BaseModal from './modals/BaseModal';
 import ConfirmationModal from './modals/ConfirmationModal';
 import ImportLeadsModal from './modals/ImportLeadsModal';
@@ -34,6 +35,12 @@ const ProspectsManager: React.FC = () => {
       loadDashboardData(profile.id);
     }
   }, [profile?.id]);
+
+  useAutoRefetchOnFocus(() => {
+    if (profile) {
+      loadDashboardData(profile.id);
+    }
+  });
 
   // Infinite scroll handler
   useEffect(() => {

@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Search, Filter, Plus, MapPin, Star, Users, DollarSign, Tag, Upload, MoreVertical, CheckCircle, AlertCircle, TrendingUp, Calendar, CreditCard as Edit3, Trash2, Eye, Phone, Mail, ArrowRight, ThumbsUp, FileText, Trophy, X, RefreshCw } from 'lucide-react';
 import { supabaseService } from '../lib/supabaseService';
 import { useAuthStore } from '../store/authStore';
+import { useAutoRefetchOnFocus } from '../hooks/useAutoRefetchOnFocus';
 import BaseModal from './modals/BaseModal';
 import ConfirmationModal from './modals/ConfirmationModal';
 import BulkActionsModal from './modals/BulkActionsModal';
@@ -91,6 +92,8 @@ const LeadManagement: React.FC = () => {
       toast.error('Error loading leads');
     }
   };
+
+  useAutoRefetchOnFocus(loadLeads);
 
   const getStatusColor = (status: string) => {
     const colors = {
