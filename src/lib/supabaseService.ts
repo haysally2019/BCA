@@ -1,5 +1,4 @@
 import { supabase } from './supabaseClient';
-import { commissionService } from './commissionService';
 
 export interface Affiliate {
   id: string;
@@ -181,39 +180,47 @@ export interface DealActivity {
 }
 
 export interface AnalyticsData {
-  totalLeads: number;
-  totalDeals: number;
-  totalAppointments: number;
-  totalRevenue: number;
-  totalCommissions: number;
+  totalEarnings: number;
+  unpaidEarnings: number;
+  totalReferrals: number;
+  pendingReferrals: number;
+  paidReferrals: number;
+  rejectedReferrals: number;
+  totalVisits: number;
+  uniqueVisits: number;
   conversionRate: number;
-  avgDealSize: number;
-  pipelineValue: number;
-  appointmentCompletionRate: number;
-  totalCalls: number;
-  totalSMS: number;
-  smsResponseRate: number;
-  callSuccessRate: number;
-  leadsBySource: Array<{ source: string; count: number }>;
-  dealsByStage: Array<{ stage: string; count: number; value: number }>;
-  revenueByMonth: Array<{ month: string; revenue: number; deals: number }>;
-  conversionFunnel: Array<{ stage: string; count: number; percentage: number }>;
-  recentActivities: Array<{
+  avgReferralValue: number;
+  lifetimeOrderValue: number;
+  payoutCadence: string;
+  lastPayoutDate?: string;
+  nextEstimatedPayout?: string;
+  referralStatusBreakdown: Array<{ status: string; count: number; amount: number }>;
+  topCampaigns: Array<{ campaign: string; referrals: number; earnings: number }>;
+  recentReferrals: Array<{
     id: string;
-    type: string;
-    message: string;
-    time: string;
-    success: boolean;
-    user_id?: string;
-  }>;
-  upcomingTasks: Array<{
-    id: string;
-    task: string;
-    priority: 'high' | 'medium' | 'low';
-    due: string;
-    type: string;
+    status: string;
+    amount: number;
+    created_at: string;
+    description?: string;
+    origin_url?: string;
   }>;
 }
+
+export interface AffiliateChartData {
+  referralsOverTime: Array<{ date: string; referrals: number; earnings: number; visits: number }>;
+  payoutStatusBreakdown: Array<{ status: string; count: number; amount: number }>;
+  topCampaigns: Array<{ name: string; referrals: number; earnings: number }>;
+}
+
+const toNumericValue = (value: any): number => {
+  if (typeof value === 'number') return Number.isFinite(value) ? value : 0;
+  if (typeof value === 'string') {
+    const parsed = parseFloat(value);
+    return Number.isFinite(parsed) ? parsed : 0;
+  }
+  if (typeof value === 'bigint') return Number(value);
+  return 0;
+};
 
 export interface Profile {
   id: string;
@@ -1309,480 +1316,374 @@ export const supabaseService = {
   // COMPREHENSIVE ANALYTICS
   async getAnalyticsData(companyId: string, timeRange: string = '30d'): Promise<AnalyticsData> {
     try {
-      // Calculate date range
-      const now = new Date();
       const daysBack = timeRange === '7d' ? 7 : timeRange === '30d' ? 30 : 90;
+      const now = new Date();
       const startDate = new Date(now.getTime() - daysBack * 24 * 60 * 60 * 1000);
+      const startDateIso = startDate.toISOString();
+      const startDateDateOnly = startDateIso.slice(0, 10);
 
-      // Fetch core data first (most important)
-      const [leads, deals, prospects] = await Promise.all([
-        this.getLeads(companyId),
-        this.getDeals(companyId),
-        this.getProspects(companyId)
-      ]);
+      const { data: profileRows, error: profileError } = await supabase
+        .from('profiles')
+        .select('id, affiliatewp_id')
+        .eq('company_id', companyId);
 
-      // Fetch secondary data (can be loaded later if needed)
-      const [appointments, commissions] = await Promise.all([
-        this.getAppointments(companyId),
-        this.getCommissions(companyId)
-      ]);
+      if (profileError) throw profileError;
 
-      // Load activities in background (least critical)
-      const [leadActivities, dealActivities] = await Promise.all([
-        this.getRecentLeadActivities(companyId, 20), // Reduced from 50
-        this.getRecentDealActivities(companyId, 20)  // Reduced from 50
-      ]);
+      const affiliateIds = (profileRows || [])
+        .map(profile => profile.affiliatewp_id)
+        .filter((id): id is number => typeof id === 'number');
+      const profileIds = (profileRows || [])
+        .map(profile => profile.id)
+        .filter((id): id is string => typeof id === 'string');
 
-      // Load affiliate commissions only if user has affiliate ID
-      let affiliateCommissions: any[] = [];
-      try {
-        const allAffiliateCommissions = await commissionService.getCommissionEntries();
-        affiliateCommissions = allAffiliateCommissions;
-      } catch (error) {
-        console.log('Could not load affiliate commissions:', error);
-        affiliateCommissions = [];
+      if (affiliateIds.length === 0) {
+        return {
+          totalEarnings: 0,
+          unpaidEarnings: 0,
+          totalReferrals: 0,
+          pendingReferrals: 0,
+          paidReferrals: 0,
+          rejectedReferrals: 0,
+          totalVisits: 0,
+          uniqueVisits: 0,
+          conversionRate: 0,
+          avgReferralValue: 0,
+          lifetimeOrderValue: 0,
+          payoutCadence: 'No affiliate data',
+          referralStatusBreakdown: [],
+          topCampaigns: [],
+          recentReferrals: [],
+        };
       }
 
-      // Filter data by time range
-      const filteredLeads = leads.filter(l => new Date(l.created_at) >= startDate);
-      const filteredDeals = deals.filter(d => new Date(d.created_at) >= startDate);
-      const filteredAppointments = appointments.filter(a => new Date(a.created_at) >= startDate);
-      const filteredAffiliateCommissions = affiliateCommissions.filter(c => new Date(c.created_at) >= startDate);
+      const affiliateIdStrings = affiliateIds.map(id => id.toString());
+      const commissionPromise = supabase
+        .from('commission_entries')
+        .select('commission_amount, order_total, status, affiliate_id, created_at, payment_date')
+        .in('affiliate_id', affiliateIdStrings)
+        .gte('created_at', startDateIso);
 
-      // Calculate metrics - prioritize AffiliateWP data
-      const affiliateRevenue = filteredAffiliateCommissions
-        .filter(commission => commission.status === 'paid' || commission.status === 'approved')
-        .reduce((sum, commission) => sum + commission.order_total, 0);
+      const referralPromise = supabase
+        .from('affiliate_referrals')
+        .select('id, referral_id, status, amount, description, origin_url, created_at, affiliate_id')
+        .in('affiliate_id', affiliateIds)
+        .gte('created_at', startDateIso);
 
-      const legacyRevenue = deals
-        .filter(deal => deal.status === 'won')
-        .reduce((sum, deal) => sum + deal.value, 0);
+      const metricsPromise = supabase
+        .from('affiliate_metrics_daily')
+        .select('affiliate_id, date, visits, unique_visits, conversions, referrals, earnings, unpaid_earnings')
+        .in('affiliate_id', affiliateIds)
+        .gte('date', startDateDateOnly)
+        .order('date', { ascending: true });
 
-      const combinedRevenue = affiliateRevenue + legacyRevenue;
+      const payoutPromise = profileIds.length > 0
+        ? supabase
+            .from('payout_history')
+            .select('profile_id, status, payout_date, amount')
+            .in('profile_id', profileIds)
+            .order('payout_date', { ascending: false })
+            .limit(25)
+        : Promise.resolve({ data: [] as any[], error: null });
 
-      const wonDeals = deals.filter(d => d.status === 'won');
-      const conversionRate = leads.length > 0
-        ? Math.round((leads.filter(l => l.status === 'won').length / leads.length) * 100)
-        : 0;
+      const [commissionResult, referralResult, metricsResult, payoutResult] = await Promise.all([
+        commissionPromise,
+        referralPromise,
+        metricsPromise,
+        payoutPromise,
+      ]);
 
-      const avgDealSize = wonDeals.length > 0
-        ? Math.round(wonDeals.reduce((sum, deal) => sum + deal.value, 0) / wonDeals.length)
-        : 0;
+      if (commissionResult.error) throw commissionResult.error;
+      if (referralResult.error) throw referralResult.error;
+      if (metricsResult.error) throw metricsResult.error;
+      if (payoutResult.error) throw payoutResult.error;
 
-      const pipelineValue = deals
-        .filter(deal => deal.status === 'open')
-        .reduce((sum, deal) => sum + deal.value, 0);
+      const commissions = commissionResult.data || [];
+      const referrals = referralResult.data || [];
+      const metrics = metricsResult.data || [];
+      const payouts = (payoutResult as { data: any[] }).data || [];
 
-      const appointmentCompletionRate = appointments.length > 0
-        ? Math.round((appointments.filter(a => a.status === 'completed').length / appointments.length) * 100)
-        : 0;
+      const totalEarnings = commissions
+        .filter(entry => ['paid', 'approved'].includes((entry.status || '').toLowerCase()))
+        .reduce((sum, entry) => sum + toNumericValue(entry.commission_amount), 0);
 
-      // Calculate total commissions from AffiliateWP (primary source)
-      const totalCommissions = affiliateCommissions.reduce((sum, c) => sum + c.commission_amount, 0);
+      const unpaidEarnings = commissions
+        .filter(entry => ['pending', 'unpaid'].includes((entry.status || '').toLowerCase()))
+        .reduce((sum, entry) => sum + toNumericValue(entry.commission_amount), 0);
 
-      // Lead sources analysis
-      const leadsBySource = this.calculateLeadsBySource(filteredLeads);
+      const lifetimeOrderValue = commissions.reduce((sum, entry) => sum + toNumericValue(entry.order_total), 0);
 
-      // Deals by stage analysis
-      const dealsByStage = this.calculateDealsByStage(deals);
+      const referralStatusMap = new Map<string, { count: number; amount: number }>();
+      let totalReferralAmount = 0;
 
-      // Revenue by month
-      const revenueByMonth = this.calculateRevenueByMonth(wonDeals, filteredAffiliateCommissions, daysBack);
+      referrals.forEach(referral => {
+        const status = (referral.status || 'unknown').toLowerCase();
+        const amount = toNumericValue(referral.amount);
+        totalReferralAmount += amount;
+        const current = referralStatusMap.get(status) || { count: 0, amount: 0 };
+        referralStatusMap.set(status, {
+          count: current.count + 1,
+          amount: current.amount + amount,
+        });
+      });
 
-      // Conversion funnel
-      const conversionFunnel = this.calculateConversionFunnel(leads);
+      const paidReferrals = (referralStatusMap.get('paid')?.count || 0);
+      const pendingReferrals = (referralStatusMap.get('pending')?.count || 0) + (referralStatusMap.get('unpaid')?.count || 0);
+      const rejectedReferrals = (referralStatusMap.get('rejected')?.count || 0) + (referralStatusMap.get('refused')?.count || 0);
 
-      // Recent activities
-      const recentActivities = this.formatRecentActivities(leadActivities.slice(0, 10), dealActivities.slice(0, 10));
+      const referralStatusBreakdown = Array.from(referralStatusMap.entries()).map(([status, data]) => ({
+        status: status.toUpperCase(),
+        count: data.count,
+        amount: data.amount,
+      }));
 
-      // Upcoming tasks
-      const upcomingTasks = this.generateUpcomingTasks(appointments.slice(0, 10), leads.slice(0, 10), deals.slice(0, 10));
+      const totalReferrals = referrals.length;
+      const avgReferralValue = totalReferrals > 0 ? totalReferralAmount / totalReferrals : 0;
+
+      const totalVisits = metrics.reduce((sum, metric) => sum + toNumericValue(metric.visits), 0);
+      const uniqueVisits = metrics.reduce((sum, metric) => sum + toNumericValue(metric.unique_visits), 0);
+      const totalConversions = metrics.reduce((sum, metric) => sum + toNumericValue(metric.conversions), 0);
+      const conversionRate = totalVisits > 0 ? Math.round((totalConversions / totalVisits) * 1000) / 10 : 0;
+
+      const campaignsMap = new Map<string, { referrals: number; earnings: number }>();
+      referrals.forEach(referral => {
+        const campaignKey = referral.origin_url || referral.description || 'Direct';
+        const current = campaignsMap.get(campaignKey) || { referrals: 0, earnings: 0 };
+        campaignsMap.set(campaignKey, {
+          referrals: current.referrals + 1,
+          earnings: current.earnings + toNumericValue(referral.amount),
+        });
+      });
+
+      const topCampaigns = Array.from(campaignsMap.entries())
+        .map(([campaign, data]) => ({
+          campaign,
+          referrals: data.referrals,
+          earnings: data.earnings,
+        }))
+        .sort((a, b) => b.earnings - a.earnings)
+        .slice(0, 5);
+
+      const sortedReferrals = [...referrals].sort((a, b) => {
+        const aDate = a.created_at ? new Date(a.created_at).getTime() : 0;
+        const bDate = b.created_at ? new Date(b.created_at).getTime() : 0;
+        return bDate - aDate;
+      });
+
+      const recentReferrals = sortedReferrals.slice(0, 10).map(referral => ({
+        id: referral.referral_id?.toString() || referral.id?.toString() || `referral-${Math.random().toString(36).slice(2, 10)}`,
+        status: (referral.status || 'unknown').toUpperCase(),
+        amount: toNumericValue(referral.amount),
+        created_at: referral.created_at || new Date().toISOString(),
+        description: referral.description || undefined,
+        origin_url: referral.origin_url || undefined,
+      }));
+
+      const completedPayouts = payouts
+        .filter(payout => payout.status === 'completed' && payout.payout_date)
+        .map(payout => ({
+          date: new Date(payout.payout_date),
+          amount: toNumericValue(payout.amount),
+        }))
+        .sort((a, b) => b.date.getTime() - a.date.getTime());
+
+      let payoutCadence = 'No payouts yet';
+      let nextEstimatedPayout: string | undefined;
+      let lastPayoutDate: string | undefined;
+
+      if (completedPayouts.length > 0) {
+        lastPayoutDate = completedPayouts[0].date.toISOString();
+
+        if (completedPayouts.length > 1) {
+          const intervals: number[] = [];
+          for (let i = 0; i < completedPayouts.length - 1; i++) {
+            const diffMs = completedPayouts[i].date.getTime() - completedPayouts[i + 1].date.getTime();
+            intervals.push(diffMs / (1000 * 60 * 60 * 24));
+          }
+
+          const averageDays = intervals.reduce((sum, value) => sum + value, 0) / intervals.length;
+
+          if (averageDays <= 10) payoutCadence = 'Weekly';
+          else if (averageDays <= 20) payoutCadence = 'Biweekly';
+          else if (averageDays <= 45) payoutCadence = 'Monthly';
+          else payoutCadence = 'Ad-hoc';
+
+          const nextDate = new Date(completedPayouts[0].date.getTime() + averageDays * 24 * 60 * 60 * 1000);
+          nextEstimatedPayout = nextDate.toISOString();
+        } else {
+          payoutCadence = 'Pending second payout';
+          const nextDate = new Date(completedPayouts[0].date.getTime() + 14 * 24 * 60 * 60 * 1000);
+          nextEstimatedPayout = nextDate.toISOString();
+        }
+      }
 
       return {
-        totalLeads: leads.length,
-        totalDeals: deals.length,
-        totalAppointments: appointments.length,
-        totalRevenue: combinedRevenue,
-        totalCommissions,
+        totalEarnings,
+        unpaidEarnings,
+        totalReferrals,
+        pendingReferrals,
+        paidReferrals,
+        rejectedReferrals,
+        totalVisits,
+        uniqueVisits,
         conversionRate,
-        avgDealSize,
-        pipelineValue,
-        appointmentCompletionRate,
-        totalCalls: leadActivities.filter(a => a.activity_type === 'call').length,
-        totalSMS: leadActivities.filter(a => a.activity_type === 'sms').length,
-        smsResponseRate: this.calculateSMSResponseRate(leadActivities),
-        callSuccessRate: this.calculateCallSuccessRate(leadActivities),
-        leadsBySource,
-        dealsByStage,
-        revenueByMonth,
-        conversionFunnel,
-        recentActivities,
-        upcomingTasks,
+        avgReferralValue,
+        lifetimeOrderValue,
+        payoutCadence,
+        lastPayoutDate,
+        nextEstimatedPayout,
+        referralStatusBreakdown,
+        topCampaigns,
+        recentReferrals,
       };
     } catch (error) {
       console.error('Error getting analytics data:', error);
-      // Return empty analytics structure
       return {
-        totalLeads: 0,
-        totalDeals: 0,
-        totalAppointments: 0,
-        totalRevenue: 0,
-        totalCommissions: 0,
+        totalEarnings: 0,
+        unpaidEarnings: 0,
+        totalReferrals: 0,
+        pendingReferrals: 0,
+        paidReferrals: 0,
+        rejectedReferrals: 0,
+        totalVisits: 0,
+        uniqueVisits: 0,
         conversionRate: 0,
-        avgDealSize: 0,
-        pipelineValue: 0,
-        appointmentCompletionRate: 0,
-        totalCalls: 0,
-        totalSMS: 0,
-        smsResponseRate: 0,
-        callSuccessRate: 0,
-        leadsBySource: [],
-        dealsByStage: [],
-        revenueByMonth: [],
-        conversionFunnel: [],
-        recentActivities: [],
-        upcomingTasks: [],
+        avgReferralValue: 0,
+        lifetimeOrderValue: 0,
+        payoutCadence: 'Unavailable',
+        referralStatusBreakdown: [],
+        topCampaigns: [],
+        recentReferrals: [],
       };
-    }
-  },
-
-  // ANALYTICS HELPER METHODS
-  calculateLeadsBySource(leads: Lead[]): Array<{ source: string; count: number }> {
-    const sourceMap = new Map<string, number>();
-    leads.forEach(lead => {
-      const count = sourceMap.get(lead.source) || 0;
-      sourceMap.set(lead.source, count + 1);
-    });
-
-    return Array.from(sourceMap.entries()).map(([source, count]) => ({
-      source: source.replace('_', ' '),
-      count
-    }));
-  },
-
-  calculateDealsByStage(deals: Deal[]): Array<{ stage: string; count: number; value: number }> {
-    const stageMap = new Map<string, { count: number; value: number }>();
-    
-    deals.forEach(deal => {
-      const stageName = deal.stage?.name || 'Unknown';
-      const current = stageMap.get(stageName) || { count: 0, value: 0 };
-      stageMap.set(stageName, {
-        count: current.count + 1,
-        value: current.value + deal.value
-      });
-    });
-
-    return Array.from(stageMap.entries()).map(([stage, data]) => ({
-      stage,
-      count: data.count,
-      value: data.value
-    }));
-  },
-
-  calculateRevenueByMonth(wonDeals: Deal[], affiliateCommissions: any[], daysBack: number): Array<{ month: string; revenue: number; deals: number }> {
-    const monthMap = new Map<string, { revenue: number; deals: number }>();
-    
-    wonDeals.forEach(deal => {
-      const date = new Date(deal.actual_close_date || deal.created_at);
-      const monthKey = date.toLocaleDateString('en-US', { month: 'short', year: '2-digit' });
-      const current = monthMap.get(monthKey) || { revenue: 0, deals: 0 };
-      monthMap.set(monthKey, {
-        revenue: current.revenue + deal.value,
-        deals: current.deals + 1
-      });
-    });
-
-    // Add affiliate commission revenue (primary revenue source)
-    affiliateCommissions.forEach(commission => {
-      if (commission.status === 'paid' || commission.status === 'approved') {
-        const date = new Date(commission.payment_date || commission.created_at);
-        const monthKey = date.toLocaleDateString('en-US', { month: 'short', year: '2-digit' });
-        const current = monthMap.get(monthKey) || { revenue: 0, deals: 0 };
-        monthMap.set(monthKey, {
-          revenue: current.revenue + commission.order_total,
-          deals: current.deals + 1
-        });
-      }
-    });
-
-    // Generate last 4 months of data
-    const result = [];
-    for (let i = 3; i >= 0; i--) {
-      const date = new Date();
-      date.setMonth(date.getMonth() - i);
-      const monthKey = date.toLocaleDateString('en-US', { month: 'short', year: '2-digit' });
-      const data = monthMap.get(monthKey) || { revenue: 0, deals: 0 };
-      result.push({
-        month: monthKey,
-        revenue: data.revenue,
-        deals: data.deals
-      });
-    }
-
-    return result;
-  },
-
-  calculateConversionFunnel(leads: Lead[]): Array<{ stage: string; count: number; percentage: number }> {
-    const stages = [
-      { stage: 'New Leads', status: ['new', 'contacted', 'qualified', 'won', 'lost'] },
-      { stage: 'Contacted', status: ['contacted', 'qualified', 'won', 'lost'] },
-      { stage: 'Qualified', status: ['qualified', 'won', 'lost'] },
-      { stage: 'Won', status: ['won'] }
-    ];
-
-    const totalLeads = leads.length;
-
-    return stages.map(stage => {
-      const count = leads.filter(lead => stage.status.includes(lead.status)).length;
-      const percentage = totalLeads > 0 ? Math.round((count / totalLeads) * 100) : 0;
-      return {
-        stage: stage.stage,
-        count,
-        percentage
-      };
-    });
-  },
-
-  calculateSMSResponseRate(activities: LeadActivity[]): number {
-    const smsActivities = activities.filter(a => a.activity_type === 'sms');
-    const responses = smsActivities.filter(a => a.outcome === 'response');
-    return smsActivities.length > 0 ? Math.round((responses.length / smsActivities.length) * 100) : 0;
-  },
-
-  calculateCallSuccessRate(activities: LeadActivity[]): number {
-    const callActivities = activities.filter(a => a.activity_type === 'call');
-    const successfulCalls = callActivities.filter(a => a.outcome === 'success');
-    return callActivities.length > 0 ? Math.round((successfulCalls.length / callActivities.length) * 100) : 0;
-  },
-
-  formatRecentActivities(leadActivities: LeadActivity[], dealActivities: DealActivity[]): Array<{
-    id: string;
-    type: string;
-    message: string;
-    time: string;
-    success: boolean;
-    user_id?: string;
-  }> {
-    const allActivities = [
-      ...leadActivities.map(a => ({
-        id: a.id,
-        type: a.activity_type,
-        message: a.description || a.subject || `${a.activity_type} activity`,
-        time: this.formatTimeAgo(a.created_at),
-        success: a.outcome === 'success' || a.outcome === 'positive',
-        user_id: a.user_id,
-        created_at: a.created_at
-      })),
-      ...dealActivities.map(a => ({
-        id: a.id,
-        type: a.activity_type,
-        message: a.description || `${a.activity_type} activity`,
-        time: this.formatTimeAgo(a.created_at),
-        success: true,
-        user_id: a.user_id,
-        created_at: a.created_at
-      }))
-    ];
-
-    return allActivities
-      .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
-      .slice(0, 10);
-  },
-
-  generateUpcomingTasks(appointments: Appointment[], leads: Lead[], deals: Deal[]): Array<{
-    id: string;
-    task: string;
-    priority: 'high' | 'medium' | 'low';
-    due: string;
-    type: string;
-  }> {
-    const tasks = [];
-
-    // Upcoming appointments
-    const upcomingAppointments = appointments
-      .filter(a => new Date(a.scheduled_at) > new Date() && a.status === 'scheduled')
-      .slice(0, 3);
-
-    upcomingAppointments.forEach(apt => {
-      tasks.push({
-        id: apt.id,
-        task: `${apt.title} - ${apt.lead?.name || 'No contact'}`,
-        priority: 'high' as const,
-        due: this.formatTimeUntil(apt.scheduled_at),
-        type: 'appointment'
-      });
-    });
-
-    // Follow-up tasks for leads
-    const followUpLeads = leads
-      .filter(l => l.next_follow_up_date && new Date(l.next_follow_up_date) > new Date())
-      .slice(0, 3);
-
-    followUpLeads.forEach(lead => {
-      tasks.push({
-        id: lead.id,
-        task: `Follow up with ${lead.name}`,
-        priority: lead.status === 'new' ? 'high' as const : 'medium' as const,
-        due: this.formatTimeUntil(lead.next_follow_up_date!),
-        type: 'follow_up'
-      });
-    });
-
-    // Overdue deals
-    const overdueDeals = deals
-      .filter(d => d.expected_close_date && new Date(d.expected_close_date) < new Date() && d.status === 'open')
-      .slice(0, 2);
-
-    overdueDeals.forEach(deal => {
-      tasks.push({
-        id: deal.id,
-        task: `Review overdue deal: ${deal.title}`,
-        priority: 'high' as const,
-        due: 'Overdue',
-        type: 'deal_review'
-      });
-    });
-
-    return tasks.slice(0, 8); // Limit to 8 tasks
-  },
-
-  formatTimeAgo(dateString: string): string {
-    const date = new Date(dateString);
-    const now = new Date();
-    const diffInMinutes = Math.floor((now.getTime() - date.getTime()) / (1000 * 60));
-
-    if (diffInMinutes < 1) return 'Just now';
-    if (diffInMinutes < 60) return `${diffInMinutes} min ago`;
-    if (diffInMinutes < 1440) return `${Math.floor(diffInMinutes / 60)} hours ago`;
-    return `${Math.floor(diffInMinutes / 1440)} days ago`;
-  },
-
-  formatTimeUntil(dateString: string): string {
-    const date = new Date(dateString);
-    const now = new Date();
-    const diffInMinutes = Math.floor((date.getTime() - now.getTime()) / (1000 * 60));
-
-    if (diffInMinutes < 0) return 'Overdue';
-    if (diffInMinutes < 60) return `${diffInMinutes} min`;
-    if (diffInMinutes < 1440) return `${Math.floor(diffInMinutes / 60)} hours`;
-    return `${Math.floor(diffInMinutes / 1440)} days`;
-  },
-
-  // ACTIVITY FETCHING
-  async getRecentLeadActivities(companyId: string, limit: number = 20): Promise<LeadActivity[]> {
-    try {
-      const { data, error } = await supabase
-        .from('lead_activities')
-        .select(`
-          *,
-          lead:leads!inner(company_id)
-        `)
-        .eq('lead.company_id', companyId)
-        .order('created_at', { ascending: false })
-        .limit(limit);
-
-      if (error) throw error;
-      return data || [];
-    } catch (error) {
-      console.error('Error fetching recent lead activities:', error);
-      return [];
-    }
-  },
-
-  async getRecentDealActivities(companyId: string, limit: number = 20): Promise<DealActivity[]> {
-    try {
-      const { data, error } = await supabase
-        .from('deal_activities')
-        .select(`
-          *,
-          deal:deals!inner(company_id)
-        `)
-        .eq('deal.company_id', companyId)
-        .order('created_at', { ascending: false })
-        .limit(limit);
-
-      if (error) throw error;
-      return data || [];
-    } catch (error) {
-      console.error('Error fetching recent deal activities:', error);
-      return [];
     }
   },
 
   // CHART DATA GENERATION
-  async getChartData(companyId: string, timeRange: string = '30d'): Promise<{
-    dailyActivity: Array<{ date: string; leads: number; calls: number; revenue: number; appointments: number }>;
-    leadSources: Array<{ name: string; value: number }>;
-    callOutcomes: Array<{ outcome: string; count: number }>;
-  }> {
+  async getChartData(companyId: string, timeRange: string = '30d'): Promise<AffiliateChartData> {
     try {
       const daysBack = timeRange === '7d' ? 7 : timeRange === '30d' ? 30 : 90;
-      const startDate = new Date();
-      startDate.setDate(startDate.getDate() - daysBack);
+      const now = new Date();
+      const startDate = new Date(now.getTime() - daysBack * 24 * 60 * 60 * 1000);
+      const startDateIso = startDate.toISOString();
+      const startDateDateOnly = startDateIso.slice(0, 10);
 
-      const [leads, deals, activities] = await Promise.all([
-        this.getLeads(companyId),
-        this.getDeals(companyId),
-        this.getRecentLeadActivities(companyId, 1000)
+      const { data: profileRows, error: profileError } = await supabase
+        .from('profiles')
+        .select('id, affiliatewp_id')
+        .eq('company_id', companyId);
+
+      if (profileError) throw profileError;
+
+      const affiliateIds = (profileRows || [])
+        .map(profile => profile.affiliatewp_id)
+        .filter((id): id is number => typeof id === 'number');
+
+      if (affiliateIds.length === 0) {
+        return {
+          referralsOverTime: [],
+          payoutStatusBreakdown: [],
+          topCampaigns: [],
+        };
+      }
+
+      const affiliateIdStrings = affiliateIds.map(id => id.toString());
+
+      const [metricsResult, referralsResult, commissionsResult] = await Promise.all([
+        supabase
+          .from('affiliate_metrics_daily')
+          .select('date, visits, referrals, earnings')
+          .in('affiliate_id', affiliateIds)
+          .gte('date', startDateDateOnly)
+          .order('date', { ascending: true }),
+        supabase
+          .from('affiliate_referrals')
+          .select('status, amount, origin_url, description, created_at')
+          .in('affiliate_id', affiliateIds)
+          .gte('created_at', startDateIso),
+        supabase
+          .from('commission_entries')
+          .select('status, commission_amount')
+          .in('affiliate_id', affiliateIdStrings)
+          .gte('created_at', startDateIso),
       ]);
 
-      // Generate daily activity data
-      const dailyActivity = [];
+      if (metricsResult.error) throw metricsResult.error;
+      if (referralsResult.error) throw referralsResult.error;
+      if (commissionsResult.error) throw commissionsResult.error;
+
+      const metrics = metricsResult.data || [];
+      const referrals = referralsResult.data || [];
+      const commissions = commissionsResult.data || [];
+
+      const metricsByDate = new Map<string, { referrals: number; earnings: number; visits: number }>();
+      metrics.forEach(metric => {
+        const key = metric.date;
+        const current = metricsByDate.get(key) || { referrals: 0, earnings: 0, visits: 0 };
+        metricsByDate.set(key, {
+          referrals: current.referrals + toNumericValue(metric.referrals),
+          earnings: current.earnings + toNumericValue(metric.earnings),
+          visits: current.visits + toNumericValue(metric.visits),
+        });
+      });
+
+      const referralsOverTime: Array<{ date: string; referrals: number; earnings: number; visits: number }> = [];
       for (let i = daysBack - 1; i >= 0; i--) {
-        const date = new Date();
-        date.setDate(date.getDate() - i);
-        const dateStr = date.toISOString().split('T')[0];
-
-        const dayLeads = leads.filter(l => l.created_at.startsWith(dateStr)).length;
-        const dayCalls = activities.filter(a => 
-          a.activity_type === 'call' && a.created_at.startsWith(dateStr)
-        ).length;
-        const dayRevenue = deals.filter(d => 
-          d.status === 'won' && d.actual_close_date?.startsWith(dateStr)
-        ).reduce((sum, d) => sum + d.value, 0);
-        const dayAppointments = activities.filter(a => 
-          a.activity_type === 'appointment' && a.created_at.startsWith(dateStr)
-        ).length;
-
-        dailyActivity.push({
+        const date = new Date(now.getTime() - i * 24 * 60 * 60 * 1000);
+        const dateKey = date.toISOString().slice(0, 10);
+        const entry = metricsByDate.get(dateKey) || { referrals: 0, earnings: 0, visits: 0 };
+        referralsOverTime.push({
           date: date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
-          leads: dayLeads,
-          calls: dayCalls,
-          revenue: dayRevenue,
-          appointments: dayAppointments
+          referrals: entry.referrals,
+          earnings: entry.earnings,
+          visits: entry.visits,
         });
       }
 
-      // Lead sources
-      const leadSources = this.calculateLeadsBySource(leads).map(item => ({
-        name: item.source,
-        value: item.count
-      }));
-
-      // Call outcomes
-      const callActivities = activities.filter(a => a.activity_type === 'call');
-      const outcomeMap = new Map<string, number>();
-      callActivities.forEach(activity => {
-        const outcome = activity.outcome || 'unknown';
-        outcomeMap.set(outcome, (outcomeMap.get(outcome) || 0) + 1);
+      const payoutStatusMap = new Map<string, { count: number; amount: number }>();
+      commissions.forEach(entry => {
+        const status = (entry.status || 'unknown').toUpperCase();
+        const current = payoutStatusMap.get(status) || { count: 0, amount: 0 };
+        payoutStatusMap.set(status, {
+          count: current.count + 1,
+          amount: current.amount + toNumericValue(entry.commission_amount),
+        });
       });
 
-      const callOutcomes = Array.from(outcomeMap.entries()).map(([outcome, count]) => ({
-        outcome: outcome.toUpperCase(),
-        count
+      const payoutStatusBreakdown = Array.from(payoutStatusMap.entries()).map(([status, data]) => ({
+        status,
+        count: data.count,
+        amount: data.amount,
       }));
 
+      const campaignMap = new Map<string, { referrals: number; earnings: number }>();
+      referrals.forEach(referral => {
+        const key = referral.origin_url || referral.description || 'Direct';
+        const current = campaignMap.get(key) || { referrals: 0, earnings: 0 };
+        campaignMap.set(key, {
+          referrals: current.referrals + 1,
+          earnings: current.earnings + toNumericValue(referral.amount),
+        });
+      });
+
+      const topCampaigns = Array.from(campaignMap.entries())
+        .map(([name, data]) => ({
+          name,
+          referrals: data.referrals,
+          earnings: data.earnings,
+        }))
+        .sort((a, b) => b.earnings - a.earnings)
+        .slice(0, 5);
+
       return {
-        dailyActivity,
-        leadSources,
-        callOutcomes
+        referralsOverTime,
+        payoutStatusBreakdown,
+        topCampaigns,
       };
     } catch (error) {
       console.error('Error generating chart data:', error);
       return {
-        dailyActivity: [],
-        leadSources: [],
-        callOutcomes: []
+        referralsOverTime: [],
+        payoutStatusBreakdown: [],
+        topCampaigns: [],
       };
     }
   },
