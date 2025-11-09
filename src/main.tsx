@@ -2,6 +2,7 @@ import React from 'react';
 import ReactDOM from 'react-dom/client';
 import { BrowserRouter } from 'react-router-dom';
 import App from './App.tsx';
+import { SupabaseProvider } from './context/SupabaseProvider';
 import { ErrorBoundary } from 'react-error-boundary';
 import './index.css';
 
@@ -29,9 +30,11 @@ function Root() {
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
     <ErrorBoundary FallbackComponent={ErrorFallback}>
-      <React.Suspense fallback={<div className="p-6 text-center">Loading...</div>}>
-        <Root />
-      </React.Suspense>
+      <SupabaseProvider>
+        <React.Suspense fallback={<div className="p-6 text-center">Loading...</div>}>
+          <Root />
+        </React.Suspense>
+      </SupabaseProvider>
     </ErrorBoundary>
   </React.StrictMode>
 );

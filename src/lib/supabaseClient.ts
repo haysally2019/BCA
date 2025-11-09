@@ -29,3 +29,7 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
     },
   },
 });
+
+window.addEventListener("focus", () => {
+  supabase.auth.getSession();
+});
