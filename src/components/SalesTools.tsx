@@ -634,6 +634,224 @@ function ProposalToolsPage() {
   );
 }
 
+function BCAProposalGenerator() {
+  const { supabase } = useSupabase();
+  const { profile } = useAuthStore();
+  const [client, setClient] = useState({ company: "", contact: "", email: "", phone: "" });
+  const [packageOption, setPackageOption] = useState("Standard CRM Package");
+  const [investment, setInvestment] = useState(200);
+  const [template, setTemplate] = useState("");
+  const [loading, setLoading] = useState(true);
+  const [isManager, setIsManager] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  async function loadTemplate() {
+    try {
+      if (!supabase) throw new Error("Supabase not initialized");
+      setLoading(true);
+      setError(null);
+
+      const { data, error } = await supabase
+        .from("sales_material")
+        .select("content")
+        .eq("category", "bca_proposal_template")
+        .maybeSingle();
+
+      if (error) throw error;
+      if (data?.content) {
+        setTemplate(data.content);
+      } else {
+        setTemplate("No template configured yet. Managers can create one below.");
+      }
+    } catch (err: any) {
+      console.error("Error loading template:", err);
+      setError(err.message || "Unknown error");
+      setTemplate("Error loading template.");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function saveTemplate() {
+    if (!supabase || !profile?.id) return alert("Supabase not ready");
+    try {
+      await supabase.from("sales_material").upsert({
+        category: "bca_proposal_template",
+        content: template,
+        updated_by: profile.id,
+      });
+      alert("BCA Proposal template saved!");
+    } catch (err) {
+      console.error(err);
+      alert("Error saving template.");
+    }
+  }
+
+  useEffect(() => {
+    const role = (profile?.user_role || "").toLowerCase();
+    setIsManager(["owner", "admin", "manager"].includes(role));
+    loadTemplate();
+  }, [profile]);
+
+  useAutoRefetchOnFocus(loadTemplate);
+
+  const placeholders: Record<string, string> = {
+    "{{client_company}}": client.company,
+    "{{client_contact}}": client.contact,
+    "{{client_email}}": client.email,
+    "{{client_phone}}": client.phone,
+    "{{package_name}}": packageOption,
+    "{{investment}}": `$${investment}`,
+  };
+
+  const filledTemplate = useMemo(() => {
+    let result = template || "";
+    for (const [key, val] of Object.entries(placeholders)) {
+      result = result.replaceAll(key, val || "");
+    }
+    return result;
+  }, [template, client, packageOption, investment]);
+
+  const copyProposal = async () => {
+    try {
+      await navigator.clipboard.writeText(filledTemplate);
+      alert("Proposal copied to clipboard!");
+    } catch {
+      alert("Copy failed; please select and copy manually.");
+    }
+  };
+
+  if (error) {
+    return (
+      <Section title="Blue Collar Academy Proposals">
+        <div className="p-6">
+          <h1 className="text-xl font-bold text-red-600 mb-2">Error loading proposals</h1>
+          <p className="text-gray-700">{error}</p>
+          <Btn tone="ghost" onClick={loadTemplate} className="mt-4">
+            Retry
+          </Btn>
+        </div>
+      </Section>
+    );
+  }
+
+  return (
+    <Section title="Blue Collar Academy Proposals">
+      <p className="text-sm text-gray-600 mb-4">
+        Generate proposals for roofing companies interested in Blue Collar Academy or the Roofing CRM.
+      </p>
+
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <div className="space-y-4">
+          <h4 className="font-semibold text-gray-800 mb-1">Client Info</h4>
+          <Field label="Company Name">
+            <Input
+              value={client.company}
+              onChange={(e) => setClient({ ...client, company: e.target.value })}
+              placeholder="ABC Roofing Co."
+            />
+          </Field>
+          <Field label="Contact Name">
+            <Input
+              value={client.contact}
+              onChange={(e) => setClient({ ...client, contact: e.target.value })}
+              placeholder="John Doe"
+            />
+          </Field>
+          <Field label="Email">
+            <Input
+              type="email"
+              value={client.email}
+              onChange={(e) => setClient({ ...client, email: e.target.value })}
+              placeholder="john@abcroofing.com"
+            />
+          </Field>
+          <Field label="Phone">
+            <Input
+              value={client.phone}
+              onChange={(e) => setClient({ ...client, phone: e.target.value })}
+              placeholder="(555) 123-4567"
+            />
+          </Field>
+        </div>
+
+        <div className="space-y-4">
+          <h4 className="font-semibold text-gray-800 mb-1">Package Details</h4>
+          <Field label="Package Option">
+            <select
+              value={packageOption}
+              onChange={(e) => setPackageOption(e.target.value)}
+              className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-500"
+            >
+              <option>Standard CRM Package</option>
+              <option>Premium CRM + Academy Access</option>
+              <option>Enterprise Solution</option>
+              <option>Custom Package</option>
+            </select>
+          </Field>
+          <Field label="Monthly Investment ($)">
+            <Input
+              type="number"
+              value={investment}
+              onChange={(e) => setInvestment(Number(e.target.value) || 0)}
+            />
+          </Field>
+          <div className="bg-white border border-gray-200 rounded-xl p-4">
+            <p className="text-sm text-gray-500">Annual Value</p>
+            <p className="text-2xl font-bold text-gray-900">{money(investment * 12)}</p>
+          </div>
+        </div>
+
+        <div className="space-y-4">
+          <h4 className="font-semibold text-gray-800 mb-1">Available Placeholders</h4>
+          <div className="bg-gray-50 border border-gray-200 rounded-lg p-4 text-xs text-gray-600 space-y-1">
+            <p><code>{'{{client_company}}'}</code> - Company name</p>
+            <p><code>{'{{client_contact}}'}</code> - Contact name</p>
+            <p><code>{'{{client_email}}'}</code> - Email address</p>
+            <p><code>{'{{client_phone}}'}</code> - Phone number</p>
+            <p><code>{'{{package_name}}'}</code> - Package option</p>
+            <p><code>{'{{investment}}'}</code> - Monthly investment</p>
+          </div>
+        </div>
+      </div>
+
+      <div className="mt-6">
+        <h4 className="font-semibold text-gray-800 mb-2">Proposal Preview</h4>
+        {loading ? (
+          <p className="text-sm text-gray-500">Loading template...</p>
+        ) : (
+          <>
+            <pre className="whitespace-pre-wrap bg-gray-50 border border-gray-200 rounded-lg p-4 text-sm text-gray-800 min-h-[300px]">
+              {filledTemplate}
+            </pre>
+            <div className="mt-3">
+              <Btn onClick={copyProposal}>Copy Proposal</Btn>
+            </div>
+          </>
+        )}
+      </div>
+
+      {isManager && (
+        <div className="mt-8 border-t pt-6">
+          <h4 className="font-semibold text-gray-800 mb-3">Edit BCA Template (Manager Only)</h4>
+          <p className="text-sm text-gray-600 mb-3">
+            Use placeholders like {'{{client_company}}'}, {'{{client_contact}}'}, {'{{package_name}}'}, etc.
+          </p>
+          <TextArea
+            value={template}
+            onChange={(e) => setTemplate(e.target.value)}
+            placeholder="Enter your BCA proposal template here..."
+            className="min-h-[250px]"
+          />
+          <div className="mt-3">
+            <Btn onClick={saveTemplate}>Save BCA Template</Btn>
+          </div>
+        </div>
+      )}
+    </Section>
+  );
+}
+
 function AffiliateLinksHelper() {
   const [siteUrl, setSiteUrl] = useState("https://yourcrm.com");
   const [affiliateId, setAffiliateId] = useState("");
