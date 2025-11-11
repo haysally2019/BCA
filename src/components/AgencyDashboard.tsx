@@ -147,13 +147,13 @@ const AgencyDashboard: React.FC = () => {
 
   // Agency-specific metrics derived from real data
   const agencyMetrics = {
-    totalClients: analyticsData.totalLeads,
-    activeTrials: Math.floor(analyticsData.totalLeads * 0.3),
-    monthlyRevenue: analyticsData.totalRevenue,
+    totalClients: analyticsData.totalReferrals,
+    activeTrials: analyticsData.pendingReferrals,
+    monthlyRevenue: analyticsData.totalEarnings,
     conversionRate: analyticsData.conversionRate,
-    avgDealSize: analyticsData.avgDealSize,
+    avgDealSize: analyticsData.avgReferralValue,
     totalReps: isManagement ? Math.max(totalSalesReps, 1) : 1,
-    pipelineValue: analyticsData.pipelineValue,
+    pipelineValue: analyticsData.lifetimeOrderValue,
   };
 
   // AffiliateWP metrics from profile
@@ -292,31 +292,18 @@ const AgencyDashboard: React.FC = () => {
         </div>
       </div>
 
-      {/* Upcoming Tasks */}
-      {analyticsData.upcomingTasks.length > 0 && (
+      {/* Referral Status Snapshot */}
+      {analyticsData.referralStatusBreakdown.length > 0 && (
         <div className="bg-white rounded-lg p-3 sm:p-4 lg:p-6 shadow-sm border border-gray-100">
-          <h3 className="text-sm sm:text-base lg:text-lg font-semibold text-gray-900 mb-3 sm:mb-4">Upcoming Tasks</h3>
+          <h3 className="text-sm sm:text-base lg:text-lg font-semibold text-gray-900 mb-3 sm:mb-4">Referral Status Snapshot</h3>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2 sm:gap-3 lg:gap-4">
-            {analyticsData.upcomingTasks.slice(0, 6).map((task) => (
-              <div key={task.id} className="p-2.5 sm:p-3 lg:p-4 border border-gray-200 rounded-lg hover:shadow-sm transition-all duration-200">
-                <div className="flex items-start space-x-3">
-                  <div className={`w-2 h-2 rounded-full mt-2 ${
-                    task.priority === 'high' ? 'bg-red-500' : 
-                    task.priority === 'medium' ? 'bg-yellow-500' : 'bg-green-500'
-                  }`}></div>
-                  <div className="flex-1">
-                    <p className="text-sm text-gray-900 font-medium">{task.task}</p>
-                    <div className="flex items-center justify-between mt-2">
-                      <span className={`text-xs px-2 py-1 rounded-full ${
-                        task.priority === 'high' ? 'bg-red-100 text-red-700' :
-                        task.priority === 'medium' ? 'bg-yellow-100 text-yellow-700' : 'bg-green-100 text-green-700'
-                      }`}>
-                        {task.priority}
-                      </span>
-                      <span className="text-xs text-gray-500">{task.due}</span>
-                    </div>
-                  </div>
+            {analyticsData.referralStatusBreakdown.slice(0, 6).map((status, index) => (
+              <div key={`${status.status}-${index}`} className="p-2.5 sm:p-3 lg:p-4 border border-gray-200 rounded-lg bg-gray-50">
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-xs font-semibold text-gray-700">{status.status}</span>
+                  <span className="text-xs text-gray-500">{status.count} referrals</span>
                 </div>
+                <div className="text-lg font-bold text-gray-900">${status.amount.toLocaleString()}</div>
               </div>
             ))}
           </div>
@@ -346,22 +333,16 @@ const AgencyDashboard: React.FC = () => {
             </div>
           </div>
           <div className="text-center">
-            <div className="text-lg sm:text-xl lg:text-2xl font-bold mb-0.5 sm:mb-1">{analyticsData.totalCalls}</div>
-            <div className="text-academy-blue-100 text-xs">
-              {isManagement ? 'Team Calls' : 'My Calls'}
-            </div>
+            <div className="text-lg sm:text-xl lg:text-2xl font-bold mb-0.5 sm:mb-1">{analyticsData.totalReferrals}</div>
+            <div className="text-academy-blue-100 text-xs">Total Referrals</div>
           </div>
           <div className="text-center">
-            <div className="text-lg sm:text-xl lg:text-2xl font-bold mb-0.5 sm:mb-1">{analyticsData.callSuccessRate}%</div>
-            <div className="text-academy-blue-100 text-xs">
-              {isManagement ? 'Team Success Rate' : 'My Success Rate'}
-            </div>
+            <div className="text-lg sm:text-xl lg:text-2xl font-bold mb-0.5 sm:mb-1">{analyticsData.paidReferrals}</div>
+            <div className="text-academy-blue-100 text-xs">Paid Referrals</div>
           </div>
           <div className="text-center">
-            <div className="text-lg sm:text-xl lg:text-2xl font-bold mb-0.5 sm:mb-1">${analyticsData.pipelineValue.toLocaleString()}</div>
-            <div className="text-academy-blue-100 text-xs">
-              {isManagement ? 'Team Pipeline' : 'My Pipeline'}
-            </div>
+            <div className="text-lg sm:text-xl lg:text-2xl font-bold mb-0.5 sm:mb-1">${analyticsData.lifetimeOrderValue.toLocaleString()}</div>
+            <div className="text-academy-blue-100 text-xs">Lifetime Order Value</div>
           </div>
         </div>
       </div>

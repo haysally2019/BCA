@@ -5,8 +5,6 @@ import {
   DollarSign,
   Clock,
   Activity,
-  Phone,
-  PhoneCall,
   MessageSquare,
   Calendar,
   ArrowUp,
@@ -19,17 +17,17 @@ import {
   RefreshCw
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar } from 'recharts';
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar, PieChart, Pie, Cell, Legend } from 'recharts';
 import { useAuthStore } from '../store/authStore';
 import { useDataStore } from '../store/dataStore';
-import { supabaseService, type AnalyticsData } from '../lib/supabaseService';
+import { supabaseService, type AnalyticsData, type AffiliateChartData } from '../lib/supabaseService';
 import { supabase } from '../lib/supabaseClient';
 import toast from 'react-hot-toast';
 
 const Dashboard: React.FC = () => {
   const navigate = useNavigate();
   const [timeRange, setTimeRange] = useState('30d');
-  const [chartData, setChartData] = useState<any>(null);
+  const [chartData, setChartData] = useState<AffiliateChartData | null>(null);
   const [copied, setCopied] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const { profile, refreshProfile } = useAuthStore();
@@ -50,6 +48,24 @@ const Dashboard: React.FC = () => {
       loadDashboardData(profile.id, timeRange);
     }
   }, [profile?.id, timeRange]);
+
+
+  useEffect(() => {
+    const fetchCharts = async () => {
+      const companyId = profile?.company_id || profile?.id;
+      if (!companyId) return;
+
+      try {
+        const charts = await supabaseService.getChartData(companyId, timeRange);
+        setChartData(charts);
+      } catch (error) {
+        console.error('Error loading chart data:', error);
+        setChartData(null);
+      }
+    };
+
+    fetchCharts();
+  }, [profile?.company_id, profile?.id, timeRange]);
 
 
   useEffect(() => {
@@ -424,70 +440,68 @@ const Dashboard: React.FC = () => {
       {/* Charts Row */}
       {chartData && (
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 sm:gap-4 lg:gap-6">
-          {/* Daily Activity Chart */}
           <div className="bg-white rounded-lg sm:rounded-xl p-3 sm:p-5 lg:p-6 shadow-sm border border-gray-100">
-            <h3 className="text-sm sm:text-base lg:text-lg font-semibold text-gray-900 mb-3 sm:mb-4">Daily Activity</h3>
-            <ResponsiveContainer width="100%" height={200}>
-              <LineChart data={chartData.dailyActivity}>
+            <h3 className="text-sm sm:text-base lg:text-lg font-semibold text-gray-900 mb-3 sm:mb-4">Referrals Over Time</h3>
+            <ResponsiveContainer width="100%" height={220}>
+              <LineChart data={chartData.referralsOverTime}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
                 <XAxis dataKey="date" stroke="#6b7280" fontSize={12} />
                 <YAxis stroke="#6b7280" fontSize={12} />
                 <Tooltip />
-                <Line type="monotone" dataKey="leads" stroke="#3B82F6" strokeWidth={2} name="Leads" />
-                <Line type="monotone" dataKey="calls" stroke="#10B981" strokeWidth={2} name="Calls" />
-                <Line type="monotone" dataKey="revenue" stroke="#EF4444" strokeWidth={2} name="Revenue ($)" />
+                <Legend />
+                <Line type="monotone" dataKey="referrals" stroke="#3B82F6" strokeWidth={2} name="Referrals" />
+                <Line type="monotone" dataKey="visits" stroke="#10B981" strokeWidth={2} name="Visits" />
+                <Line type="monotone" dataKey="earnings" stroke="#F59E0B" strokeWidth={2} name="Earnings ($)" />
               </LineChart>
             </ResponsiveContainer>
           </div>
 
-          {/* Lead Sources Chart */}
           <div className="bg-white rounded-lg sm:rounded-xl p-3 sm:p-5 lg:p-6 shadow-sm border border-gray-100">
-            <h3 className="text-sm sm:text-base lg:text-lg font-semibold text-gray-900 mb-3 sm:mb-4">Lead Sources</h3>
-            <ResponsiveContainer width="100%" height={200}>
-              <BarChart data={chartData.leadSources}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
-                <XAxis dataKey="name" stroke="#6b7280" fontSize={12} />
-                <YAxis stroke="#6b7280" fontSize={12} />
+            <h3 className="text-sm sm:text-base lg:text-lg font-semibold text-gray-900 mb-3 sm:mb-4">Payout Status</h3>
+            <ResponsiveContainer width="100%" height={220}>
+              <PieChart>
+                <Pie
+                  data={chartData.payoutStatusBreakdown}
+                  cx="50%"
+                  cy="50%"
+                  outerRadius={80}
+                  dataKey="count"
+                  label={({ status, count }) => (count > 0 ? `${status}: ${count}` : '')}
+                >
+                  {chartData.payoutStatusBreakdown.map((entry, index) => (
+                    <Cell key={`status-${index}`} fill={['#3B82F6', '#F59E0B', '#10B981', '#EF4444', '#8B5CF6'][index % 5]} />
+                  ))}
+                </Pie>
                 <Tooltip />
-                <Bar dataKey="value" fill="#EF4444" />
-              </BarChart>
+              </PieChart>
             </ResponsiveContainer>
           </div>
         </div>
       )}
 
-      {/* Activity and Tasks Row */}
+      {/* Referral Insights */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 sm:gap-4">
-        {/* Recent Activity */}
         <div className="bg-white rounded-lg p-3 sm:p-4 lg:p-5 shadow-sm border border-gray-100">
           <div className="flex items-center justify-between mb-3 sm:mb-4 lg:mb-6">
-            <h3 className="text-sm sm:text-base lg:text-lg font-semibold text-gray-900">Recent Activity</h3>
+            <h3 className="text-sm sm:text-base lg:text-lg font-semibold text-gray-900">Recent Referrals</h3>
             <Activity className="w-5 h-5 text-gray-400" />
           </div>
-          <div className="space-y-4">
-            {analyticsData.recentActivities.length === 0 ? (
+          <div className="space-y-3">
+            {analyticsData.recentReferrals.length === 0 ? (
               <div className="text-center py-8">
                 <Activity className="w-12 h-12 text-gray-300 mx-auto mb-4" />
-                <p className="text-gray-500">No recent activity</p>
+                <p className="text-gray-500">No recent referrals</p>
               </div>
             ) : (
-              analyticsData.recentActivities.map((activity) => (
-                <div key={activity.id} className="flex items-start space-x-2.5 p-2.5 sm:p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-all duration-200">
-                  <div className={`w-8 h-8 rounded-full flex items-center justify-center ${
-                    activity.success ? 'bg-green-100' : 'bg-red-100'
-                  }`}>
-                    {activity.type === 'call' && <PhoneCall className="w-4 h-4 text-green-600" />}
-                    {activity.type === 'sms' && <MessageSquare className="w-4 h-4 text-purple-600" />}
-                    {activity.type === 'lead_created' && <Users className="w-4 h-4 text-blue-600" />}
-                    {activity.type === 'appointment' && <Calendar className="w-4 h-4 text-emerald-600" />}
-                    {activity.type === 'deal_created' && <Target className="w-4 h-4 text-red-600" />}
-                    {activity.type === 'stage_change' && <TrendingUp className="w-4 h-4 text-orange-600" />}
-                    {!['call', 'sms', 'lead_created', 'appointment', 'deal_created', 'stage_change'].includes(activity.type) && 
-                      <Activity className="w-4 h-4 text-gray-600" />}
+              analyticsData.recentReferrals.slice(0, 6).map(referral => (
+                <div key={referral.id} className="flex flex-col sm:flex-row sm:items-center sm:justify-between bg-gray-50 rounded-lg px-3 py-2">
+                  <div>
+                    <p className="text-sm font-semibold text-gray-900">${referral.amount.toLocaleString()}</p>
+                    <p className="text-xs text-gray-500">{referral.description || referral.origin_url || 'Direct referral'}</p>
                   </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm text-gray-900 font-medium">{activity.message}</p>
-                    <p className="text-xs text-gray-500 mt-1">{activity.time}</p>
+                  <div className="flex items-center space-x-4 mt-2 sm:mt-0">
+                    <span className="text-xs font-medium px-2 py-1 rounded-full bg-academy-blue-100 text-academy-blue-700">{referral.status}</span>
+                    <span className="text-xs text-gray-500">{new Date(referral.created_at).toLocaleDateString()}</span>
                   </div>
                 </div>
               ))
@@ -495,37 +509,25 @@ const Dashboard: React.FC = () => {
           </div>
         </div>
 
-        {/* Upcoming Tasks */}
         <div className="bg-white rounded-lg p-3 sm:p-4 lg:p-5 shadow-sm border border-gray-100">
           <div className="flex items-center justify-between mb-3 sm:mb-4 lg:mb-6">
-            <h3 className="text-sm sm:text-base lg:text-lg font-semibold text-gray-900">Upcoming Tasks</h3>
+            <h3 className="text-sm sm:text-base lg:text-lg font-semibold text-gray-900">Referral Status Summary</h3>
             <Clock className="w-5 h-5 text-gray-400" />
           </div>
           <div className="space-y-3">
-            {analyticsData.upcomingTasks.length === 0 ? (
+            {analyticsData.referralStatusBreakdown.length === 0 ? (
               <div className="text-center py-8">
                 <CheckCircle className="w-12 h-12 text-gray-300 mx-auto mb-4" />
-                <p className="text-gray-500">No upcoming tasks</p>
+                <p className="text-gray-500">No referral status data</p>
               </div>
             ) : (
-              analyticsData.upcomingTasks.map((task) => (
-                <div key={task.id} className="flex items-start space-x-2.5 p-2.5 sm:p-3 border border-gray-200 rounded-lg hover:shadow-sm transition-all duration-200">
-                  <div className={`w-2 h-2 rounded-full mt-2 ${
-                    task.priority === 'high' ? 'bg-red-500' : 
-                    task.priority === 'medium' ? 'bg-yellow-500' : 'bg-green-500'
-                  }`}></div>
-                  <div className="flex-1">
-                    <p className="text-sm text-gray-900">{task.task}</p>
-                    <div className="flex items-center justify-between mt-1">
-                      <span className={`text-xs px-2 py-1 rounded-full ${
-                        task.priority === 'high' ? 'bg-red-100 text-red-700' :
-                        task.priority === 'medium' ? 'bg-yellow-100 text-yellow-700' : 'bg-green-100 text-green-700'
-                      }`}>
-                        {task.priority}
-                      </span>
-                      <span className="text-xs text-gray-500">Due in {task.due}</span>
-                    </div>
+              analyticsData.referralStatusBreakdown.slice(0, 5).map((status, index) => (
+                <div key={`${status.status}-${index}`} className="flex items-center justify-between border border-gray-100 rounded-lg px-3 py-2">
+                  <div>
+                    <p className="text-sm font-medium text-gray-900">{status.status}</p>
+                    <p className="text-xs text-gray-500">{status.count} referrals</p>
                   </div>
+                  <div className="text-sm font-semibold text-gray-900">${status.amount.toLocaleString()}</div>
                 </div>
               ))
             )}
@@ -626,22 +628,18 @@ const Dashboard: React.FC = () => {
         </div>
       </div>
 
-      {/* Conversion Funnel */}
-      {analyticsData.conversionFunnel.length > 0 && (
+      {/* Top Campaigns */}
+      {analyticsData.topCampaigns.length > 0 && (
         <div className="bg-white rounded-lg sm:rounded-xl p-3 sm:p-5 lg:p-6 shadow-sm border border-gray-100">
-          <h3 className="text-sm sm:text-base lg:text-lg font-semibold text-gray-900 mb-3 sm:mb-4">Lead Conversion Funnel</h3>
-          <div className="space-y-4">
-            {analyticsData.conversionFunnel.map((stage, index) => (
-              <div key={index} className="flex items-center space-x-4">
-                <div className="w-24 text-sm text-gray-600 font-medium">{stage.stage}</div>
-                <div className="flex-1 bg-gray-200 rounded-full h-3 relative">
-                  <div 
-                    className="bg-academy-blue-600 h-3 rounded-full transition-all duration-500"
-                    style={{ width: `${stage.percentage}%` }}
-                  ></div>
+          <h3 className="text-sm sm:text-base lg:text-lg font-semibold text-gray-900 mb-3 sm:mb-4">Top Campaign Performance</h3>
+          <div className="space-y-3">
+            {analyticsData.topCampaigns.map((campaign, index) => (
+              <div key={`${campaign.campaign}-${index}`} className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-medium text-gray-900">{campaign.campaign}</p>
+                  <p className="text-xs text-gray-500">{campaign.referrals} referrals</p>
                 </div>
-                <div className="w-16 text-sm font-medium text-gray-900">{stage.count}</div>
-                <div className="w-12 text-sm text-gray-500">{stage.percentage}%</div>
+                <div className="text-sm font-semibold text-gray-900">${campaign.earnings.toLocaleString()}</div>
               </div>
             ))}
           </div>

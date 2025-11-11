@@ -63,15 +63,20 @@ const AgencyReports: React.FC = () => {
       if (format === 'csv') {
         const csvData = [
           ['Metric', 'Value'],
-          ['Total Revenue', `$${analyticsData.totalRevenue.toLocaleString()}`],
-          ['Active Deals', analyticsData.totalDeals.toString()],
-          ['Pipeline Value', `$${analyticsData.pipelineValue.toLocaleString()}`],
+          ['Total Earnings', `$${analyticsData.totalEarnings.toLocaleString()}`],
+          ['Unpaid Earnings', `$${analyticsData.unpaidEarnings.toLocaleString()}`],
+          ['Total Referrals', analyticsData.totalReferrals.toString()],
+          ['Paid Referrals', analyticsData.paidReferrals.toString()],
+          ['Pending Referrals', analyticsData.pendingReferrals.toString()],
+          ['Rejected Referrals', analyticsData.rejectedReferrals.toString()],
           ['Conversion Rate', `${analyticsData.conversionRate}%`],
-          ['Total Leads', analyticsData.totalLeads.toString()],
-          ['Total Appointments', analyticsData.totalAppointments.toString()],
-          ['Average Deal Size', `$${analyticsData.avgDealSize.toLocaleString()}`],
-          ['Call Success Rate', `${analyticsData.callSuccessRate}%`],
-          ['SMS Response Rate', `${analyticsData.smsResponseRate}%`],
+          ['Average Referral Value', `$${analyticsData.avgReferralValue.toFixed(2)}`],
+          ['Total Visits', analyticsData.totalVisits.toString()],
+          ['Unique Visits', analyticsData.uniqueVisits.toString()],
+          ['Payout Cadence', analyticsData.payoutCadence],
+          ['Last Payout Date', analyticsData.lastPayoutDate ? new Date(analyticsData.lastPayoutDate).toLocaleDateString() : 'N/A'],
+          ['Next Estimated Payout', analyticsData.nextEstimatedPayout ? new Date(analyticsData.nextEstimatedPayout).toLocaleDateString() : 'N/A'],
+          ['Lifetime Order Value', `$${analyticsData.lifetimeOrderValue.toLocaleString()}`],
         ].map(row => row.join(',')).join('\n');
 
         const blob = new Blob([csvData], { type: 'text/csv' });
@@ -132,89 +137,135 @@ const AgencyReports: React.FC = () => {
           </div>
         ) : analyticsData ? (
           <div className="space-y-6">
-
-
-            {/* Performance Breakdown */}
-            <div className="bg-white border border-gray-200 rounded-lg p-4 md:p-6">
-              <h3 className="text-base md:text-lg font-semibold text-gray-900 mb-4">Performance Breakdown</h3>
-              <div className="space-y-4">
-                {analyticsData.conversionFunnel.map((stage, index) => (
-                  <div key={index} className="flex flex-col space-y-2 md:flex-row md:items-center md:space-y-0 md:space-x-4">
-                    <div className="w-full md:w-32 text-xs md:text-sm font-medium md:font-normal text-gray-900 md:text-gray-600">{stage.stage}</div>
-                    <div className="flex items-center space-x-3 md:space-x-4 md:flex-1">
-                      <div className="flex-1 bg-gray-200 rounded-full h-3 relative">
-                        <div
-                          className="bg-academy-blue-600 h-3 rounded-full transition-all duration-500"
-                          style={{ width: `${stage.percentage}%` }}
-                        ></div>
-                      </div>
-                      <div className="w-12 md:w-16 text-sm font-medium text-gray-900">{stage.count}</div>
-                      <div className="w-12 text-sm text-gray-500">{stage.percentage}%</div>
+            {/* Summary Cards */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+              {[ 
+                { label: 'Total Earnings', value: `$${analyticsData.totalEarnings.toLocaleString()}`, icon: DollarSign },
+                { label: 'Unpaid Earnings', value: `$${analyticsData.unpaidEarnings.toLocaleString()}`, icon: Award },
+                { label: 'Total Referrals', value: analyticsData.totalReferrals.toLocaleString(), icon: Target },
+                { label: 'Conversion Rate', value: `${analyticsData.conversionRate}%`, icon: TrendingUp },
+              ].map((metric, index) => {
+                const Icon = metric.icon;
+                return (
+                  <div key={index} className="bg-gray-50 border border-gray-200 rounded-lg p-4 flex items-center space-x-3">
+                    <div className="w-10 h-10 rounded-lg bg-white shadow flex items-center justify-center">
+                      <Icon className="w-5 h-5 text-academy-blue-600" />
+                    </div>
+                    <div>
+                      <div className="text-xs text-gray-500 uppercase tracking-wide">{metric.label}</div>
+                      <div className="text-lg font-semibold text-gray-900">{metric.value}</div>
                     </div>
                   </div>
-                ))}
+                );
+              })}
+            </div>
+
+            {/* Payout & Traffic Overview */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+              <div className="border border-gray-200 rounded-lg p-4 bg-white">
+                <h3 className="text-base font-semibold text-gray-900 mb-3">Payout Overview</h3>
+                <div className="space-y-3 text-sm text-gray-700">
+                  <div className="flex items-center justify-between">
+                    <span>Payout cadence</span>
+                    <span className="font-medium text-gray-900">{analyticsData.payoutCadence}</span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span>Last payout</span>
+                    <span className="font-medium text-gray-900">{analyticsData.lastPayoutDate ? new Date(analyticsData.lastPayoutDate).toLocaleDateString() : 'No payouts yet'}</span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span>Next estimated payout</span>
+                    <span className="font-medium text-gray-900">{analyticsData.nextEstimatedPayout ? new Date(analyticsData.nextEstimatedPayout).toLocaleDateString() : 'Not scheduled'}</span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span>Lifetime order value</span>
+                    <span className="font-medium text-gray-900">${analyticsData.lifetimeOrderValue.toLocaleString()}</span>
+                  </div>
+                </div>
+              </div>
+
+              <div className="border border-gray-200 rounded-lg p-4 bg-white">
+                <h3 className="text-base font-semibold text-gray-900 mb-3">Traffic & Conversion</h3>
+                <div className="space-y-3 text-sm text-gray-700">
+                  <div className="flex items-center justify-between">
+                    <span>Total visits</span>
+                    <span className="font-medium text-gray-900">{analyticsData.totalVisits.toLocaleString()}</span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span>Unique visits</span>
+                    <span className="font-medium text-gray-900">{analyticsData.uniqueVisits.toLocaleString()}</span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span>Average referral value</span>
+                    <span className="font-medium text-gray-900">${analyticsData.avgReferralValue.toFixed(2)}</span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span>Referral conversion rate</span>
+                    <span className="font-medium text-gray-900">{analyticsData.conversionRate}%</span>
+                  </div>
+                </div>
               </div>
             </div>
 
-            {/* Lead Sources */}
-            {analyticsData.leadsBySource.length > 0 && (
-              <div className="bg-white border border-gray-200 rounded-lg p-4 md:p-6">
-                <h3 className="text-base md:text-lg font-semibold text-gray-900 mb-4">Lead Sources Distribution</h3>
+            {/* Referral Status Breakdown */}
+            <div className="border border-gray-200 rounded-lg p-4 bg-white">
+              <h3 className="text-base font-semibold text-gray-900 mb-4">Referral Status Breakdown</h3>
+              {analyticsData.referralStatusBreakdown.length === 0 ? (
+                <p className="text-sm text-gray-500">No referral data available for this period.</p>
+              ) : (
                 <div className="space-y-3">
-                  {analyticsData.leadsBySource.map((source, index) => {
-                    const total = analyticsData.leadsBySource.reduce((sum, s) => sum + s.count, 0);
-                    const percentage = total > 0 ? Math.round((source.count / total) * 100) : 0;
-                    return (
-                      <div key={index} className="flex items-center space-x-4">
-                        <div className="w-28 text-sm text-gray-600 capitalize">{source.source}</div>
-                        <div className="flex-1 bg-gray-200 rounded-full h-2.5 relative">
-                          <div
-                            className="bg-blue-600 h-2.5 rounded-full transition-all duration-500"
-                            style={{ width: `${percentage}%` }}
-                          ></div>
-                        </div>
-                        <div className="w-16 text-sm font-medium text-gray-900 text-right">{source.count}</div>
-                        <div className="w-12 text-sm text-gray-500 text-right">{percentage}%</div>
+                  {analyticsData.referralStatusBreakdown.map((status, index) => (
+                    <div key={index} className="flex items-center justify-between border border-gray-100 rounded-lg px-3 py-2">
+                      <div>
+                        <p className="text-sm font-medium text-gray-900">{status.status}</p>
+                        <p className="text-xs text-gray-500">{status.count} referrals</p>
                       </div>
-                    );
-                  })}
+                      <div className="text-sm font-semibold text-gray-900">${status.amount.toLocaleString()}</div>
+                    </div>
+                  ))}
                 </div>
-              </div>
-            )}
+              )}
+            </div>
 
-            {/* Revenue Trend */}
-            {analyticsData.revenueByMonth.length > 0 && (
-              <div className="bg-white border border-gray-200 rounded-lg p-4 md:p-6">
-                <h3 className="text-base md:text-lg font-semibold text-gray-900 mb-4">Revenue by Month</h3>
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                  {analyticsData.revenueByMonth.map((month, index) => (
-                    <div key={index} className="text-center p-4 bg-gray-50 rounded-lg">
-                      <div className="text-xs text-gray-500 mb-1">{month.month}</div>
-                      <div className="text-lg md:text-xl font-bold text-gray-900">${month.revenue.toLocaleString()}</div>
-                      <div className="text-xs text-gray-600 mt-1">{month.deals} deals</div>
+            {/* Top Campaigns */}
+            {analyticsData.topCampaigns.length > 0 && (
+              <div className="border border-gray-200 rounded-lg p-4 bg-white">
+                <h3 className="text-base font-semibold text-gray-900 mb-4">Top Campaign Performance</h3>
+                <div className="space-y-3">
+                  {analyticsData.topCampaigns.map((campaign, index) => (
+                    <div key={index} className="flex items-center justify-between">
+                      <div>
+                        <p className="text-sm font-medium text-gray-900">{campaign.campaign}</p>
+                        <p className="text-xs text-gray-500">{campaign.referrals} referrals</p>
+                      </div>
+                      <div className="text-sm font-semibold text-gray-900">${campaign.earnings.toLocaleString()}</div>
                     </div>
                   ))}
                 </div>
               </div>
             )}
 
-            {/* Team Performance Summary */}
-            <div className="bg-gradient-to-br from-academy-blue-50 to-white border border-academy-blue-100 rounded-lg p-4 md:p-6">
-              <h3 className="text-base md:text-lg font-semibold text-gray-900 mb-4">Team Performance Summary</h3>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <div className="text-center p-4 bg-white rounded-lg shadow-sm">
-                  <div className="text-xs text-gray-500 mb-1">Average Deal Size</div>
-                  <div className="text-2xl font-bold text-gray-900">${analyticsData.avgDealSize.toLocaleString()}</div>
+            {/* Recent Referrals */}
+            <div className="border border-gray-200 rounded-lg p-4 bg-white">
+              <h3 className="text-base font-semibold text-gray-900 mb-4">Recent Referrals</h3>
+              {analyticsData.recentReferrals.length === 0 ? (
+                <p className="text-sm text-gray-500">No recent referral activity.</p>
+              ) : (
+                <div className="space-y-2">
+                  {analyticsData.recentReferrals.map(referral => (
+                    <div key={referral.id} className="flex flex-col sm:flex-row sm:items-center sm:justify-between bg-gray-50 rounded-lg px-3 py-2">
+                      <div>
+                        <p className="text-sm font-semibold text-gray-900">${referral.amount.toLocaleString()}</p>
+                        <p className="text-xs text-gray-500">{referral.description || referral.origin_url || 'Direct referral'}</p>
+                      </div>
+                      <div className="flex items-center space-x-4 mt-2 sm:mt-0">
+                        <span className="text-xs font-medium px-2 py-1 rounded-full bg-academy-blue-100 text-academy-blue-700">{referral.status}</span>
+                        <span className="text-xs text-gray-500">{new Date(referral.created_at).toLocaleDateString()}</span>
+                      </div>
+                    </div>
+                  ))}
                 </div>
-                <div className="text-center p-4 bg-white rounded-lg shadow-sm">
-                  <div className="text-xs text-gray-500 mb-1">Total Commissions</div>
-                  <div className="text-2xl font-bold text-gray-900">${analyticsData.totalCommissions.toLocaleString()}</div>
-                </div>
-                <div className="text-center p-4 bg-white rounded-lg shadow-sm">
-                  <div className="text-xs text-gray-500 mb-1">Appointment Rate</div>
-                  <div className="text-2xl font-bold text-gray-900">{analyticsData.appointmentCompletionRate}%</div>
-                </div>
-              </div>
+              )}
             </div>
           </div>
         ) : (
