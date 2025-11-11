@@ -2,6 +2,236 @@
 @tailwind components;
 @tailwind utilities;
 
+/*
+  Global base styles and design tokens.
+  The goal is to provide predictable rendering across browsers while
+  centralising common primitives used throughout the application.
+*/
+@layer base {
+  :root {
+    color-scheme: light;
+    font-synthesis: none;
+    text-rendering: optimizeLegibility;
+    --shadow-soft: 0 1px 3px rgba(15, 23, 42, 0.08), 0 1px 2px rgba(15, 23, 42, 0.04);
+    --shadow-ring: 0 0 0 4px rgba(37, 99, 235, 0.15);
+  }
+
+  *,
+  ::before,
+  ::after {
+    @apply box-border;
+  }
+
+  html {
+    @apply h-full scroll-smooth;
+    -webkit-text-size-adjust: 100%;
+  }
+
+  body {
+    @apply min-h-full bg-gray-50 text-slate-900 antialiased;
+    font-feature-settings: "ss01" on, "case" on;
+  }
+
+  #root {
+    @apply min-h-full;
+  }
+
+  a {
+    @apply font-semibold text-academy-blue-600 underline-offset-4 transition-colors;
+  }
+
+  a:hover {
+    @apply text-academy-blue-700;
+  }
+
+  button,
+  [role="button"],
+  input,
+  select,
+  textarea {
+    @apply focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-academy-blue-500;
+    touch-action: manipulation;
+  }
+
+  input,
+  select,
+  textarea {
+    @apply text-sm;
+  }
+
+  ::selection {
+    @apply bg-academy-blue-500/20;
+  }
+
+  * {
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  body {
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  @media (max-width: 640px) {
+    select,
+    input[type="text"],
+    input[type="email"],
+    input[type="tel"],
+    input[type="number"],
+    textarea {
+      font-size: 16px;
+    }
+  }
+}
+
+/*
+  Component level primitives. These classes consolidate frequently
+  repeated Tailwind utility combinations into readable, reusable
+  building blocks.
+*/
+@layer components {
+  .card {
+    @apply rounded-xl border border-gray-100 bg-white shadow-sm;
+  }
+
+  .card[data-elevated="true"] {
+    box-shadow: var(--shadow-soft);
+  }
+
+  .card--padded {
+    @apply p-4 sm:p-5 lg:p-6;
+  }
+
+  .card--padded-sm {
+    @apply p-3 sm:p-4;
+  }
+
+  .card--padded-md {
+    @apply p-3 sm:p-4 lg:p-5;
+  }
+
+  .surface-muted {
+    @apply border border-white/60 bg-white/70 backdrop-blur-sm shadow-sm;
+  }
+
+  .btn {
+    @apply inline-flex items-center justify-center gap-2 rounded-lg px-3 py-2 text-sm font-semibold transition-colors duration-200 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-academy-blue-500 disabled:cursor-not-allowed disabled:opacity-50;
+  }
+
+  .btn-primary {
+    @apply btn bg-academy-blue-600 text-white hover:bg-academy-blue-700;
+  }
+
+  .btn-secondary {
+    @apply btn border border-academy-blue-200 bg-white text-academy-blue-600 hover:bg-academy-blue-50;
+  }
+
+  .btn-ghost {
+    @apply btn text-slate-600 hover:bg-slate-100;
+  }
+
+  .input,
+  .select,
+  .textarea {
+    @apply w-full rounded-xl border border-gray-200 bg-white px-3 py-2 text-sm text-slate-900 shadow-sm placeholder:text-gray-400 transition focus:border-academy-blue-500 focus:ring-2 focus:ring-academy-blue-100 focus:outline-none;
+  }
+
+  .badge {
+    @apply inline-flex items-center gap-1 rounded-full border border-transparent bg-slate-100 px-2.5 py-1 text-xs font-medium text-slate-700 transition-colors;
+  }
+
+  .badge-soft {
+    @apply badge bg-academy-blue-50 text-academy-blue-700;
+  }
+
+  .badge-success {
+    @apply badge bg-emerald-50 text-emerald-600;
+  }
+
+  .app-section {
+    @apply space-y-4 sm:space-y-6 lg:space-y-8;
+  }
+
+  .app-section__title {
+    @apply text-lg font-semibold text-slate-900;
+  }
+
+  .divider {
+    @apply h-px w-full bg-gray-200;
+  }
+
+  .stat-grid {
+    @apply grid gap-3 sm:grid-cols-2 lg:grid-cols-4;
+  }
+
+  .metric-chip {
+    @apply inline-flex items-center gap-1 rounded-full bg-slate-100 px-2.5 py-1 text-xs font-medium text-slate-600;
+  }
+
+  .info-banner {
+    @apply flex items-center gap-2 rounded-lg border border-gray-200 bg-white p-3;
+  }
+
+  .app-sidebar {
+    @apply hidden h-screen w-64 overflow-hidden border-r border-gray-200 bg-white shadow-sm md:flex md:flex-col;
+  }
+
+  .app-sidebar__logo {
+    @apply border-b border-gray-100 px-6 py-3 flex-shrink-0;
+  }
+
+  .app-sidebar__logo-inner {
+    @apply flex items-center justify-center text-center;
+  }
+
+  .app-sidebar__nav {
+    @apply flex-1 overflow-y-auto px-4 py-2.5 scrollbar-hide;
+  }
+
+  .app-sidebar__nav-list {
+    @apply flex h-full flex-col space-y-0.5;
+  }
+
+  .app-sidebar__link {
+    @apply flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-sm font-medium transition-all duration-200;
+  }
+
+  .app-sidebar__link--active {
+    @apply border border-academy-blue-200 bg-academy-blue-50 text-academy-blue-700;
+  }
+
+  .app-sidebar__link--inactive {
+    @apply text-gray-600 hover:bg-gray-50 hover:text-gray-900;
+  }
+
+  .app-sidebar__footer {
+    @apply border-t border-gray-100 p-3 flex-shrink-0;
+  }
+
+  .app-sidebar__user {
+    @apply flex items-center gap-2.5 rounded-lg bg-gray-50 p-2.5;
+  }
+
+  .app-sidebar__avatar {
+    @apply flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full bg-academy-blue-600 text-xs font-semibold text-white;
+  }
+
+  .app-sidebar__user-details {
+    @apply min-w-0 text-xs;
+  }
+
+  .app-sidebar__user-name {
+    @apply truncate font-medium text-gray-900;
+  }
+
+  .app-sidebar__user-plan {
+    @apply truncate text-gray-500;
+  }
+}
+
+/*
+  Utility layer additions for interaction polish.
+*/
 @layer utilities {
   .tap-highlight-transparent {
     -webkit-tap-highlight-color: transparent;
@@ -23,38 +253,12 @@
   .scrollbar-hide::-webkit-scrollbar {
     display: none;
   }
-}
 
-@layer base {
-  * {
-    -webkit-tap-highlight-color: transparent;
+  .shadow-soft {
+    box-shadow: var(--shadow-soft);
   }
 
-  button, a, input, select, textarea {
-    touch-action: manipulation;
-  }
-
-  html {
-    -webkit-text-size-adjust: 100%;
-    -ms-text-size-adjust: 100%;
-  }
-
-  body {
-    -webkit-font-smoothing: antialiased;
-    -moz-osx-font-smoothing: grayscale;
-  }
-
-  @media (max-width: 640px) {
-    select {
-      font-size: 16px;
-    }
-
-    input[type="text"],
-    input[type="email"],
-    input[type="tel"],
-    input[type="number"],
-    textarea {
-      font-size: 16px;
-    }
+  .ring-focus {
+    box-shadow: var(--shadow-ring);
   }
 }
