@@ -169,20 +169,25 @@ const LeadManagement: React.FC = () => {
   // ------------------------------------------
   // FIX: Safe filtered leads
   // ------------------------------------------
-  const filteredLeads = (Array.isArray(leads) ? leads : []).filter((lead) => {
-    const search = searchTerm.toLowerCase();
+const filteredLeads = safeLeads.filter((lead) => {
+  const search = searchTerm.toLowerCase();
 
-    const matchesSearch =
-      lead.name.toLowerCase().includes(search) ||
-      lead.phone.includes(searchTerm) ||
-      (lead.email && lead.email.toLowerCase().includes(search)) ||
-      (lead.address && lead.address.toLowerCase().includes(search));
+  const name = (lead.name || "").toLowerCase();
+  const phone = lead.phone || "";
+  const email = (lead.email || "").toLowerCase();
+  const address = (lead.address || "").toLowerCase();
 
-    const matchesStatus = filterStatus === "all" || lead.status === filterStatus;
-    const matchesSource = filterSource === "all" || lead.source === filterSource;
+  const matchesSearch =
+    name.includes(search) ||
+    phone.includes(searchTerm) ||
+    email.includes(search) ||
+    address.includes(search);
 
-    return matchesSearch && matchesStatus && matchesSource;
-  });
+  const matchesStatus = filterStatus === "all" || lead.status === filterStatus;
+  const matchesSource = filterSource === "all" || lead.source === filterSource;
+
+  return matchesSearch && matchesStatus && matchesSource;
+});
 
 // Always work on a safe array so .filter() never explodes
 const safeLeads = Array.isArray(leads) ? leads : [];
