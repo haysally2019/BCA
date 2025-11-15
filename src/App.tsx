@@ -313,7 +313,6 @@ function AppContent() {
   <Route path="/dashboard" element={<Dashboard />} />
   <Route path="/sales-tools" element={<SalesTools />} />
   <Route path="/leads" element={<LeadManagement />} />
-  <Route path="/prospects" element={<ProspectsManager />} />
   <Route path="/commissions" element={<CommissionsTracker />} />
   <Route path="/settings" element={<Settings />} />
 
