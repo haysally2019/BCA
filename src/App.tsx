@@ -6,15 +6,10 @@ import MobileNav from './components/MobileNav';
 import MobileHeader from './components/MobileHeader';
 import Dashboard from './components/Dashboard';
 import LeadManagement from './components/LeadManagement';
-import Calendar from './components/Calendar';
-import Analytics from './components/Analytics';
 import Settings from './components/Settings';
-import AgencyDashboard from './components/AgencyDashboard';
 import ProspectsManager from './components/ProspectsManager';
 import CommissionsTracker from './components/CommissionsTracker';
 import SalesTools from './components/SalesTools';
-import AgencyReports from './components/AgencyReports';
-import SalesTeam from './components/SalesTeam';
 import Auth from './components/Auth';
 import ChangePassword from './components/ChangePassword';
 import ErrorBoundary from './components/ErrorBoundary';
@@ -313,27 +308,18 @@ function AppContent() {
           <div className="flex-1 overflow-auto pt-14 md:pt-0">
             <main className="p-3 sm:p-4 lg:p-6">
               <ErrorBoundary>
-                <Routes>
-                  {/* Agency/Sales Routes */}
-                  <Route path="/agency-dashboard" element={<AgencyDashboard />} />
-                  <Route path="/prospects" element={<ProspectsManager />} />
-                  <Route path="/commissions" element={<CommissionsTracker />} />
-                  <Route path="/sales-tools" element={<SalesTools />} />
-                  <Route path="/reports" element={<AgencyReports />} />
-                  <Route path="/team" element={isManager ? <SalesTeam /> : <AgencyReports />} />
+           <Routes>
+  {/* Core Portal Routes */}
+  <Route path="/dashboard" element={<Dashboard />} />
+  <Route path="/sales-tools" element={<SalesTools />} />
+  <Route path="/leads" element={<LeadManagement />} />
+  <Route path="/prospects" element={<ProspectsManager />} />
+  <Route path="/commissions" element={<CommissionsTracker />} />
+  <Route path="/settings" element={<Settings />} />
 
-                  {/* Client Routes */}
-                  <Route path="/dashboard" element={<Dashboard />} />
-                  <Route path="/leads" element={<LeadManagement />} />
-                  <Route path="/calendar" element={<Calendar />} />
-                  <Route path="/analytics" element={<Analytics />} />
-
-                  {/* Shared Routes */}
-                  <Route path="/settings" element={<Settings />} />
-
-                  {/* Default Route */}
-                  <Route path="/" element={<Navigate to={isAgencyUser ? '/agency-dashboard' : '/dashboard'} replace />} />
-                </Routes>
+  {/* Default Route */}
+  <Route path="/" element={<Navigate to="/dashboard" replace />} />
+</Routes>
               </ErrorBoundary>
             </main>
           </div>
