@@ -1,5 +1,14 @@
 import React, { useState } from 'react';
-import { Users, Mail, Phone, Tag, Trash2, UserCheck, MessageSquare } from 'lucide-react';
+import {
+  Users,
+  Mail,
+  Phone,
+  Tag,
+  Trash2,
+  UserCheck,
+  MessageSquare,
+  TrendingUp,
+} from 'lucide-react';
 import BaseModal from './BaseModal';
 import ConfirmationModal from './ConfirmationModal';
 
@@ -18,36 +27,83 @@ const BulkActionsModal: React.FC<BulkActionsModalProps> = ({
   selectedItems,
   itemType,
   onBulkAction,
-  items
+  items,
 }) => {
   const [selectedAction, setSelectedAction] = useState('');
   const [actionData, setActionData] = useState<any>({});
   const [showConfirmation, setShowConfirmation] = useState(false);
   const [loading, setLoading] = useState(false);
 
-  const selectedItemsData = items.filter(item => selectedItems.includes(item.id));
+  // ✅ SAFETY: never assume items or selectedItems are defined/arrays
+  const safeItems = Array.isArray(items) ? items : [];
+  const safeSelectedItems = Array.isArray(selectedItems) ? selectedItems : [];
+
+  const selectedItemsData = safeItems.filter((item) =>
+    safeSelectedItems.includes(item.id)
+  );
 
   const getAvailableActions = () => {
     const baseActions = [
-      { id: 'export', label: 'Export Selected', icon: Users, description: 'Export selected items to CSV' },
-      { id: 'delete', label: 'Delete Selected', icon: Trash2, description: 'Permanently delete selected items', dangerous: true }
+      {
+        id: 'export',
+        label: 'Export Selected',
+        icon: Users,
+        description: 'Export selected items to CSV',
+      },
+      {
+        id: 'delete',
+        label: 'Delete Selected',
+        icon: Trash2,
+        description: 'Permanently delete selected items',
+        dangerous: true,
+      },
     ];
 
     if (itemType === 'leads') {
       return [
-        { id: 'update_status', label: 'Update Status', icon: UserCheck, description: 'Change status for all selected leads' },
-        { id: 'assign_rep', label: 'Assign Rep', icon: Users, description: 'Assign a sales rep to selected leads' },
-        { id: 'send_email', label: 'Send Email', icon: Mail, description: 'Send bulk email to selected leads' },
-        { id: 'send_sms', label: 'Send SMS', icon: MessageSquare, description: 'Send bulk SMS to selected leads' },
-        ...baseActions
+        {
+          id: 'assign',
+          label: 'Assign to Rep',
+          icon: UserCheck,
+          description: 'Assign selected leads to a sales rep',
+        },
+        {
+          id: 'tag',
+          label: 'Tag Leads',
+          icon: Tag,
+          description: 'Apply tags to organize your leads',
+        },
+        {
+          id: 'send_email',
+          label: 'Send Email Campaign',
+          icon: Mail,
+          description: 'Send a targeted email to these leads',
+        },
+        {
+          id: 'send_sms',
+          label: 'Send SMS Campaign',
+          icon: Phone,
+          description: 'Send a text message to these leads',
+        },
+        ...baseActions,
       ];
     }
 
     if (itemType === 'deals') {
       return [
-        { id: 'update_stage', label: 'Update Stage', icon: Target, description: 'Move deals to a different stage' },
-        { id: 'update_probability', label: 'Update Probability', icon: TrendingUp, description: 'Update probability for selected deals' },
-        ...baseActions
+        {
+          id: 'update_stage',
+          label: 'Update Stage',
+          icon: Tag,
+          description: 'Move deals to a different stage',
+        },
+        {
+          id: 'update_probability',
+          label: 'Update Probability',
+          icon: TrendingUp,
+          description: 'Update probability for selected deals',
+        },
+        ...baseActions,
       ];
     }
 
@@ -56,54 +112,45 @@ const BulkActionsModal: React.FC<BulkActionsModalProps> = ({
 
   const handleActionSubmit = async () => {
     if (!selectedAction) return;
-
-    const action = getAvailableActions().find(a => a.id === selectedAction);
-    if (action?.dangerous) {
-      setShowConfirmation(true);
-      return;
-    }
-
-    await executeAction();
+    setShowConfirmation(true);
   };
 
   const executeAction = async () => {
+    if (!selectedAction) return;
+
+    // If parent forgot to wire onBulkAction, fail gracefully
+    if (!onBulkAction) {
+      console.warn('BulkActionsModal: onBulkAction not provided');
+      setShowConfirmation(false);
+      return;
+    }
+
+    setLoading(true);
     try {
-      setLoading(true);
-      await onBulkAction(selectedAction, actionData);
-      onClose();
+      await onBulkAction(selectedAction, {
+        ...actionData,
+        items: selectedItemsData,
+      });
+      setShowConfirmation(false);
+      setSelectedAction('');
+      setActionData({});
     } catch (error) {
-      console.error('Error executing bulk action:', error);
+      console.error('Bulk action error:', error);
     } finally {
       setLoading(false);
-      setShowConfirmation(false);
     }
   };
 
   const renderActionForm = () => {
-    switch (selectedAction) {
-      case 'update_status':
-        return (
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">New Status</label>
-            <select
-              value={actionData.status || ''}
-              onChange={(e) => setActionData({ status: e.target.value })}
-              className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-            >
-              <option value="">Select status</option>
-              <option value="new">New</option>
-              <option value="contacted">Contacted</option>
-              <option value="qualified">Qualified</option>
-              <option value="won">Won</option>
-              <option value="lost">Lost</option>
-            </select>
-          </div>
-        );
+    if (!selectedAction) return null;
 
-      case 'assign_rep':
+    switch (selectedAction) {
+      case 'assign':
         return (
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Assign to Rep</label>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Assign to Rep
+            </label>
             <select
               value={actionData.rep_id || ''}
               onChange={(e) => setActionData({ rep_id: e.target.value })}
@@ -119,23 +166,37 @@ const BulkActionsModal: React.FC<BulkActionsModalProps> = ({
         return (
           <div className="space-y-4">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Email Subject</label>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Email Subject
+              </label>
               <input
                 type="text"
                 value={actionData.subject || ''}
-                onChange={(e) => setActionData(prev => ({ ...prev, subject: e.target.value }))}
+                onChange={(e) =>
+                  setActionData((prev: any) => ({
+                    ...prev,
+                    subject: e.target.value,
+                  }))
+                }
                 className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                 placeholder="Email subject"
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Email Body</label>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Email Body
+              </label>
               <textarea
                 value={actionData.body || ''}
-                onChange={(e) => setActionData(prev => ({ ...prev, body: e.target.value }))}
+                onChange={(e) =>
+                  setActionData((prev: any) => ({
+                    ...prev,
+                    body: e.target.value,
+                  }))
+                }
                 rows={4}
                 className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                placeholder="Email message"
+                placeholder="Write your message..."
               />
             </div>
           </div>
@@ -143,54 +204,51 @@ const BulkActionsModal: React.FC<BulkActionsModalProps> = ({
 
       case 'send_sms':
         return (
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">SMS Message</label>
-            <textarea
-              value={actionData.message || ''}
-              onChange={(e) => setActionData({ message: e.target.value })}
-              rows={3}
-              maxLength={160}
-              className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-              placeholder="SMS message (max 160 characters)"
-            />
-            <div className="text-xs text-gray-500 mt-1">
-              {(actionData.message || '').length}/160 characters
+          <div className="space-y-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                SMS Message
+              </label>
+              <textarea
+                value={actionData.message || ''}
+                onChange={(e) =>
+                  setActionData((prev: any) => ({
+                    ...prev,
+                    message: e.target.value,
+                  }))
+                }
+                rows={3}
+                className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                placeholder="Write your text message..."
+              />
+              <p className="mt-1 text-xs text-gray-500">
+                Keep under 160 characters for a single SMS.
+              </p>
             </div>
           </div>
         );
 
-      case 'update_stage':
+      case 'tag':
         return (
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">New Stage</label>
-            <select
-              value={actionData.stage_id || ''}
-              onChange={(e) => setActionData({ stage_id: e.target.value })}
-              className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-            >
-              <option value="">Select stage</option>
-              <option value="stage1">Initial Contact</option>
-              <option value="stage2">Qualification</option>
-              <option value="stage3">Proposal</option>
-              <option value="stage4">Negotiation</option>
-              <option value="stage5">Closed Won</option>
-            </select>
-          </div>
-        );
-
-      case 'update_probability':
-        return (
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">New Probability (%)</label>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Tags
+            </label>
             <input
-              type="number"
-              min="0"
-              max="100"
-              value={actionData.probability || ''}
-              onChange={(e) => setActionData({ probability: parseInt(e.target.value) })}
+              type="text"
+              value={actionData.tags || ''}
+              onChange={(e) =>
+                setActionData((prev: any) => ({
+                  ...prev,
+                  tags: e.target.value,
+                }))
+              }
               className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-              placeholder="0-100"
+              placeholder="e.g. Hot, Ohio, Commercial"
             />
+            <p className="mt-1 text-xs text-gray-500">
+              Separate tags with commas.
+            </p>
           </div>
         );
 
@@ -199,55 +257,71 @@ const BulkActionsModal: React.FC<BulkActionsModalProps> = ({
     }
   };
 
-  const selectedActionData = getAvailableActions().find(a => a.id === selectedAction);
+  if (!isOpen) return null;
+
+  const actions = getAvailableActions();
 
   return (
     <>
-      <BaseModal
-        isOpen={isOpen}
-        onClose={onClose}
-        title={`Bulk Actions (${selectedItems.length} selected)`}
-        size="md"
-      >
-        <div className="space-y-6">
-          {/* Selected Items Summary */}
-          <div className="bg-blue-50 rounded-lg p-4">
-            <h4 className="font-medium text-blue-900 mb-2">Selected {itemType}:</h4>
-            <div className="text-sm text-blue-800 space-y-1 max-h-32 overflow-y-auto">
-              {selectedItemsData.slice(0, 5).map(item => (
-                <div key={item.id}>
-                  {item.name || item.title || item.company_name} 
-                  {item.value && ` - $${item.value}`}
-                </div>
-              ))}
-              {selectedItemsData.length > 5 && (
-                <div className="font-medium">...and {selectedItemsData.length - 5} more</div>
-              )}
+      <BaseModal isOpen={isOpen} onClose={onClose} title="Bulk Actions">
+        <div className="space-y-4">
+          {/* Summary */}
+          <div className="bg-gray-50 border border-gray-200 rounded-lg p-3 text-sm text-gray-700">
+            <div className="font-medium mb-1">
+              {safeSelectedItems.length} {itemType} selected
             </div>
+            {safeSelectedItems.length > 0 && (
+              <div className="text-xs text-gray-500">
+                Bulk actions will apply to all selected {itemType}.
+              </div>
+            )}
           </div>
 
-          {/* Action Selection */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Select Action</label>
-            <div className="space-y-2">
-              {getAvailableActions().map(action => {
-                const Icon = action.icon;
+          {/* Action Picker */}
+          <div className="space-y-3">
+            <h3 className="text-sm font-medium text-gray-800">Choose an action</h3>
+            <div className="grid grid-cols-1 gap-2">
+              {actions.map((action) => {
+                const Icon =
+                  action.id === 'assign'
+                    ? UserCheck
+                    : action.id === 'send_email'
+                    ? Mail
+                    : action.id === 'send_sms'
+                    ? MessageSquare
+                    : action.id === 'tag'
+                    ? Tag
+                    : action.id === 'delete'
+                    ? Trash2
+                    : Users;
+
+                const isSelected = selectedAction === action.id;
+
                 return (
-                  <label key={action.id} className="flex items-center space-x-3 p-3 border border-gray-200 rounded-lg hover:bg-gray-50 cursor-pointer">
+                  <label
+                    key={action.id}
+                    className={`flex items-center gap-3 p-3 border rounded-lg cursor-pointer transition-colors ${
+                      isSelected
+                        ? 'border-blue-600 bg-blue-50'
+                        : 'border-gray-200 hover:border-blue-200 hover:bg-gray-50'
+                    }`}
+                  >
                     <input
                       type="radio"
-                      name="action"
+                      name="bulk-action"
                       value={action.id}
-                      checked={selectedAction === action.id}
-                      onChange={(e) => setSelectedAction(e.target.value)}
-                      className="text-blue-600 focus:ring-blue-500"
+                      checked={isSelected}
+                      onChange={() => setSelectedAction(action.id)}
+                      className="h-4 w-4 text-blue-600 border-gray-300"
                     />
-                    <Icon className={`w-5 h-5 ${action.dangerous ? 'text-red-600' : 'text-gray-600'}`} />
+                    <Icon className="w-5 h-5 text-gray-600" />
                     <div>
-                      <div className={`font-medium ${action.dangerous ? 'text-red-900' : 'text-gray-900'}`}>
+                      <div className="text-sm font-medium text-gray-900">
                         {action.label}
                       </div>
-                      <div className="text-sm text-gray-600">{action.description}</div>
+                      <div className="text-xs text-gray-500">
+                        {action.description}
+                      </div>
                     </div>
                   </label>
                 );
@@ -271,14 +345,10 @@ const BulkActionsModal: React.FC<BulkActionsModalProps> = ({
             <button
               type="button"
               onClick={handleActionSubmit}
-              disabled={loading || !selectedAction}
-              className={`flex-1 py-2 px-4 rounded-lg transition-colors disabled:opacity-50 ${
-                selectedActionData?.dangerous
-                  ? 'bg-red-600 hover:bg-red-700 text-white'
-                  : 'bg-blue-600 hover:bg-blue-700 text-white'
-              }`}
+              disabled={loading || !selectedAction || safeSelectedItems.length === 0}
+              className="flex-1 bg-blue-600 text-white py-2 px-4 rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50"
             >
-              {loading ? 'Processing...' : 'Execute Action'}
+              Continue
             </button>
           </div>
         </div>
@@ -289,7 +359,7 @@ const BulkActionsModal: React.FC<BulkActionsModalProps> = ({
         onClose={() => setShowConfirmation(false)}
         onConfirm={executeAction}
         title="Confirm Bulk Action"
-        message={`Are you sure you want to ${selectedActionData?.label.toLowerCase()} ${selectedItems.length} ${itemType}? This action cannot be undone.`}
+        message={`Are you sure you want to apply "${selectedAction}" to ${safeSelectedItems.length} ${itemType}? This action cannot be undone.`}
         type="danger"
         confirmText="Yes, Continue"
         loading={loading}
