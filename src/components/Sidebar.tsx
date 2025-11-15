@@ -9,7 +9,6 @@ const Sidebar: React.FC = () => {
   const menuItems = [
     { path: '/dashboard', label: 'Dashboard', icon: Home },
     { path: '/leads', label: 'Leads', icon: Users },
-    { path: '/prospects', label: 'Leads & Prospects', icon: Target },
     { path: '/commissions', label: 'Commissions', icon: DollarSign },
     { path: '/sales-tools', label: 'Sales Tools', icon: Briefcase },
     { path: '/settings', label: 'Settings', icon: Settings },
