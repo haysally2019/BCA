@@ -1,49 +1,51 @@
-import React, { useEffect, useState, useMemo } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import { useSupabase } from "../context/SupabaseProvider";
 import { useAuthStore } from "../store/authStore";
-import {
-  PlusCircle,
-  Search,
-  X,
-  ClipboardList,
-  Trash,
-  UserIcon,
-  Edit,
-  NoteIcon,
-} from "lucide-react";
+import { X } from "lucide-react";
 
-// Utility — get initials from a name
-const initials = (name: string) => {
-  if (!name) return "?";
-  const parts = name.trim().split(" ");
-  if (parts.length === 1) return parts[0][0].toUpperCase();
-  return (parts[0][0] + parts[1][0]).toUpperCase();
+type Lead = {
+  id: number;
+  full_name: string;
+  phone: string;
+  email: string;
+  status: string;
+  owner_id: string | null;
+  created_at: string;
+};
+
+type LeadNote = {
+  id: number;
+  lead_id: number;
+  note: string;
+  created_at: string;
+  created_by: string;
 };
 
 const LeadManagement = () => {
   const { supabase } = useSupabase();
   const { profile } = useAuthStore();
 
-  const [leads, setLeads] = useState<any[]>([]);
+  const [leads, setLeads] = useState<Lead[]>([]);
   const [loading, setLoading] = useState(true);
-  const [search, setSearch] = useState("");
-  const [statusFilter, setStatusFilter] = useState("all");
-  const [selectedLead, setSelectedLead] = useState<any | null>(null);
-  const [notes, setNotes] = useState<any[]>([]);
+  const [selectedLead, setSelectedLead] = useState<Lead | null>(null);
+  const [notes, setNotes] = useState<LeadNote[]>([]);
   const [newNote, setNewNote] = useState("");
 
   const isManager =
-    profile?.user_role === "manager" ||
-    profile?.user_role === "admin" ||
-    profile?.user_role === "owner";
+    profile?.user_role?.toLowerCase() === "manager" ||
+    profile?.user_role?.toLowerCase() === "admin" ||
+    profile?.user_role?.toLowerCase() === "owner";
 
-  // Fetch leads
-  const loadLeads = async () => {
+  /* -------------------------------------------
+     Load all leads (manager = all, rep = owned)
+  ------------------------------------------- */
+  const loadLeads = useCallback(async () => {
     setLoading(true);
 
-    let query = supabase.from("leads").select("*").order("created_at", {
-      ascending: false,
-    });
+    let query = supabase
+      .from("leads")
+      .select("*")
+      .order("created_at", { ascending: false });
 
     if (!isManager) {
       query = query.eq("owner_id", profile?.id);
@@ -51,10 +53,13 @@ const LeadManagement = () => {
 
     const { data, error } = await query;
     if (!error) setLeads(data || []);
-    setLoading(false);
-  };
 
-  // Fetch notes for selected lead
+    setLoading(false);
+  }, [supabase, isManager, profile?.id]);
+
+  /* ------------------------
+     Load notes for a lead
+  ------------------------ */
   const loadNotes = async (leadId: number) => {
     const { data, error } = await supabase
       .from("lead_notes")
@@ -67,78 +72,53 @@ const LeadManagement = () => {
 
   useEffect(() => {
     loadLeads();
-  }, []);
+  }, [loadLeads]);
 
-  const filteredLeads = useMemo(() => {
-    return leads.filter((lead) => {
-      const text = `${lead.full_name} ${lead.email} ${lead.phone} ${lead.status}`
-        .toLowerCase()
-        .trim();
+  /* ------------------------
+     Add a note
+  ------------------------ */
+  const addNote = async () => {
+    if (!selectedLead || !newNote.trim()) return;
 
-      const matchesSearch = text.includes(search.toLowerCase());
-      const matchesStatus =
-        statusFilter === "all" ||
-        lead.status?.toLowerCase() === statusFilter.toLowerCase();
-
-      return matchesSearch && matchesStatus;
+    await supabase.from("lead_notes").insert({
+      lead_id: selectedLead.id,
+      note: newNote.trim(),
+      created_by: profile?.id,
     });
-  }, [search, statusFilter, leads]);
 
+    setNewNote("");
+    loadNotes(selectedLead.id);
+  };
+
+  /* ------------------------
+     Delete a lead
+  ------------------------ */
   const deleteLead = async (id: number) => {
     if (!isManager) return;
 
     await supabase.from("leads").delete().eq("id", id);
     await supabase.from("lead_notes").delete().eq("lead_id", id);
-    loadLeads();
+
     setSelectedLead(null);
+    loadLeads();
   };
 
-  const addNote = async () =>
-    {
-      if (!selectedLead || !newNote.trim()) return;
+  /* --------------------------------------
+     UI Utility: initials from full name
+  -------------------------------------- */
+  const initials = (name: string) => {
+    if (!name) return "?";
+    const parts = name.trim().split(" ");
+    if (parts.length === 1) return parts[0][0].toUpperCase();
+    return (parts[0][0] + parts[1][0]).toUpperCase();
+  };
 
-      await supabase.from("lead_notes").insert({
-        lead_id: selectedLead.id,
-        note: newNote.trim(),
-        created_by: profile?.id,
-      });
-
-      setNewNote("");
-      loadNotes(selectedLead.id);
-    };
-
+  /* ------------------------
+      Render
+  ------------------------ */
   return (
     <div className="p-6 space-y-6">
-      {/* Header */}
-      <div className="flex justify-between items-center">
-        <h1 className="text-2xl font-bold text-gray-900">Leads</h1>
-      </div>
-
-      {/* Search + Filters */}
-      <div className="flex items-center gap-3">
-        <div className="flex items-center bg-white border px-3 py-2 rounded-lg w-full max-w-md">
-          <Search className="w-5 h-5 text-gray-400 mr-2" />
-          <input
-            className="w-full outline-none text-sm"
-            placeholder="Search leads by name, phone, email, or notes..."
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-          />
-        </div>
-
-        <select
-          className="px-3 py-2 border bg-white rounded-lg text-sm"
-          value={statusFilter}
-          onChange={(e) => setStatusFilter(e.target.value)}
-        >
-          <option value="all">All Statuses</option>
-          <option value="new">New</option>
-          <option value="working">Working</option>
-          <option value="interested">Interested</option>
-          <option value="not-interested">Not Interested</option>
-          <option value="closed">Closed</option>
-        </select>
-      </div>
+      <h1 className="text-2xl font-bold text-gray-900">Leads</h1>
 
       {/* Leads Table */}
       <div className="overflow-auto rounded-lg border border-gray-200 bg-white">
@@ -153,8 +133,9 @@ const LeadManagement = () => {
               <th className="p-3 text-right"></th>
             </tr>
           </thead>
+
           <tbody>
-            {filteredLeads.map((lead) => (
+            {leads.map((lead) => (
               <tr
                 key={lead.id}
                 className="border-b hover:bg-gray-50 cursor-pointer"
@@ -185,7 +166,7 @@ const LeadManagement = () => {
               </tr>
             ))}
 
-            {filteredLeads.length === 0 && !loading && (
+            {!loading && leads.length === 0 && (
               <tr>
                 <td className="p-3 text-center text-gray-500" colSpan={6}>
                   No leads found.
@@ -198,39 +179,37 @@ const LeadManagement = () => {
 
       {/* Lead Modal */}
       {selectedLead && (
-        <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-40 z-50">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-40">
           <div className="bg-white rounded-lg p-6 w-full max-w-lg shadow-xl">
             {/* Modal Header */}
             <div className="flex justify-between items-center mb-4">
-              <h2 className="text-lg font-bold">
-                {selectedLead.full_name}
-              </h2>
+              <h2 className="text-lg font-bold">{selectedLead.full_name}</h2>
               <button onClick={() => setSelectedLead(null)}>
                 <X className="w-5 h-5 text-gray-600" />
               </button>
             </div>
 
-            {/* Details */}
-            <p className="text-sm text-gray-600 mb-2">
+            {/* Contact details */}
+            <p className="text-sm text-gray-600 mb-1">
               <span className="font-medium">Phone:</span> {selectedLead.phone}
             </p>
             <p className="text-sm text-gray-600 mb-4">
               <span className="font-medium">Email:</span> {selectedLead.email}
             </p>
 
-            {/* Notes */}
+            {/* Notes Section */}
             <div className="border p-3 rounded-lg bg-gray-50 mb-4">
               <h3 className="font-semibold text-sm mb-2">Notes</h3>
 
               <div className="space-y-2 max-h-40 overflow-auto mb-3">
-                {notes.map((n) => (
+                {notes.map((note) => (
                   <div
-                    key={n.id}
+                    key={note.id}
                     className="bg-white border rounded p-2 text-sm text-gray-800"
                   >
-                    {n.note}
+                    {note.note}
                     <div className="text-xs text-gray-400 mt-1">
-                      {new Date(n.created_at).toLocaleString()}
+                      {new Date(note.created_at).toLocaleString()}
                     </div>
                   </div>
                 ))}
@@ -256,13 +235,13 @@ const LeadManagement = () => {
               </div>
             </div>
 
-            {/* Manager Actions */}
+            {/* Manager delete action */}
             {isManager && (
               <button
                 className="text-red-600 text-sm flex items-center gap-2 hover:text-red-800"
                 onClick={() => deleteLead(selectedLead.id)}
               >
-                <Trash className="w-4 h-4" /> Delete Lead
+                Delete Lead
               </button>
             )}
           </div>
