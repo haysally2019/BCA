@@ -184,18 +184,24 @@ const LeadManagement: React.FC = () => {
     return matchesSearch && matchesStatus && matchesSource;
   });
 
-  const leadStats: LeadStats = {
-    total: leads.length,
-    new: leads.filter((l) => l.status === "new").length,
-    contacted: leads.filter((l) => l.status === "contacted").length,
-    qualified: leads.filter((l) => l.status === "qualified").length,
-    won: leads.filter((l) => l.status === "won").length,
-    lost: leads.filter((l) => l.status === "lost").length,
-    avgScore:
-      leads.length === 0
-        ? 0
-        : Math.round(leads.reduce((sum, l) => sum + l.score, 0) / leads.length),
-  };
+// Always work on a safe array so .filter() never explodes
+const safeLeads = Array.isArray(leads) ? leads : [];
+
+const leadStats: LeadStats = {
+  total: safeLeads.length,
+  new: safeLeads.filter((l) => l.status === "new").length,
+  contacted: safeLeads.filter((l) => l.status === "contacted").length,
+  qualified: safeLeads.filter((l) => l.status === "qualified").length,
+  won: safeLeads.filter((l) => l.status === "won").length,
+  lost: safeLeads.filter((l) => l.status === "lost").length,
+  avgScore:
+    safeLeads.length === 0
+      ? 0
+      : Math.round(
+          safeLeads.reduce((sum, l) => sum + (l.score || 0), 0) /
+            safeLeads.length
+        ),
+};
 
   const openAddLead = () => {
     setFormData({
