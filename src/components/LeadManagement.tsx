@@ -1,30 +1,19 @@
 import React, { useState, useEffect } from "react";
 import {
   Search,
-  Filter,
   Plus,
-  MapPin,
-  Star,
-  Users,
-  DollarSign,
-  Tag,
   Upload,
-  MoreVertical,
-  CheckCircle,
-  AlertCircle,
-  TrendingUp,
-  Calendar,
-  CreditCard as Edit3,
+  MapPin,
+  Edit3,
   Trash2,
   Eye,
   Phone,
   Mail,
-  ArrowRight,
-  ThumbsUp,
-  FileText,
   Trophy,
   X,
-  RefreshCw,
+  CheckCircle,
+  AlertCircle,
+  Users
 } from "lucide-react";
 
 import { supabaseService } from "../lib/supabaseService";
@@ -70,8 +59,6 @@ interface LeadStats {
   avgScore: number;
 }
 
-type ViewMode = "grid" | "list";
-
 const LeadManagement: React.FC = () => {
   const { profile } = useAuthStore();
 
@@ -79,8 +66,6 @@ const LeadManagement: React.FC = () => {
   const [searchTerm, setSearchTerm] = useState("");
   const [filterStatus, setFilterStatus] = useState("all");
   const [filterSource, setFilterSource] = useState("all");
-  const [sortBy, setSortBy] = useState("created_at");
-  const [viewMode, setViewMode] = useState<ViewMode>("grid");
 
   const [selectedLeads, setSelectedLeads] = useState<string[]>([]);
   const [showAddModal, setShowAddModal] = useState(false);
@@ -116,21 +101,66 @@ const LeadManagement: React.FC = () => {
   }, [profile]);
 
   // ------------------------------------------
-  // FIX: Never allow undefined leads
+  // LOAD LEADS (ALWAYS RETURNS SAFE ARRAY)
   // ------------------------------------------
   const loadLeads = async () => {
     try {
       const res = await supabaseService.getLeads(profile?.id);
-
-      // 🔥 Guarantee array
       const safe = Array.isArray(res) ? res : [];
 
       setLeads(safe);
     } catch (err) {
       console.error("Lead load error:", err);
-      setLeads([]); // fallback safe state
+      setLeads([]);
     }
   };
+
+  // ------------------------------------------
+  // safeLeads placed BEFORE any usage
+  // ------------------------------------------
+  const safeLeads: Lead[] = Array.isArray(leads) ? leads : [];
+
+  // ------------------------------------------
+  // STATS — Fully protected against crashes
+  // ------------------------------------------
+  const leadStats: LeadStats = {
+    total: safeLeads.length,
+    new: safeLeads.filter((l) => l.status === "new").length,
+    contacted: safeLeads.filter((l) => l.status === "contacted").length,
+    qualified: safeLeads.filter((l) => l.status === "qualified").length,
+    won: safeLeads.filter((l) => l.status === "won").length,
+    lost: safeLeads.filter((l) => l.status === "lost").length,
+    avgScore:
+      safeLeads.length === 0
+        ? 0
+        : Math.round(
+            safeLeads.reduce((sum, l) => sum + (l.score || 0), 0) /
+              safeLeads.length
+          ),
+  };
+
+  // ------------------------------------------
+  // FILTERED LEADS — Zero crash risk
+  // ------------------------------------------
+  const filteredLeads = safeLeads.filter((lead) => {
+    const search = searchTerm.toLowerCase();
+
+    const name = (lead.name || "").toLowerCase();
+    const phone = lead.phone || "";
+    const email = (lead.email || "").toLowerCase();
+    const address = (lead.address || "").toLowerCase();
+
+    const matchesSearch =
+      name.includes(search) ||
+      phone.includes(searchTerm) ||
+      email.includes(search) ||
+      address.includes(search);
+
+    const matchesStatus = filterStatus === "all" || lead.status === filterStatus;
+    const matchesSource = filterSource === "all" || lead.source === filterSource;
+
+    return matchesSearch && matchesStatus && matchesSource;
+  });
 
   const getStatusColor = (status: string) => {
     const colors: Record<string, string> = {
@@ -160,54 +190,6 @@ const LeadManagement: React.FC = () => {
     }
   };
 
-  const getScoreColor = (score: number) => {
-    if (score >= 80) return "text-green-600 bg-green-100";
-    if (score >= 60) return "text-yellow-600 bg-yellow-100";
-    return "text-red-600 bg-red-100";
-  };
-
-  // ------------------------------------------
-  // FIX: Safe filtered leads
-  // ------------------------------------------
-const filteredLeads = safeLeads.filter((lead) => {
-  const search = searchTerm.toLowerCase();
-
-  const name = (lead.name || "").toLowerCase();
-  const phone = lead.phone || "";
-  const email = (lead.email || "").toLowerCase();
-  const address = (lead.address || "").toLowerCase();
-
-  const matchesSearch =
-    name.includes(search) ||
-    phone.includes(searchTerm) ||
-    email.includes(search) ||
-    address.includes(search);
-
-  const matchesStatus = filterStatus === "all" || lead.status === filterStatus;
-  const matchesSource = filterSource === "all" || lead.source === filterSource;
-
-  return matchesSearch && matchesStatus && matchesSource;
-});
-
-// Always work on a safe array so .filter() never explodes
-const safeLeads = Array.isArray(leads) ? leads : [];
-
-const leadStats: LeadStats = {
-  total: safeLeads.length,
-  new: safeLeads.filter((l) => l.status === "new").length,
-  contacted: safeLeads.filter((l) => l.status === "contacted").length,
-  qualified: safeLeads.filter((l) => l.status === "qualified").length,
-  won: safeLeads.filter((l) => l.status === "won").length,
-  lost: safeLeads.filter((l) => l.status === "lost").length,
-  avgScore:
-    safeLeads.length === 0
-      ? 0
-      : Math.round(
-          safeLeads.reduce((sum, l) => sum + (l.score || 0), 0) /
-            safeLeads.length
-        ),
-};
-
   const openAddLead = () => {
     setFormData({
       name: "",
@@ -222,8 +204,8 @@ const leadStats: LeadStats = {
       source: "website",
     });
     setIsEditing(false);
-    setShowAddModal(true);
     setErrors({});
+    setShowAddModal(true);
   };
 
   const openEditLead = (lead: Lead) => {
@@ -239,14 +221,15 @@ const leadStats: LeadStats = {
       notes: lead.notes || "",
       source: lead.source,
     });
-    setIsEditing(true);
+
     setSelectedLead(lead);
     setErrors({});
+    setIsEditing(true);
     setShowAddModal(true);
   };
 
   const handleFieldChange = (name: string, value: any) => {
-    setFormData((prev: any) => ({ ...prev, [name]: value }));
+    setFormData((prev) => ({ ...prev, [name]: value }));
   };
 
   const handleAddOrEditSubmit = async (e: React.FormEvent) => {
@@ -288,8 +271,8 @@ const leadStats: LeadStats = {
       }
 
       setShowAddModal(false);
-    } catch (error) {
-      console.error(error);
+    } catch (err) {
+      console.error(err);
       toast.error("Error saving lead");
     } finally {
       setFormLoading(false);
@@ -297,7 +280,7 @@ const leadStats: LeadStats = {
   };
 
   const handleLeadAction = (id: string, action: string) => {
-    const lead = leads.find((l) => l.id === id);
+    const lead = safeLeads.find((l) => l.id === id);
     if (!lead) return;
 
     switch (action) {
@@ -312,14 +295,6 @@ const leadStats: LeadStats = {
         setLeadToDelete(lead);
         setShowDeleteConfirm(true);
         break;
-      case "call":
-        toast.success(`Calling ${lead.name}...`);
-        break;
-      case "email":
-        if (lead.email) {
-          window.location.href = `mailto:${lead.email}`;
-        } else toast.error("No email available");
-        break;
       default:
         break;
     }
@@ -330,11 +305,10 @@ const leadStats: LeadStats = {
 
     try {
       await supabaseService.deleteLead(leadToDelete.id);
-
       setLeads((prev) => prev.filter((l) => l.id !== leadToDelete.id));
 
       toast.success("Lead deleted");
-    } catch (error) {
+    } catch (err) {
       toast.error("Error deleting lead");
     } finally {
       setShowDeleteConfirm(false);
@@ -342,46 +316,25 @@ const leadStats: LeadStats = {
     }
   };
 
-  const toggleLeadSelection = (leadId: string, checked: boolean) => {
-    setSelectedLeads((prev) =>
-      checked ? [...prev, leadId] : prev.filter((id) => id !== leadId)
-    );
-  };
-
-  const allSelected =
-    filteredLeads.length > 0 &&
-    filteredLeads.every((lead) => selectedLeads.includes(lead.id));
-
-  const toggleSelectAll = (checked: boolean) => {
-    setSelectedLeads(checked ? filteredLeads.map((l) => l.id) : []);
-  };
-
   return (
     <div className="space-y-6">
       {/* HEADER */}
       <div className="flex justify-between items-center">
-        <div>
-          <h1 className="text-3xl font-bold text-gray-900">Lead Management</h1>
-          <p className="text-gray-600 text-sm mt-1">
-            Manage, track and convert your roofing leads.
-          </p>
-        </div>
+        <h1 className="text-3xl font-bold">Lead Management</h1>
 
-        <div className="flex gap-2">
+        <div className="flex gap-3">
           <button
-            className="bg-gray-100 px-4 py-2 rounded-lg text-sm hover:bg-gray-200"
+            className="bg-gray-100 px-4 py-2 rounded-lg hover:bg-gray-200"
             onClick={() => setShowImportModal(true)}
           >
-            <Upload className="w-4 h-4 inline mr-1" />
-            Import
+            <Upload className="w-4 h-4 inline" /> Import
           </button>
 
           <button
-            className="bg-red-700 text-white px-4 py-2 rounded-lg text-sm hover:bg-red-800"
+            className="bg-red-700 text-white px-4 py-2 rounded-lg hover:bg-red-800"
             onClick={openAddLead}
           >
-            <Plus className="w-4 h-4 inline mr-1" />
-            Add Lead
+            <Plus className="w-4 h-4 inline" /> Add Lead
           </button>
         </div>
       </div>
@@ -400,7 +353,7 @@ const leadStats: LeadStats = {
           return (
             <div
               key={i}
-              className="bg-white p-4 border rounded-lg shadow-sm flex items-center gap-3"
+              className="bg-white border p-4 rounded-lg shadow-sm flex items-center gap-3"
             >
               <div className="p-2 bg-gray-100 rounded-lg">
                 <Icon className="w-5 h-5" />
@@ -414,9 +367,8 @@ const leadStats: LeadStats = {
         })}
       </div>
 
-      {/* SEARCH + FILTER */}
+      {/* SEARCH + FILTERS */}
       <div className="bg-white p-4 border rounded-lg shadow-sm flex flex-wrap gap-3 items-center justify-between">
-        {/* Search input */}
         <div className="relative min-w-[250px] flex-1">
           <Search className="absolute left-3 top-2.5 text-gray-400 w-4 h-4" />
           <input
@@ -456,7 +408,7 @@ const leadStats: LeadStats = {
         </div>
       </div>
 
-      {/* LEAD LIST */}
+      {/* LEAD CARDS */}
       <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
         {filteredLeads.map((lead) => (
           <div
@@ -465,33 +417,23 @@ const leadStats: LeadStats = {
           >
             <div className="flex justify-between items-start">
               <div className="flex items-center gap-3">
-                <input
-                  type="checkbox"
-                  checked={selectedLeads.includes(lead.id)}
-                  onChange={(e) => toggleLeadSelection(lead.id, e.target.checked)}
-                />
-
                 <div className="w-10 h-10 bg-red-100 flex items-center justify-center rounded-full">
                   <span className="font-bold text-red-700 text-lg">
-                    {lead.name.charAt(0)}
+                    {lead.name?.charAt(0) || "?"}
                   </span>
                 </div>
 
                 <div>
                   <h2 className="font-semibold text-lg">{lead.name}</h2>
                   <p className="text-gray-500 text-sm flex items-center gap-2">
-                    {getSourceIcon(lead.source)}
-                    {lead.source.replace("_", " ")}
+                    {getSourceIcon(lead.source)} {lead.source}
                   </p>
                 </div>
               </div>
 
               <button
                 className="text-gray-400 hover:text-gray-600"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  handleLeadAction(lead.id, "view");
-                }}
+                onClick={() => handleLeadAction(lead.id, "view")}
               >
                 <Eye className="w-5 h-5" />
               </button>
@@ -501,11 +443,13 @@ const leadStats: LeadStats = {
               <p className="text-sm text-gray-700 flex items-center gap-2">
                 📞 {lead.phone}
               </p>
+
               {lead.email && (
                 <p className="text-sm text-gray-700 flex items-center gap-2">
                   📧 {lead.email}
                 </p>
               )}
+
               {lead.address && (
                 <p className="text-sm text-gray-700 flex items-center gap-2">
                   <MapPin className="w-4 h-4" /> {lead.address}
@@ -519,12 +463,12 @@ const leadStats: LeadStats = {
                   lead.status
                 )}`}
               >
-                {lead.status.replace("_", " ")}
+                {lead.status}
               </span>
 
               <div className="flex gap-2">
                 <button
-                  onClick={() => handleLeadAction(lead.id, "edit")}
+                  onClick={() => openEditLead(lead)}
                   className="p-2 bg-blue-50 text-blue-700 rounded-lg"
                 >
                   <Edit3 className="w-4 h-4" />
@@ -621,7 +565,7 @@ const leadStats: LeadStats = {
         onConfirm={deleteLead}
         onCancel={() => setShowDeleteConfirm(false)}
         title="Delete Lead?"
-        message="Are you sure you want to delete this lead? This cannot be undone."
+        message="This action cannot be undone."
       />
 
       {selectedLead && (
