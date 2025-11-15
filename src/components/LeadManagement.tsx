@@ -132,17 +132,21 @@ const LeadManagement: React.FC = () => {
     }
   }, [statusDropdownOpen]);
 
-  const loadLeads = async () => {
-    if (!profile) return;
+const loadLeads = async () => {
+  if (!profile) return;
 
-    try {
-      const companyLeads = await supabaseService.getLeads(profile.id);
-      setLeads(companyLeads);
-    } catch (error) {
-      console.error("Error loading leads:", error);
-      toast.error("Error loading leads");
-    }
-  };
+  try {
+    const companyLeads = await supabaseService.getLeads(profile.id);
+
+    // 🔥 FIX: guarantee an array
+    const safeLeads = Array.isArray(companyLeads) ? companyLeads : [];
+
+    setLeads(safeLeads);
+  } catch (error) {
+    console.error("Error loading leads:", error);
+    setLeads([]); // 🔥 fallback so .filter NEVER crashes
+  }
+};
 
   const getStatusColor = (status: string) => {
     const colors: Record<string, string> = {
