@@ -1,18 +1,29 @@
-import React, { useCallback, useEffect, useMemo, useState } from "react";
-import { useSupabase } from "../context/SupabaseProvider";
-import { useAuthStore } from "../store/authStore";
-import { useAutoRefetchOnFocus } from "../hooks/useAutoRefetchOnFocus";
-import {
-  LineChart,
-  Line,
-  XAxis,
-  YAxis,
-  Tooltip,
-  CartesianGrid,
-  ResponsiveContainer,
-} from "recharts";
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import { LineChart, Line, XAxis, YAxis, Tooltip, CartesianGrid, ResponsiveContainer } from 'recharts';
+import { useSupabase } from '../context/SupabaseProvider';
+import { useAuthStore } from '../store/authStore';
 
-/* ---------- UI helpers ---------- */
+type MetricsRow = {
+  date: string;
+  visits: number | null;
+  referrals: number | null;
+  earnings: number | null;
+  unpaid_earnings: number | null;
+};
+
+type ReferralRow = {
+  affiliate_id: number;
+  referral_id: string;
+  status: string;
+  amount: number;
+  description: string | null;
+  origin_url: string | null;
+  order_id: string | null;
+  created_at: string;
+};
+
+const rolesManager = new Set(['owner', 'admin', 'manager']);
+
 const Section = ({ title, children }: { title: string; children: React.ReactNode }) => (
   <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6 mb-6">
     <h2 className="text-lg font-bold text-gray-800 mb-4">{title}</h2>
@@ -35,173 +46,133 @@ const Select = (p: React.SelectHTMLAttributes<HTMLSelectElement>) => (
   />
 );
 
-const Btn = ({
-  children,
-  tone = "primary",
-  ...rest
-}: React.ButtonHTMLAttributes<HTMLButtonElement> & { tone?: "primary" | "ghost" }) => {
-  const base = "inline-flex items-center justify-center rounded-md px-3 py-2 text-sm font-medium transition";
-  const style =
-    tone === "primary"
-      ? "bg-blue-600 text-white hover:bg-blue-700"
-      : "bg-gray-100 text-gray-700 hover:bg-gray-200";
-  return (
-    <button {...rest} className={`${base} ${style} ${rest.className || ""}`}>
-      {children}
-    </button>
-  );
-};
-
-/* ---------- utils ---------- */
-const fmtNum = (n: any) => (typeof n === "number" ? n.toLocaleString() : "0");
-const fmtMoney = (n: any) =>
-  typeof n === "number" ? n.toLocaleString(undefined, { style: "currency", currency: "USD" }) : "$0";
+const fmtNum = (n: unknown) => (typeof n === 'number' ? n.toLocaleString() : '0');
+const fmtMoney = (n: unknown) =>
+  typeof n === 'number' ? n.toLocaleString(undefined, { style: 'currency', currency: 'USD' }) : '$0';
 const toISODate = (d: Date) => d.toISOString().slice(0, 10);
-const rolesManager = new Set(["owner", "admin", "manager"]);
 
-/* ---------- types ---------- */
-type MetricsRow = {
-  date: string;
-  visits: number | null;
-  referrals: number | null;
-  earnings: number | null;
-  unpaid_earnings: number | null;
-  affiliatewp_id?: string;
-};
-
-/* ===========================================================
- * AffiliateWP Dashboard
- * =========================================================== */
-export default function Dashboard() {
+const Dashboard: React.FC = () => {
   const { supabase } = useSupabase();
   const { profile } = useAuthStore();
 
   const [range, setRange] = useState<7 | 30 | 90>(30);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
   const [series, setSeries] = useState<MetricsRow[]>([]);
   const [latest, setLatest] = useState<MetricsRow | null>(null);
-  const [affiliateId, setAffiliateId] = useState("");
+  const [referrals, setReferrals] = useState<ReferralRow[]>([]);
 
-  const role = (profile?.user_role || "").toLowerCase();
+  const role = (profile?.user_role || '').toLowerCase();
   const isManager = rolesManager.has(role);
+  const affiliateId = profile?.affiliatewp_id ?? null;
 
-  /* ---------- Loaders ---------- */
-
-  // Get current user's AffiliateWP ID (for rep view)
-  const getAffiliateId = useCallback(async () => {
-    if (!profile?.id) return "";
-    const { data, error } = await supabase
-      .from("affiliates")
-      .select("affiliatewp_id")
-      .eq("user_id", profile.id)
-      .maybeSingle();
-    if (error) {
-      console.warn("Affiliate ID error:", error.message);
-      return "";
-    }
-    return data?.affiliatewp_id || "";
-  }, [supabase, profile?.id]);
-
-  // Metrics for a single affiliate
-  const getMetricsForAffiliate = useCallback(
-    async (id: string, days: number) => {
-      if (!id) return [];
-      const since = toISODate(new Date(Date.now() - days * 86400000));
-      const { data, error } = await supabase
-        .from("affiliate_metrics_daily")
-        .select("date, visits, referrals, earnings, unpaid_earnings")
-        .eq("affiliatewp_id", id)
-        .gte("date", since)
-        .order("date", { ascending: true });
-
-      if (error) throw error;
-      return (data || []) as MetricsRow[];
-    },
-    [supabase]
-  );
-
-  // Metrics across all affiliates (manager view)
-  const getMetricsForAll = useCallback(
-    async (days: number) => {
-      const since = toISODate(new Date(Date.now() - days * 86400000));
-
-      // load all affiliate ids
-      const aff = await supabase.from("affiliates").select("affiliatewp_id");
-      if (aff.error) throw aff.error;
-      const ids = aff.data.map((a: any) => a.affiliatewp_id).filter(Boolean);
-      if (!ids.length) return [];
-
-      const { data, error } = await supabase
-        .from("affiliate_metrics_daily")
-        .select("affiliatewp_id, date, visits, referrals, earnings, unpaid_earnings")
-        .in("affiliatewp_id", ids)
-        .gte("date", since);
-
-      if (error) throw error;
-
-      const map = new Map<string, MetricsRow>();
-      (data || []).forEach((r: MetricsRow) => {
-        const k = r.date;
-        const p = map.get(k) || {
-          date: k,
-          visits: 0,
-          referrals: 0,
-          earnings: 0,
-          unpaid_earnings: 0,
-        };
-        map.set(k, {
-          date: k,
-          visits: (p.visits || 0) + (r.visits || 0),
-          referrals: (p.referrals || 0) + (r.referrals || 0),
-          earnings: (p.earnings || 0) + (r.earnings || 0),
-          unpaid_earnings: (p.unpaid_earnings || 0) + (r.unpaid_earnings || 0),
-        });
-      });
-
-      return Array.from(map.values()).sort((a, b) => (a.date < b.date ? -1 : 1));
-    },
-    [supabase]
-  );
-
-  const load = useCallback(async () => {
+  const loadMetrics = useCallback(async () => {
     try {
       setLoading(true);
       setError(null);
 
+      const since = toISODate(new Date(Date.now() - range * 86400000));
+
       if (isManager) {
-        const team = await getMetricsForAll(range);
-        setSeries(team);
-        setLatest(team.length ? team[team.length - 1] : null);
+        // TEAM VIEW: all affiliates aggregated by date
+        const { data, error } = await supabase
+          .from('affiliate_metrics_daily')
+          .select('date, visits, referrals, earnings, unpaid_earnings')
+          .gte('date', since);
+
+        if (error) throw error;
+
+        const map = new Map<string, MetricsRow>();
+
+        (data || []).forEach((r: any) => {
+          const key = r.date;
+          const prev = map.get(key) || {
+            date: key,
+            visits: 0,
+            referrals: 0,
+            earnings: 0,
+            unpaid_earnings: 0,
+          };
+
+          map.set(key, {
+            date: key,
+            visits: (prev.visits || 0) + (r.visits || 0),
+            referrals: (prev.referrals || 0) + (r.referrals || 0),
+            earnings: (prev.earnings || 0) + (r.earnings || 0),
+            unpaid_earnings: (prev.unpaid_earnings || 0) + (r.unpaid_earnings || 0),
+          });
+        });
+
+        const rows = Array.from(map.values()).sort((a, b) => (a.date < b.date ? -1 : 1));
+        setSeries(rows);
+        setLatest(rows.length ? rows[rows.length - 1] : null);
       } else {
-        const id = await getAffiliateId();
-        setAffiliateId(id);
-        const mine = await getMetricsForAffiliate(id, range);
-        setSeries(mine);
-        setLatest(mine.length ? mine[mine.length - 1] : null);
+        if (!affiliateId) {
+          setSeries([]);
+          setLatest(null);
+          return;
+        }
+
+        const { data, error } = await supabase
+          .from('affiliate_metrics_daily')
+          .select('date, visits, referrals, earnings, unpaid_earnings')
+          .eq('affiliate_id', affiliateId)
+          .gte('date', since)
+          .order('date', { ascending: true });
+
+        if (error) throw error;
+
+        const rows = (data || []) as MetricsRow[];
+        setSeries(rows);
+        setLatest(rows.length ? rows[rows.length - 1] : null);
       }
     } catch (e: any) {
-      console.error(e);
-      setError(e.message || "Failed to load metrics");
+      console.error('[Dashboard] metrics error', e);
+      setError(e.message || 'Failed to load metrics');
       setSeries([]);
       setLatest(null);
     } finally {
       setLoading(false);
     }
-  }, [isManager, range, getAffiliateId, getMetricsForAffiliate, getMetricsForAll]);
+  }, [supabase, isManager, affiliateId, range]);
+
+  const loadReferrals = useCallback(async () => {
+    try {
+      if (!isManager && !affiliateId) {
+        setReferrals([]);
+        return;
+      }
+
+      const query = supabase
+        .from('affiliate_referrals')
+        .select('affiliate_id, referral_id, status, amount, description, origin_url, order_id, created_at')
+        .order('created_at', { ascending: false })
+        .limit(10);
+
+      const { data, error } = isManager ? await query : await query.eq('affiliate_id', affiliateId as number);
+
+      if (error) throw error;
+      setReferrals((data || []) as ReferralRow[]);
+    } catch (e) {
+      console.error('[Dashboard] referrals error', e);
+      // don't hard fail dashboard if referrals fail
+    }
+  }, [supabase, isManager, affiliateId]);
+
+  const loadAll = useCallback(async () => {
+    await Promise.all([loadMetrics(), loadReferrals()]);
+  }, [loadMetrics, loadReferrals]);
 
   useEffect(() => {
-    load();
-  }, [load]);
+    loadAll();
+  }, [loadAll]);
 
-  useAutoRefetchOnFocus(load);
-
-  /* ---------- Derived totals ---------- */
   const totals = useMemo(() => {
-    let visits = 0,
-      refs = 0,
-      earn = 0,
-      unpaid = 0;
+    let visits = 0;
+    let refs = 0;
+    let earn = 0;
+    let unpaid = 0;
 
     series.forEach((r) => {
       visits += r.visits || 0;
@@ -214,15 +185,17 @@ export default function Dashboard() {
     return { visits, refs, earn, unpaid, conv };
   }, [series]);
 
-  /* ---------- UI ---------- */
   if (error) {
     return (
       <div className="p-6">
         <h1 className="text-xl font-bold text-red-600 mb-2">Error loading dashboard</h1>
         <p className="text-gray-700">{error}</p>
-        <Btn tone="ghost" onClick={load} className="mt-3">
+        <button
+          onClick={loadAll}
+          className="mt-3 inline-flex items-center rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700"
+        >
           Retry
-        </Btn>
+        </button>
       </div>
     );
   }
@@ -233,27 +206,27 @@ export default function Dashboard() {
       <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">
-            {isManager ? "Team Dashboard" : "My Dashboard"}
+            {isManager ? 'Team Dashboard' : 'My Affiliate Dashboard'}
           </h1>
-          <p className="text-gray-600">
+          <p className="text-gray-600 text-sm">
             {isManager
-              ? "All affiliates (team totals) synced from AffiliateWP."
-              : "Your personal AffiliateWP performance."}
+              ? 'AffiliateWP performance across your entire team.'
+              : 'Your AffiliateWP visits, referrals, and commissions.'}
           </p>
         </div>
         <div className="flex items-center gap-2">
           <label className="text-sm text-gray-600">Range</label>
-          <Select
-            value={String(range)}
-            onChange={(e) => setRange(Number(e.target.value) as 7 | 30 | 90)}
-          >
+          <Select value={String(range)} onChange={(e) => setRange(Number(e.target.value) as 7 | 30 | 90)}>
             <option value="7">Last 7 days</option>
             <option value="30">Last 30 days</option>
             <option value="90">Last 90 days</option>
           </Select>
-          <Btn tone="ghost" onClick={load}>
+          <button
+            onClick={loadAll}
+            className="inline-flex items-center rounded-md bg-gray-100 px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-200"
+          >
             Refresh
-          </Btn>
+          </button>
         </div>
       </div>
 
@@ -269,24 +242,18 @@ export default function Dashboard() {
       {/* Earnings chart */}
       <Section title="Earnings Over Time">
         {loading ? (
-          <p className="text-gray-500">Loading chart…</p>
+          <p className="text-gray-500 text-sm">Loading chart…</p>
         ) : series.length === 0 ? (
-          <p className="text-gray-500">No data for this range.</p>
+          <p className="text-gray-500 text-sm">No data for this range yet.</p>
         ) : (
-          <div style={{ width: "100%", height: 320 }}>
+          <div style={{ width: '100%', height: 320 }}>
             <ResponsiveContainer>
               <LineChart data={series}>
                 <CartesianGrid stroke="#eee" strokeDasharray="3 3" />
                 <XAxis dataKey="date" stroke="#888" />
                 <YAxis stroke="#888" />
                 <Tooltip />
-                <Line
-                  type="monotone"
-                  dataKey="earnings"
-                  stroke="#3b82f6"
-                  strokeWidth={2}
-                  dot={false}
-                />
+                <Line type="monotone" dataKey="earnings" stroke="#3b82f6" strokeWidth={2} dot={false} />
               </LineChart>
             </ResponsiveContainer>
           </div>
@@ -296,7 +263,7 @@ export default function Dashboard() {
       {/* Latest day snapshot */}
       <Section title="Most Recent Day">
         {loading ? (
-          <p className="text-gray-500">Loading…</p>
+          <p className="text-gray-500 text-sm">Loading…</p>
         ) : latest ? (
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
@@ -321,21 +288,62 @@ export default function Dashboard() {
             </table>
           </div>
         ) : (
-          <p className="text-gray-500">No data available.</p>
+          <p className="text-gray-500 text-sm">No recent day metrics yet.</p>
         )}
       </Section>
 
-      {/* Rep quick link */}
-      {!isManager && affiliateId && (
+      {/* Recent referrals */}
+      <Section title="Recent Referrals">
+        {referrals.length === 0 ? (
+          <p className="text-gray-500 text-sm">No recent referrals to display.</p>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead className="bg-gray-50 border-b">
+                <tr>
+                  <th className="p-2 text-left">Date</th>
+                  <th className="p-2 text-left">Referral ID</th>
+                  <th className="p-2 text-left">Status</th>
+                  <th className="p-2 text-left">Amount</th>
+                  <th className="p-2 text-left">Description</th>
+                  <th className="p-2 text-left">Order</th>
+                </tr>
+              </thead>
+              <tbody>
+                {referrals.map((r) => (
+                  <tr key={r.referral_id + r.created_at} className="border-b">
+                    <td className="p-2">
+                      {new Date(r.created_at).toLocaleDateString(undefined, {
+                        month: 'short',
+                        day: 'numeric',
+                      })}
+                    </td>
+                    <td className="p-2">{r.referral_id}</td>
+                    <td className="p-2 capitalize">{r.status}</td>
+                    <td className="p-2">{fmtMoney(r.amount)}</td>
+                    <td className="p-2 max-w-xs truncate">{r.description || '-'}</td>
+                    <td className="p-2">{r.order_id || '-'}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </Section>
+
+      {/* Rep affiliate link */}
+      {!isManager && affiliateId && profile?.affiliate_referral_url && (
         <Section title="My Affiliate Link">
-          <p className="text-sm text-gray-600 mb-2">Share your referral link for credit.</p>
+          <p className="text-sm text-gray-600 mb-2">
+            Share this link to get credit for new sales through AffiliateWP.
+          </p>
           <div className="bg-gray-50 border border-gray-200 rounded-lg p-3">
-            <code className="text-sm break-all">
-              {`https://bluecollaracademy.info/signup?ref=${affiliateId}`}
-            </code>
+            <code className="text-sm break-all">{profile.affiliate_referral_url}</code>
           </div>
         </Section>
       )}
     </div>
   );
-}
+};
+
+export default Dashboard;
