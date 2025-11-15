@@ -22,27 +22,34 @@ const Sidebar: React.FC = () => {
     return (parts[0].charAt(0) + parts[1].charAt(0)).toUpperCase();
   };
 
-  const getUserDisplay = () => {
-    if (!profile) {
-      return {
-        name: 'Blue Collar Academy',
-        plan: 'Sales Portal',
-        initials: 'BCA',
-      };
-    }
-
-    const displayName = profile.full_name || profile.company_name || 'Sales Rep';
-    let planLabel = 'Sales Portal';
-
-    if (profile.subscription_plan === 'enterprise') planLabel = 'Enterprise Plan';
-    else if (profile.subscription_plan === 'professional') planLabel = 'Professional Plan';
-
+ const getUserDisplay = () => {
+  if (!profile) {
     return {
-      name: displayName,
-      plan: planLabel,
-      initials: getInitials(displayName),
+      name: 'Blue Collar Academy',
+      plan: 'Sales Portal',
+      initials: 'BCA',
     };
+  }
+
+  const displayName = profile.full_name || profile.company_name || 'Sales Rep';
+
+  // Role-based badge (BOTTOM LEFT CORNER)
+  let roleLabel = 'Sales Rep';
+
+  if (
+    profile.user_role?.toLowerCase() === 'manager' ||
+    profile.user_role?.toLowerCase() === 'admin' ||
+    profile.user_role?.toLowerCase() === 'owner'
+  ) {
+    roleLabel = 'Manager';
+  }
+
+  return {
+    name: displayName,
+    plan: roleLabel,
+    initials: getInitials(displayName),
   };
+};
 
   const userDisplay = getUserDisplay();
 
