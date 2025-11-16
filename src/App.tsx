@@ -59,4 +59,68 @@ const App: React.FC = () => {
             <Route
               path="/dashboard"
               element={
-                <ProtectedRout
+                <ProtectedRoute>
+                  <Dashboard />
+                </ProtectedRoute>
+              }
+            />
+
+            <Route
+              path="/sales-tools"
+              element={
+                <ProtectedRoute>
+                  <SalesTools />
+                </ProtectedRoute>
+              }
+            />
+
+            <Route
+              path="/leads"
+              element={
+                <ProtectedRoute>
+                  <LeadManagement />
+                </ProtectedRoute>
+              }
+            />
+
+            <Route
+              path="/team"
+              element={
+                <ProtectedRoute>
+                  <TeamManagement />
+                </ProtectedRoute>
+              }
+            />
+
+            <Route
+              path="/commissions"
+              element={
+                <ProtectedRoute>
+                  <CommissionsTracker />
+                </ProtectedRoute>
+              }
+            />
+
+            <Route
+              path="/settings"
+              element={
+                <ProtectedRoute>
+                  <Settings />
+                </ProtectedRoute>
+              }
+            />
+
+            {/* DEFAULT REDIRECT */}
+            <Route path="/" element={<Navigate to="/dashboard" replace />} />
+
+            {/* CATCH-ALL */}
+            <Route path="*" element={<Navigate to="/dashboard" replace />} />
+
+          </Routes>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+export default App;
