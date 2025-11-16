@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import {
   Search,
   Plus,
@@ -10,20 +10,36 @@ import {
   Phone,
   Mail,
   Trophy,
-  X,
-  CheckCircle,
+  Users,
   AlertCircle,
-  Users
+  CheckCircle,
 } from "lucide-react";
-import { supabaseService, type Lead } from "../lib/supabaseService";
 import { useAuthStore } from "../store/authStore";
+import { supabaseService } from "../lib/supabaseService";
 import LoadingSpinner from "./LoadingSpinner";
 import BaseModal from "./modals/BaseModal";
 import ConfirmationModal from "./modals/ConfirmationModal";
 import LeadDetailsModal from "./modals/LeadDetailsModal";
 import ImportLeadsModal from "./modals/ImportLeadsModal";
-import BulkActionsModal from "./modals/BulkActionsModal";
 import toast from "react-hot-toast";
+
+// Local Lead shape — kept generic so it works with your current table
+export interface Lead {
+  id: string;
+  user_id?: string;
+  company_id?: string;
+  name?: string | null;
+  email?: string | null;
+  phone?: string | null;
+  address?: string | null;
+  status?: "new" | "contacted" | "qualified" | "won" | "lost" | string | null;
+  source?: string | null;
+  score?: number | null;
+  notes?: string | null;
+  created_at?: string | null;
+}
+
+type StatusFilter = "all" | "new" | "contacted" | "qualified" | "won" | "lost";
 
 interface LeadStats {
   total: number;
@@ -37,22 +53,27 @@ interface LeadStats {
 
 const LeadManagement: React.FC = () => {
   const { profile } = useAuthStore();
+
   const [leads, setLeads] = useState<Lead[]>([]);
   const [loading, setLoading] = useState(true);
+
   const [searchTerm, setSearchTerm] = useState("");
-  const [filterStatus, setFilterStatus] = useState<"all" | Lead["status"]>("all");
-  const [filterSource, setFilterSource] = useState<string>("all");
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
+  const [sourceFilter, setSourceFilter] = useState<string>("all");
+
   const [selectedLeads, setSelectedLeads] = useState<string[]>([]);
-  const [showAddModal, setShowAddModal] = useState(false);
-  const [showEditModal, setShowEditModal] = useState(false);
+
+  const [showFormModal, setShowFormModal] = useState(false);
   const [editingLead, setEditingLead] = useState<Lead | null>(null);
+  const [saving, setSaving] = useState(false);
+
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [leadToDelete, setLeadToDelete] = useState<Lead | null>(null);
+
   const [showDetailsModal, setShowDetailsModal] = useState(false);
-  const [selectedLead, setSelectedLead] = useState<Lead | null>(null);
+  const [detailsLead, setDetailsLead] = useState<Lead | null>(null);
+
   const [showImportModal, setShowImportModal] = useState(false);
-  const [showBulkModal, setShowBulkModal] = useState(false);
-  const [saving, setSaving] = useState(false);
 
   const [formData, setFormData] = useState<Partial<Lead>>({
     name: "",
@@ -61,19 +82,37 @@ const LeadManagement: React.FC = () => {
     address: "",
     status: "new",
     source: "manual",
-    score: 50,
+    score: 60,
     notes: "",
   });
 
+  // ------------------------------------------
+  // LOAD LEADS (never hangs, always sets loading=false)
+  // ------------------------------------------
   useEffect(() => {
-    if (!profile?.company_id) return;
-
     const load = async () => {
+      // If there is no profile yet, just stop loading so UI doesn't spin forever
+      if (!profile) {
+        console.log("[LeadManagement] No profile, skipping load.");
+        setLoading(false);
+        return;
+      }
+
+      const ownerId = (profile as any).company_id || profile.id;
+
+      if (!ownerId) {
+        console.log("[LeadManagement] No owner id (company_id or id).");
+        setLoading(false);
+        return;
+      }
+
       try {
-        const result = await supabaseService.getLeads(profile.company_id!);
-        setLeads(Array.isArray(result) ? result : []);
+        console.log("[LeadManagement] Fetching leads for owner:", ownerId);
+        const result = await supabaseService.getLeads(ownerId as string);
+        const safe = Array.isArray(result) ? (result as Lead[]) : [];
+        setLeads(safe);
       } catch (err) {
-        console.error("Error loading leads:", err);
+        console.error("[LeadManagement] Error loading leads:", err);
         toast.error("Error loading leads");
       } finally {
         setLoading(false);
@@ -81,62 +120,99 @@ const LeadManagement: React.FC = () => {
     };
 
     load();
-  }, [profile?.company_id]);
+  }, [profile]);
 
   // ------------------------------------------
-  // SAFE LEADS ARRAY
+  // SAFE LEADS
   // ------------------------------------------
-  const safeLeads: Lead[] = Array.isArray(leads) ? leads : [];
+  const safeLeads: Lead[] = useMemo(
+    () => (Array.isArray(leads) ? leads : []),
+    [leads]
+  );
 
   // ------------------------------------------
   // STATS
   // ------------------------------------------
-  const leadStats: LeadStats = {
-    total: safeLeads.length,
-    new: safeLeads.filter((l) => l.status === "new").length,
-    contacted: safeLeads.filter((l) => l.status === "contacted").length,
-    qualified: safeLeads.filter((l) => l.status === "qualified").length,
-    won: safeLeads.filter((l) => l.status === "won").length,
-    lost: safeLeads.filter((l) => l.status === "lost").length,
-    avgScore:
-      safeLeads.length === 0
-        ? 0
-        : Math.round(
-            safeLeads.reduce((sum, l) => sum + (l.score || 0), 0) /
-              safeLeads.length
-          ),
-  };
+  const stats: LeadStats = useMemo(() => {
+    if (!safeLeads.length) {
+      return {
+        total: 0,
+        new: 0,
+        contacted: 0,
+        qualified: 0,
+        won: 0,
+        lost: 0,
+        avgScore: 0,
+      };
+    }
+
+    const total = safeLeads.length;
+    const byStatus = {
+      new: 0,
+      contacted: 0,
+      qualified: 0,
+      won: 0,
+      lost: 0,
+    };
+
+    let scoreSum = 0;
+
+    safeLeads.forEach((lead) => {
+      const status = (lead.status || "new") as StatusFilter;
+      if (status in byStatus) {
+        // @ts-ignore
+        byStatus[status] += 1;
+      }
+      scoreSum += lead.score ?? 0;
+    });
+
+    return {
+      total,
+      new: byStatus.new,
+      contacted: byStatus.contacted,
+      qualified: byStatus.qualified,
+      won: byStatus.won,
+      lost: byStatus.lost,
+      avgScore: Math.round(scoreSum / total),
+    };
+  }, [safeLeads]);
 
   // ------------------------------------------
   // FILTERED LEADS
   // ------------------------------------------
-  const filteredLeads = safeLeads.filter((lead) => {
-    const search = searchTerm.toLowerCase();
+  const filteredLeads = useMemo(() => {
+    const term = searchTerm.toLowerCase();
 
-    const name = (lead.name || "").toLowerCase();
-    const phone = lead.phone || "";
-    const email = (lead.email || "").toLowerCase();
-    const address = (lead.address || "").toLowerCase();
+    return safeLeads.filter((lead) => {
+      const name = (lead.name || "").toLowerCase();
+      const phone = lead.phone || "";
+      const email = (lead.email || "").toLowerCase();
+      const address = (lead.address || "").toLowerCase();
+      const status = (lead.status || "").toLowerCase();
+      const source = (lead.source || "").toLowerCase();
 
-    const matchesSearch =
-      name.includes(search) ||
-      phone.includes(searchTerm) ||
-      email.includes(search) ||
-      address.includes(search);
+      const matchesSearch =
+        !term ||
+        name.includes(term) ||
+        phone.includes(searchTerm) ||
+        email.includes(term) ||
+        address.includes(term);
 
-    const matchesStatus = filterStatus === "all" || lead.status === filterStatus;
-    const matchesSource = filterSource === "all" || lead.source === filterSource;
+      const matchesStatus =
+        statusFilter === "all" || status === statusFilter.toLowerCase();
 
-    return matchesSearch && matchesStatus && matchesSource;
-  });
+      const matchesSource =
+        sourceFilter === "all" || source === sourceFilter.toLowerCase();
 
-  const toggleLeadSelection = (id: string) => {
-    setSelectedLeads((prev) =>
-      prev.includes(id) ? prev.filter((leadId) => leadId !== id) : [...prev, id]
-    );
-  };
+      return matchesSearch && matchesStatus && matchesSource;
+    });
+  }, [safeLeads, searchTerm, statusFilter, sourceFilter]);
 
+  // ------------------------------------------
+  // FORM HELPERS
+  // ------------------------------------------
   const openAddLead = () => {
+    setEditingLead(null);
     setFormData({
       name: "",
       email: "",
@@ -144,11 +220,10 @@ const LeadManagement: React.FC = () => {
       address: "",
       status: "new",
       source: "manual",
-      score: 50,
+      score: 60,
       notes: "",
     });
-    setEditingLead(null);
-    setShowAddModal(true);
+    setShowFormModal(true);
   };
 
   const openEditLead = (lead: Lead) => {
@@ -158,82 +233,87 @@ const LeadManagement: React.FC = () => {
       email: lead.email || "",
       phone: lead.phone || "",
       address: lead.address || "",
-      status: lead.status || "new",
+      status: (lead.status as any) || "new",
       source: lead.source || "manual",
-      score: lead.score || 50,
+      score: lead.score ?? 60,
       notes: lead.notes || "",
     });
-    setShowEditModal(true);
+    setShowFormModal(true);
   };
 
   const handleFormChange = (
-    e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>
+    e: React.ChangeEvent<
+      HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement
+    >
   ) => {
     const { name, value } = e.target;
-    setFormData((prev) => ({ ...prev, [name]: value }));
+    setFormData((prev) => ({
+      ...prev,
+      [name]:
+        name === "score"
+          ? Number(value)
+          : (value as string),
+    }));
   };
 
   const saveLead = async () => {
-    if (!profile?.company_id) return;
+    if (!profile) {
+      toast.error("No profile loaded.");
+      return;
+    }
+
+    const ownerId = (profile as any).company_id || profile.id;
+
+    if (!ownerId) {
+      toast.error("Missing owner id.");
+      return;
+    }
+
+    const payload: any = {
+      ...formData,
+      // These lines won’t break if your schema only uses one of them:
+      company_id: (profile as any).company_id ?? null,
+      user_id: profile.id,
+    };
 
     setSaving(true);
     try {
       if (editingLead) {
-        const { data, error } = await supabaseService.updateLead(editingLead.id, {
-          ...formData,
-          company_id: profile.company_id,
-        });
-
-        if (error) throw error;
-
-        const updated = data as Lead;
-        setLeads((prev) =>
-          prev.map((l) => (l.id === updated.id ? updated : l))
+        const { data, error } = await supabaseService.updateLead(
+          editingLead.id,
+          payload
         );
 
+        if (error) throw error;
+        const updated = Array.isArray(data) ? data[0] : data;
+
+        setLeads((prev) =>
+          prev.map((l) => (l.id === editingLead.id ? (updated as Lead) : l))
+        );
         toast.success("Lead updated");
-        setShowEditModal(false);
       } else {
-        const { data, error } = await supabaseService.createLead({
-          ...formData,
-          company_id: profile.company_id,
-        });
+        const { data, error } = await supabaseService.createLead(payload);
 
         if (error) throw error;
+        const created = Array.isArray(data) ? data[0] : data;
 
-        const created = data as Lead;
-        setLeads((prev) => [created, ...prev]);
-
+        setLeads((prev) => [(created as Lead), ...prev]);
         toast.success("Lead created");
-        setShowAddModal(false);
       }
+
+      setShowFormModal(false);
+      setEditingLead(null);
     } catch (err) {
-      console.error("Error saving lead:", err);
+      console.error("[LeadManagement] saveLead error:", err);
       toast.error("Error saving lead");
     } finally {
       setSaving(false);
     }
   };
 
-  const handleLeadAction = (id: string, action: string) => {
-    const lead = safeLeads.find((l) => l.id === id);
-    if (!lead) return;
-
-    switch (action) {
-      case "view":
-        setSelectedLead(lead);
-        setShowDetailsModal(true);
-        break;
-      case "edit":
-        openEditLead(lead);
-        break;
-      case "delete":
-        setLeadToDelete(lead);
-        setShowDeleteConfirm(true);
-        break;
-      default:
-        break;
-    }
+  const confirmDeleteLead = (lead: Lead) => {
+    setLeadToDelete(lead);
+    setShowDeleteConfirm(true);
   };
 
   const deleteLead = async () => {
@@ -242,9 +322,9 @@ const LeadManagement: React.FC = () => {
     try {
       await supabaseService.deleteLead(leadToDelete.id);
       setLeads((prev) => prev.filter((l) => l.id !== leadToDelete.id));
-
       toast.success("Lead deleted");
     } catch (err) {
+      console.error("[LeadManagement] deleteLead error:", err);
       toast.error("Error deleting lead");
     } finally {
       setShowDeleteConfirm(false);
@@ -252,11 +332,20 @@ const LeadManagement: React.FC = () => {
     }
   };
 
-  const handleBulkAction = async (action: string, data?: any) => {
-    // You can flesh this out later (assign/tag/email), but for now it’s safe/no-op.
-    console.log("Bulk action triggered:", action, data);
+  const toggleSelectLead = (id: string) => {
+    setSelectedLeads((prev) =>
+      prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]
+    );
   };
 
+  const openDetails = (lead: Lead) => {
+    setDetailsLead(lead);
+    setShowDetailsModal(true);
+  };
+
+  // ------------------------------------------
+  // RENDER
+  // ------------------------------------------
   if (loading) {
     return (
       <LoadingSpinner
@@ -270,21 +359,28 @@ const LeadManagement: React.FC = () => {
   return (
     <div className="space-y-6">
       {/* HEADER */}
-      <div className="flex justify-between items-center">
-        <h1 className="text-3xl font-bold">Lead Management</h1>
+      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
+        <div>
+          <h1 className="text-2xl md:text-3xl font-bold text-gray-900 flex items-center gap-2">
+            <Users className="w-7 h-7 text-blue-600" />
+            Lead Management
+          </h1>
+          <p className="text-gray-600 text-sm md:text-base">
+            Track every homeowner, follow-up, and deal in your roofing CRM pipeline.
+          </p>
+        </div>
 
-        <div className="flex gap-3">
+        <div className="flex flex-wrap gap-2">
           <button
-            className="bg-gray-100 px-4 py-2 rounded-lg hover:bg-gray-200 flex items-center gap-2"
             onClick={() => setShowImportModal(true)}
+            className="inline-flex items-center gap-2 px-3 py-2 text-sm font-medium border border-gray-300 rounded-lg hover:bg-gray-50"
           >
             <Upload className="w-4 h-4" />
-            Import Leads
+            Import CSV
           </button>
-
           <button
-            className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 flex items-center gap-2"
             onClick={openAddLead}
+            className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-lg bg-blue-600 text-white hover:bg-blue-700"
           >
             <Plus className="w-4 h-4" />
             Add Lead
@@ -299,7 +395,7 @@ const LeadManagement: React.FC = () => {
             <span className="text-xs text-gray-500">Total Leads</span>
             <Users className="w-4 h-4 text-gray-400" />
           </div>
-          <div className="mt-2 text-xl font-bold">{leadStats.total}</div>
+          <div className="mt-2 text-xl font-bold">{stats.total}</div>
         </div>
 
         <div className="bg-white border rounded-lg p-3 shadow-sm">
@@ -308,7 +404,7 @@ const LeadManagement: React.FC = () => {
             <Plus className="w-4 h-4 text-blue-400" />
           </div>
           <div className="mt-2 text-xl font-bold text-blue-700">
-            {leadStats.new}
+            {stats.new}
           </div>
         </div>
 
@@ -318,7 +414,7 @@ const LeadManagement: React.FC = () => {
             <Phone className="w-4 h-4 text-amber-400" />
           </div>
           <div className="mt-2 text-xl font-bold text-amber-700">
-            {leadStats.contacted}
+            {stats.contacted}
           </div>
         </div>
 
@@ -328,7 +424,7 @@ const LeadManagement: React.FC = () => {
             <CheckCircle className="w-4 h-4 text-emerald-400" />
           </div>
           <div className="mt-2 text-xl font-bold text-emerald-700">
-            {leadStats.qualified}
+            {stats.qualified}
           </div>
         </div>
 
@@ -338,7 +434,7 @@ const LeadManagement: React.FC = () => {
             <Trophy className="w-4 h-4 text-green-500" />
           </div>
           <div className="mt-2 text-xl font-bold text-green-700">
-            {leadStats.won}
+            {stats.won}
           </div>
         </div>
 
@@ -348,29 +444,29 @@ const LeadManagement: React.FC = () => {
             <AlertCircle className="w-4 h-4 text-red-400" />
           </div>
           <div className="mt-2 text-xl font-bold text-red-700">
-            {leadStats.lost}
+            {stats.lost}
           </div>
         </div>
       </div>
 
       {/* FILTER BAR */}
       <div className="bg-white border rounded-lg p-3 shadow-sm flex flex-col md:flex-row gap-3 md:items-center md:justify-between">
-        <div className="flex items-center gap-2 flex-1">
+        <div className="flex items-center gap-2 flex-1 border border-gray-200 rounded-lg px-3 py-1.5 bg-gray-50">
           <Search className="w-4 h-4 text-gray-400" />
           <input
             type="text"
-            placeholder="Search leads..."
+            placeholder="Search by name, phone, email, or address..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            className="w-full border-none outline-none text-sm"
+            className="w-full border-none outline-none text-sm bg-transparent"
           />
         </div>
 
         <div className="flex gap-2 flex-wrap">
           <select
-            value={filterStatus}
+            value={statusFilter}
             onChange={(e) =>
-              setFilterStatus(e.target.value as any)
+              setStatusFilter(e.target.value as StatusFilter)
             }
             className="border rounded-lg px-3 py-1.5 text-sm"
           >
@@ -383,8 +479,8 @@ const LeadManagement: React.FC = () => {
           </select>
 
           <select
-            value={filterSource}
-            onChange={(e) => setFilterSource(e.target.value)}
+            value={sourceFilter}
+            onChange={(e) => setSourceFilter(e.target.value)}
             className="border rounded-lg px-3 py-1.5 text-sm"
           >
             <option value="all">All Sources</option>
@@ -394,30 +490,20 @@ const LeadManagement: React.FC = () => {
             <option value="google_ads">Google Ads</option>
             <option value="referral">Referral</option>
           </select>
-
-          {selectedLeads.length > 0 && (
-            <button
-              className="border border-blue-200 text-blue-700 px-3 py-1.5 rounded-lg text-sm flex items-center gap-2"
-              onClick={() => setShowBulkModal(true)}
-            >
-              <Users className="w-4 h-4" />
-              Bulk actions ({selectedLeads.length})
-            </button>
-          )}
         </div>
       </div>
 
       {/* LEADS TABLE */}
       <div className="bg-white border rounded-lg shadow-sm overflow-hidden">
         <div className="overflow-x-auto">
-          <table className="min-w-full text-sm">
+          <table className="min-w-full text-xs sm:text-sm">
             <thead className="bg-gray-50 border-b">
               <tr>
                 <th className="px-3 py-2">
                   <input
                     type="checkbox"
                     checked={
-                      selectedLeads.length > 0 &&
+                      filteredLeads.length > 0 &&
                       selectedLeads.length === filteredLeads.length
                     }
                     onChange={(e) =>
@@ -427,25 +513,25 @@ const LeadManagement: React.FC = () => {
                     }
                   />
                 </th>
-                <th className="px-3 py-2 text-left text-xs font-semibold text-gray-500">
+                <th className="px-3 py-2 text-left font-semibold text-gray-500">
                   Lead
                 </th>
-                <th className="px-3 py-2 text-left text-xs font-semibold text-gray-500">
+                <th className="px-3 py-2 text-left font-semibold text-gray-500">
                   Contact
                 </th>
-                <th className="px-3 py-2 text-left text-xs font-semibold text-gray-500">
+                <th className="px-3 py-2 text-left font-semibold text-gray-500">
                   Address
                 </th>
-                <th className="px-3 py-2 text-left text-xs font-semibold text-gray-500">
+                <th className="px-3 py-2 text-left font-semibold text-gray-500">
                   Status
                 </th>
-                <th className="px-3 py-2 text-left text-xs font-semibold text-gray-500">
+                <th className="px-3 py-2 text-left font-semibold text-gray-500">
                   Source
                 </th>
-                <th className="px-3 py-2 text-right text-xs font-semibold text-gray-500">
+                <th className="px-3 py-2 text-right font-semibold text-gray-500">
                   Score
                 </th>
-                <th className="px-3 py-2 text-right text-xs font-semibold text-gray-500">
+                <th className="px-3 py-2 text-right font-semibold text-gray-500">
                   Actions
                 </th>
               </tr>
@@ -457,116 +543,125 @@ const LeadManagement: React.FC = () => {
                     colSpan={8}
                     className="px-4 py-8 text-center text-gray-500 text-sm"
                   >
-                    No leads found. Try adjusting your filters or import a CSV.
+                    No leads found. Try adjusting filters or importing from CSV.
                   </td>
                 </tr>
               ) : (
-                filteredLeads.map((lead) => (
-                  <tr
-                    key={lead.id}
-                    className="border-b last:border-0 hover:bg-gray-50"
-                  >
-                    <td className="px-3 py-2">
-                      <input
-                        type="checkbox"
-                        checked={selectedLeads.includes(lead.id)}
-                        onChange={() => toggleLeadSelection(lead.id)}
-                      />
-                    </td>
-                    <td className="px-3 py-2">
-                      <div className="font-medium text-gray-900">
-                        {lead.name || "Unnamed Lead"}
-                      </div>
-                      <div className="text-xs text-gray-500">
-                        {lead.company || "Residential"}
-                      </div>
-                    </td>
-                    <td className="px-3 py-2">
-                      <div className="flex flex-col text-xs gap-1">
-                        {lead.phone && (
-                          <div className="flex items-center gap-1 text-gray-700">
-                            <Phone className="w-3 h-3" />
-                            <span>{lead.phone}</span>
-                          </div>
-                        )}
-                        {lead.email && (
-                          <div className="flex items-center gap-1 text-gray-700">
-                            <Mail className="w-3 h-3" />
-                            <span>{lead.email}</span>
-                          </div>
-                        )}
-                      </div>
-                    </td>
-                    <td className="px-3 py-2 text-xs text-gray-700">
-                      <div className="flex items-start gap-1">
-                        <MapPin className="w-3 h-3 mt-0.5 text-gray-400" />
-                        <span>{lead.address || "N/A"}</span>
-                      </div>
-                    </td>
-                    <td className="px-3 py-2 text-xs">
-                      <span
-                        className={`inline-flex items-center px-2 py-1 rounded-full ${
-                          lead.status === "new"
-                            ? "bg-blue-50 text-blue-700"
-                            : lead.status === "contacted"
-                            ? "bg-amber-50 text-amber-700"
-                            : lead.status === "qualified"
-                            ? "bg-emerald-50 text-emerald-700"
-                            : lead.status === "won"
-                            ? "bg-green-50 text-green-700"
-                            : "bg-red-50 text-red-700"
-                        }`}
-                      >
-                        {lead.status || "new"}
-                      </span>
-                    </td>
-                    <td className="px-3 py-2 text-xs text-gray-700">
-                      {lead.source || "manual"}
-                    </td>
-                    <td className="px-3 py-2 text-right text-xs">
-                      <span className="inline-flex items-center gap-1">
-                        <Trophy className="w-3 h-3 text-yellow-500" />
-                        <span className="font-semibold">
-                          {lead.score ?? 0}
+                filteredLeads.map((lead) => {
+                  const name = lead.name || "Unnamed Lead";
+                  const company = "Residential";
+                  const phone = lead.phone || "";
+                  const email = lead.email || "";
+                  const address = lead.address || "";
+                  const status = (lead.status || "new").toString();
+                  const source = (lead.source || "manual").toString();
+                  const score = lead.score ?? 0;
+
+                  return (
+                    <tr
+                      key={lead.id}
+                      className="border-b last:border-0 hover:bg-gray-50"
+                    >
+                      <td className="px-3 py-2">
+                        <input
+                          type="checkbox"
+                          checked={selectedLeads.includes(lead.id)}
+                          onChange={() => toggleSelectLead(lead.id)}
+                        />
+                      </td>
+                      <td className="px-3 py-2">
+                        <div className="font-medium text-gray-900">
+                          {name}
+                        </div>
+                        <div className="text-[11px] text-gray-500">
+                          {company}
+                        </div>
+                      </td>
+                      <td className="px-3 py-2">
+                        <div className="flex flex-col gap-1 text-xs">
+                          {phone && (
+                            <div className="flex items-center gap-1 text-gray-700">
+                              <Phone className="w-3 h-3" />
+                              <span>{phone}</span>
+                            </div>
+                          )}
+                          {email && (
+                            <div className="flex items-center gap-1 text-gray-700">
+                              <Mail className="w-3 h-3" />
+                              <span>{email}</span>
+                            </div>
+                          )}
+                        </div>
+                      </td>
+                      <td className="px-3 py-2 text-xs text-gray-700">
+                        <div className="flex items-start gap-1">
+                          <MapPin className="w-3 h-3 mt-0.5 text-gray-400" />
+                          <span>{address || "N/A"}</span>
+                        </div>
+                      </td>
+                      <td className="px-3 py-2 text-xs">
+                        <span
+                          className={`inline-flex items-center px-2 py-1 rounded-full ${
+                            status === "new"
+                              ? "bg-blue-50 text-blue-700"
+                              : status === "contacted"
+                              ? "bg-amber-50 text-amber-700"
+                              : status === "qualified"
+                              ? "bg-emerald-50 text-emerald-700"
+                              : status === "won"
+                              ? "bg-green-50 text-green-700"
+                              : "bg-red-50 text-red-700"
+                          }`}
+                        >
+                          {status}
                         </span>
-                      </span>
-                    </td>
-                    <td className="px-3 py-2 text-right">
-                      <div className="flex justify-end gap-2">
-                        <button
-                          className="p-1.5 rounded hover:bg-gray-100"
-                          onClick={() => handleLeadAction(lead.id, "view")}
-                        >
-                          <Eye className="w-4 h-4 text-gray-500" />
-                        </button>
-                        <button
-                          className="p-1.5 rounded hover:bg-gray-100"
-                          onClick={() => handleLeadAction(lead.id, "edit")}
-                        >
-                          <Edit3 className="w-4 h-4 text-gray-500" />
-                        </button>
-                        <button
-                          className="p-1.5 rounded hover:bg-red-50"
-                          onClick={() => handleLeadAction(lead.id, "delete")}
-                        >
-                          <Trash2 className="w-4 h-4 text-red-500" />
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                ))
+                      </td>
+                      <td className="px-3 py-2 text-xs text-gray-700">
+                        {source}
+                      </td>
+                      <td className="px-3 py-2 text-right text-xs">
+                        <span className="inline-flex items-center gap-1">
+                          <Trophy className="w-3 h-3 text-yellow-500" />
+                          <span className="font-semibold">{score}</span>
+                        </span>
+                      </td>
+                      <td className="px-3 py-2 text-right">
+                        <div className="flex justify-end gap-2">
+                          <button
+                            className="p-1.5 rounded hover:bg-gray-100"
+                            onClick={() => openDetails(lead)}
+                          >
+                            <Eye className="w-4 h-4 text-gray-500" />
+                          </button>
+                          <button
+                            className="p-1.5 rounded hover:bg-gray-100"
+                            onClick={() => openEditLead(lead)}
+                          >
+                            <Edit3 className="w-4 h-4 text-gray-500" />
+                          </button>
+                          <button
+                            className="p-1.5 rounded hover:bg-red-50"
+                            onClick={() => confirmDeleteLead(lead)}
+                          >
+                            <Trash2 className="w-4 h-4 text-red-500" />
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })
               )}
             </tbody>
           </table>
         </div>
       </div>
 
-      {/* ADD / EDIT LEAD MODAL */}
+      {/* ADD / EDIT MODAL */}
       <BaseModal
-        isOpen={showAddModal || showEditModal}
+        isOpen={showFormModal}
         onClose={() => {
-          setShowAddModal(false);
-          setShowEditModal(false);
+          setShowFormModal(false);
+          setEditingLead(null);
         }}
         title={editingLead ? "Edit Lead" : "Add Lead"}
       >
@@ -635,7 +730,7 @@ const LeadManagement: React.FC = () => {
               </label>
               <select
                 name="status"
-                value={formData.status || "new"}
+                value={(formData.status as string) || "new"}
                 onChange={handleFormChange}
                 className="w-full border rounded-lg px-3 py-2 text-sm"
               >
@@ -652,7 +747,7 @@ const LeadManagement: React.FC = () => {
               </label>
               <select
                 name="source"
-                value={formData.source || "manual"}
+                value={(formData.source as string) || "manual"}
                 onChange={handleFormChange}
                 className="w-full border rounded-lg px-3 py-2 text-sm"
               >
@@ -670,7 +765,7 @@ const LeadManagement: React.FC = () => {
               <input
                 type="number"
                 name="score"
-                value={formData.score ?? 50}
+                value(formData.score ?? 60)
                 onChange={handleFormChange}
                 className="w-full border rounded-lg px-3 py-2 text-sm"
                 min={0}
@@ -689,7 +784,7 @@ const LeadManagement: React.FC = () => {
               onChange={handleFormChange}
               rows={3}
               className="w-full border rounded-lg px-3 py-2 text-sm"
-              placeholder="Storm damage details, adjuster notes, etc."
+              placeholder="Storm details, adjuster notes, insurance info, etc."
             />
           </div>
 
@@ -697,8 +792,8 @@ const LeadManagement: React.FC = () => {
             <button
               type="button"
               onClick={() => {
-                setShowAddModal(false);
-                setShowEditModal(false);
+                setShowFormModal(false);
+                setEditingLead(null);
               }}
               className="px-3 py-2 text-sm border rounded-lg"
             >
@@ -715,6 +810,7 @@ const LeadManagement: React.FC = () => {
         </form>
       </BaseModal>
 
+      {/* DELETE CONFIRM */}
       <ConfirmationModal
         isOpen={showDeleteConfirm}
         onConfirm={deleteLead}
@@ -723,27 +819,22 @@ const LeadManagement: React.FC = () => {
         message="This action cannot be undone."
       />
 
-      {selectedLead && (
+      {/* DETAILS MODAL */}
+      {detailsLead && (
         <LeadDetailsModal
           isOpen={showDetailsModal}
-          lead={selectedLead}
+          lead={detailsLead}
           onClose={() => setShowDetailsModal(false)}
         />
       )}
 
+      {/* IMPORT MODAL */}
       <ImportLeadsModal
         isOpen={showImportModal}
         onClose={() => setShowImportModal(false)}
-        onImport={() => {}}
-      />
-
-      <BulkActionsModal
-        isOpen={showBulkModal}
-        onClose={() => setShowBulkModal(false)}
-        selectedItems={selectedLeads}
-        itemType="leads"
-        items={safeLeads}
-        onBulkAction={handleBulkAction}
+        onImport={() => {
+          // optional: re-fetch leads after import
+        }}
       />
     </div>
   );
