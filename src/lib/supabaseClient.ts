@@ -1,35 +1,24 @@
-import { createClient } from '@supabase/supabase-js';
+// supabaseClient.ts
+// CLEAN, MODERN SUPABASE CLIENT FOR BOLT.NEW
 
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
+import { createClient } from "@supabase/supabase-js";
+
+const supabaseUrl =
+  import.meta.env.VITE_SUPABASE_URL || process.env.VITE_SUPABASE_URL;
+const supabaseAnonKey =
+  import.meta.env.VITE_SUPABASE_ANON_KEY ||
+  process.env.VITE_SUPABASE_ANON_KEY;
 
 if (!supabaseUrl || !supabaseAnonKey) {
-  throw new Error('Missing Supabase environment variables');
+  console.error(
+    "[supabaseClient] Missing Supabase environment variables. Check your .env settings."
+  );
 }
 
-export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
+export const supabase = createClient(supabaseUrl!, supabaseAnonKey!, {
   auth: {
-    autoRefreshToken: true,
     persistSession: true,
+    autoRefreshToken: true,
     detectSessionInUrl: true,
-    storage: window.localStorage,
-    storageKey: 'supabase.auth.token',
   },
-  global: {
-    headers: {
-      'X-Client-Info': 'supabase-js-web',
-    },
-  },
-  db: {
-    schema: 'public',
-  },
-  realtime: {
-    params: {
-      eventsPerSecond: 2,
-    },
-  },
-});
-
-window.addEventListener("focus", () => {
-  supabase.auth.getSession();
 });
