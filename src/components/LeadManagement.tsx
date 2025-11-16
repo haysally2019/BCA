@@ -758,20 +758,20 @@ const LeadManagement: React.FC = () => {
                 <option value="referral">Referral</option>
               </select>
             </div>
-            <div>
-              <label className="block text-xs font-medium text-gray-700 mb-1">
-                Score
-              </label>
-              <input
-                type="number"
-                name="score"
-                value(formData.score ?? 60)
-                onChange={handleFormChange}
-                className="w-full border rounded-lg px-3 py-2 text-sm"
-                min={0}
-                max={100}
-              />
-            </div>
+           <div>
+  <label className="block text-xs font-medium text-gray-700 mb-1">
+    Score
+  </label>
+  <input
+    type="number"
+    name="score"
+    value={formData.score ?? 60}
+    onChange={handleFormChange}
+    className="w-full border rounded-lg px-3 py-2 text-sm"
+    min={0}
+    max={100}
+  />
+</div>
           </div>
 
           <div>
