@@ -1,6 +1,5 @@
-import { supabase } from "./supabaseClient";
+import { supabase } from "../lib/supabaseClient";
 
-// Pipeline statuses
 export const LEAD_STATUSES = [
   "new",
   "contacted",
@@ -19,7 +18,7 @@ export interface LeadInput {
   address?: string | null;
   notes?: string | null;
   status?: LeadStatus;
-  assigned_to?: string | null; // auth.uid() only
+  assigned_to?: string | null;
 }
 
 export interface LeadRecord extends LeadInput {
@@ -29,19 +28,19 @@ export interface LeadRecord extends LeadInput {
   assigned_to: string;
 }
 
-// Fetch current authenticated user ID
-async function getCurrentUserId(): Promise<string> {
+// Get current user id
+async function getUid(): Promise<string> {
   const {
     data: { user },
   } = await supabase.auth.getUser();
 
-  if (!user) throw new Error("User not authenticated");
+  if (!user) throw new Error("Not authenticated");
   return user.id;
 }
 
-// CREATE lead (RLS safe)
+// Create lead
 export async function createLead(input: LeadInput): Promise<LeadRecord> {
-  const uid = await getCurrentUserId();
+  const uid = await getUid();
 
   const payload = {
     name: input.name,
@@ -60,12 +59,15 @@ export async function createLead(input: LeadInput): Promise<LeadRecord> {
     .select("*")
     .single();
 
-  if (error) throw error;
+  if (error) {
+    console.error("createLead error:", error);
+    throw error;
+  }
 
   return data as LeadRecord;
 }
 
-// UPDATE lead
+// Update lead
 export async function updateLead(
   id: string,
   updates: Partial<LeadInput>
@@ -77,18 +79,25 @@ export async function updateLead(
     .select("*")
     .single();
 
-  if (error) throw error;
+  if (error) {
+    console.error("updateLead error:", error);
+    throw error;
+  }
+
   return data as LeadRecord;
 }
 
-// GET leads (RLS enforced)
+// Get leads
 export async function getLeads(): Promise<LeadRecord[]> {
   const { data, error } = await supabase
     .from("leads")
     .select("*")
     .order("created_at", { ascending: false });
 
-  if (error) throw error;
+  if (error) {
+    console.error("getLeads error:", error);
+    throw error;
+  }
 
   return data as LeadRecord[];
 }
