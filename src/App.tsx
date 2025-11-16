@@ -15,7 +15,7 @@ import TeamManagement from "./components/TeamManagement";
 import { useAuthStore } from "./store/authStore";
 
 const App: React.FC = () => {
-  const { user, loading } = useAuthStore();
+  const { loading } = useAuthStore(); // we are NOT blocking on `user` anymore
 
   if (loading) {
     return (
@@ -23,10 +23,6 @@ const App: React.FC = () => {
         Loading...
       </div>
     );
-  }
-
-  if (!user) {
-    return <Navigate to="/auth" replace />;
   }
 
   return (
