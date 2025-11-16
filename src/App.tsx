@@ -15,7 +15,7 @@ import Auth from "./components/Auth";
 import { useAuthStore } from "./store/authStore";
 
 // ----------------------------
-// PROTECTED ROUTE
+// Protected Route
 // ----------------------------
 const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
   const { user, loading } = useAuthStore();
@@ -36,28 +36,26 @@ const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
 };
 
 // ----------------------------
-// MAIN APP CONTENT
+// App Component
 // ----------------------------
-
 const App: React.FC = () => {
   return (
     <div className="flex h-screen bg-gray-50">
 
-      {/* SIDEBAR */}
+      {/* Sidebar */}
       <Sidebar />
 
-      {/* MAIN CONTENT */}
+      {/* Main Content */}
       <div className="flex-1 overflow-y-auto">
         <MobileNav />
 
         <div className="p-4 md:p-6">
-
           <Routes>
 
-            {/* PUBLIC ROUTES */}
+            {/* Public Route */}
             <Route path="/auth" element={<Auth />} />
 
-            {/* PROTECTED ROUTES */}
+            {/* Protected Routes */}
             <Route
               path="/dashboard"
               element={
@@ -104,3 +102,7 @@ const App: React.FC = () => {
             />
 
             <Route
+              path="/settings"
+              element={
+                <ProtectedRoute>
+                  <Settings /
