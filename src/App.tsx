@@ -39,20 +39,24 @@ const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
 // Main App Component
 // ----------------------------
 const App: React.FC = () => {
+  const { user } = useAuthStore();
+
   return (
     <div className="flex h-screen bg-gray-50">
 
-      {/* Sidebar */}
-      <Sidebar />
+      {/* ONLY SHOW SIDEBAR IF LOGGED IN */}
+      {user && <Sidebar />}
 
-      {/* Main Content Area */}
+      {/* MAIN CONTENT AREA */}
       <div className="flex-1 overflow-y-auto">
-        <MobileNav />
+
+        {/* ONLY SHOW MOBILE NAV IF LOGGED IN */}
+        {user && <MobileNav />}
 
         <div className="p-4 md:p-6">
           <Routes>
 
-            {/* PUBLIC ROUTES */}
+            {/* PUBLIC ROUTE */}
             <Route path="/auth" element={<Auth />} />
 
             {/* PROTECTED ROUTES */}
