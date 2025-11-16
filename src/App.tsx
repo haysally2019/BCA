@@ -15,34 +15,54 @@ import LeadManagement from "./components/LeadManagement";
 import CommissionsTracker from "./components/CommissionsTracker";
 import Settings from "./components/Settings";
 import TeamManagement from "./components/TeamManagement";
-import Auth from "./components/Auth";
 
-import ProtectedRoute from "./components/ProtectedRoute";
+import Auth from "./components/Auth"; // If you have a login screen here
+import { useAuthStore } from "./store/authStore";
+
+// ----------------------------
+// Protected Route Wrapper
+// ----------------------------
+const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
+  const { user, loading } = useAuthStore();
+
+  if (loading) {
+    return (
+      <div className="w-full h-screen flex items-center justify-center">
+        Loading...
+      </div>
+    );
+  }
+
+  if (!user) {
+    return <Navigate to="/auth" replace />;
+  }
+
+  return <>{children}</>;
+};
+
+// ----------------------------
+// App Component
+// ----------------------------
 
 const App: React.FC = () => {
   return (
     <Router>
       <div className="flex h-screen bg-gray-50">
-        
-        {/* Sidebar should only show when logged in */}
-        <ProtectedRoute>
-          <Sidebar />
-        </ProtectedRoute>
 
+        {/* SIDEBAR */}
+        <Sidebar />
+
+        {/* MAIN CONTENT AREA */}
         <div className="flex-1 overflow-y-auto">
-
-          {/* Mobile Nav only when logged in */}
-          <ProtectedRoute>
-            <MobileNav />
-          </ProtectedRoute>
+          <MobileNav />
 
           <div className="p-4 md:p-6">
             <Routes>
 
-              {/* Public Route */}
+              {/* PUBLIC ROUTES */}
               <Route path="/auth" element={<Auth />} />
 
-              {/* Protected Routes */}
+              {/* PROTECTED ROUTES */}
               <Route
                 path="/dashboard"
                 element={
@@ -97,11 +117,12 @@ const App: React.FC = () => {
                 }
               />
 
-              {/* Redirect root → dashboard */}
+              {/* DEFAULT ROUTE */}
               <Route path="/" element={<Navigate to="/dashboard" replace />} />
 
-              {/* Catch-all redirect */}
+              {/* CATCH-ALL fallback */}
               <Route path="*" element={<Navigate to="/dashboard" replace />} />
+
             </Routes>
           </div>
         </div>
