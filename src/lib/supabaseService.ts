@@ -1,106 +1,106 @@
+// supabaseService.ts
+// CLEAN, FULLY PATCHED VERSION — SaaS CRM Leads + Roles
+
 import { supabase } from "./supabaseClient";
 
-// =====================================================
-//  SUPABASE SERVICE — CLEAN VERSION
-//  (ONLY SaaS CRM Leads + AffiliateWP + Auth)
-// =====================================================
-
 export const supabaseService = {
-  // ---------------------------------------------------
-  // AUTH
-  // ---------------------------------------------------
-  async getProfile(userId: string) {
-    try {
-      const { data, error } = await supabase
-        .from("profiles")
-        .select("*")
-        .eq("id", userId)
-        .single();
+  /* ============================================================
+     AUTH HELPERS
+  ============================================================ */
 
-      if (error) throw error;
-      return data;
-    } catch (err) {
-      console.error("Error fetching profile:", err);
+  async getProfile(userId: string) {
+    const { data, error } = await supabase
+      .from("profiles")
+      .select("*")
+      .eq("id", userId)
+      .single();
+
+    if (error) {
+      console.error("[supabaseService] getProfile error:", error);
       return null;
     }
+    return data;
   },
 
-  // ---------------------------------------------------
-  // LEADS (SaaS CRM Selling Roofing CRM)
-  // ---------------------------------------------------
+  /* ============================================================
+     LEADS — FULLY MATCHED TO NEW DATABASE SCHEMA
+  ============================================================ */
 
-  async getLeads(company_id: string) {
+  async getLeads(ownerId: string) {
     try {
       const { data, error } = await supabase
         .from("leads")
         .select("*")
-        .eq("company_id", company_id)
+        .eq("company_id", ownerId)
         .order("created_at", { ascending: false });
 
       if (error) throw error;
-      return data ?? [];
+      return Array.isArray(data) ? data : [];
     } catch (err) {
-      console.error("Error fetching leads:", err);
+      console.error("[supabaseService] getLeads error:", err);
       return [];
     }
   },
 
   async createLead(payload: any) {
     try {
+      // Ensure payload is valid
+      const cleaned = {
+        company_name: payload.company_name || "",
+        contact_name: payload.contact_name || "",
+        email: payload.email || "",
+        phone: payload.phone || "",
+        service_area: payload.service_area || "",
+        company_size: payload.company_size || "",
+        crm_used_now: payload.crm_used_now || "",
+        status: payload.status || "new",
+        deal_value: payload.deal_value || 0,
+        notes: payload.notes || "",
+        user_id: payload.user_id,
+        company_id: payload.company_id,
+      };
+
       const { data, error } = await supabase
         .from("leads")
-        .insert({
-          company_name: payload.company_name ?? null,
-          contact_name: payload.contact_name ?? null,
-          email: payload.email ?? null,
-          phone: payload.phone ?? null,
-          service_area: payload.service_area ?? null,
-          company_size: payload.company_size ?? null,
-          crm_used_now: payload.crm_used_now ?? null,
-          status: payload.status ?? "new",
-          deal_value: payload.deal_value ?? 0,
-          notes: payload.notes ?? null,
-          user_id: payload.user_id ?? null,
-          company_id: payload.company_id ?? null,
-        })
-        .select("*")
+        .insert(cleaned)
+        .select()
         .single();
 
       if (error) throw error;
-      return { data, error: null };
+      return { data };
     } catch (err) {
-      console.error("Error creating lead:", err);
-      return { data: null, error: err };
+      console.error("[supabaseService] createLead error:", err);
+      return { error: err };
     }
   },
 
   async updateLead(id: string, payload: any) {
     try {
+      const cleaned = {
+        company_name: payload.company_name || "",
+        contact_name: payload.contact_name || "",
+        email: payload.email || "",
+        phone: payload.phone || "",
+        service_area: payload.service_area || "",
+        company_size: payload.company_size || "",
+        crm_used_now: payload.crm_used_now || "",
+        status: payload.status || "new",
+        deal_value: payload.deal_value || 0,
+        notes: payload.notes || "",
+      };
+
       const { data, error } = await supabase
         .from("leads")
-        .update({
-          company_name: payload.company_name ?? null,
-          contact_name: payload.contact_name ?? null,
-          email: payload.email ?? null,
-          phone: payload.phone ?? null,
-          service_area: payload.service_area ?? null,
-          company_size: payload.company_size ?? null,
-          crm_used_now: payload.crm_used_now ?? null,
-          status: payload.status ?? "new",
-          deal_value: payload.deal_value ?? 0,
-          notes: payload.notes ?? null,
-          user_id: payload.user_id ?? null,
-          company_id: payload.company_id ?? null,
-        })
+        .update(cleaned)
         .eq("id", id)
-        .select("*")
+        .select()
         .single();
 
       if (error) throw error;
-      return { data, error: null };
+      return { data };
     } catch (err) {
-      console.error("Error updating lead:", err);
-      return { data: null, error: err };
+      console.error("[supabaseService] updateLead error:", err);
+      return { error: err };
     }
   },
 
@@ -108,78 +108,51 @@ export const supabaseService = {
     try {
       const { error } = await supabase.from("leads").delete().eq("id", id);
       if (error) throw error;
-      return { error: null };
+      return true;
     } catch (err) {
-      console.error("Error deleting lead:", err);
-      return { error: err };
+      console.error("[supabaseService] deleteLead error:", err);
+      return false;
     }
   },
 
-  // ---------------------------------------------------
-  // AFFILIATEWP METRICS (Manager & Rep Dashboard)
-  // ---------------------------------------------------
-  async getAffiliateStats(affiliateId: string) {
+  /* ============================================================
+     COMMISSIONS (UNCHANGED IF WORKING)
+  ============================================================ */
+
+  async getCommissions(companyId: string) {
     try {
       const { data, error } = await supabase
-        .from("affiliate_stats")
+        .from("commissions")
         .select("*")
-        .eq("affiliate_id", affiliateId);
+        .eq("company_id", companyId)
+        .order("created_at", { ascending: false });
 
       if (error) throw error;
-      return data ?? [];
+
+      return Array.isArray(data) ? data : [];
     } catch (err) {
-      console.error("Error fetching affiliate stats:", err);
+      console.error("[supabaseService] getCommissions error:", err);
       return [];
     }
   },
 
-  async getAffiliateDashboard(company_id: string) {
-    try {
-      const { data, error } = await supabase
-        .from("affiliate_dashboard")
-        .select("*")
-        .eq("company_id", company_id);
+  /* ============================================================
+     TEAM MEMBERS (UNCHANGED IF WORKING)
+  ============================================================ */
 
-      if (error) throw error;
-      return data ?? [];
-    } catch (err) {
-      console.error("Error fetching affiliate dashboard:", err);
-      return [];
-    }
-  },
-
-  // ---------------------------------------------------
-  // TEAM ACCOUNTS (Managers + Reps)
-  // ---------------------------------------------------
-  async getTeamMembers(company_id: string) {
+  async getTeamMembers(companyId: string) {
     try {
       const { data, error } = await supabase
         .from("profiles")
         .select("*")
-        .eq("company_id", company_id);
+        .eq("company_id", companyId);
 
       if (error) throw error;
-      return data ?? [];
+
+      return Array.isArray(data) ? data : [];
     } catch (err) {
-      console.error("Error fetching team:", err);
+      console.error("[supabaseService] getTeamMembers error:", err);
       return [];
-    }
-  },
-
-  async updateTeamMember(id: string, updates: any) {
-    try {
-      const { data, error } = await supabase
-        .from("profiles")
-        .update(updates)
-        .eq("id", id)
-        .select("*")
-        .single();
-
-      if (error) throw error;
-      return data;
-    } catch (err) {
-      console.error("Error updating team member:", err);
-      return null;
     }
   },
 };
