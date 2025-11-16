@@ -18,7 +18,8 @@ import {
   DollarSign,
   CheckCircle,
   AlertCircle,
-  Info
+  Info,
+  Bug
 } from 'lucide-react';
 import { useAuthStore } from '../store/authStore';
 import { supabase } from '../lib/supabaseClient';
@@ -32,6 +33,7 @@ import {
   formatSwiftCode,
   formatIBAN,
 } from '../lib/payoutValidation';
+import { testAuthHook } from '../utils/testAuthHook';
 
 const Settings: React.FC = () => {
   const [activeTab, setActiveTab] = useState('profile');
@@ -876,6 +878,40 @@ const Settings: React.FC = () => {
                   >
                     Enable 2FA
                   </button>
+                </div>
+
+                <div className="p-4 border border-amber-200 rounded-lg bg-amber-50">
+                  <div className="flex items-start gap-3">
+                    <Bug className="w-5 h-5 text-amber-600 mt-0.5 flex-shrink-0" />
+                    <div className="flex-1">
+                      <h4 className="font-medium text-gray-900 mb-2">Test Auth Hook Status</h4>
+                      <p className="text-sm text-gray-600 mb-4">
+                        Check if the Custom Access Token Hook is active. This hook adds user_role and company_id to your JWT token for better performance.
+                      </p>
+                      <button
+                        onClick={async () => {
+                          toast.loading('Testing auth hook...');
+                          try {
+                            const result = await testAuthHook();
+                            if (result.hookActive) {
+                              toast.success('Auth hook is active and working!');
+                            } else {
+                              toast.error('Auth hook is not active. Check console for details.');
+                            }
+                          } catch (error) {
+                            toast.error('Failed to test auth hook');
+                          }
+                        }}
+                        className="bg-amber-600 text-white px-4 py-2 rounded-lg hover:bg-amber-700 transition-colors flex items-center gap-2"
+                      >
+                        <Bug className="w-4 h-4" />
+                        Test Hook Status
+                      </button>
+                      <p className="text-xs text-gray-500 mt-2">
+                        Results will be shown in the browser console
+                      </p>
+                    </div>
+                  </div>
                 </div>
               </div>
             </div>
