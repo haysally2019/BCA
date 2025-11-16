@@ -3,19 +3,20 @@ import {
   Search,
   Plus,
   Upload,
-  MapPin,
   Edit3,
   Trash2,
   Eye,
   Phone,
   Mail,
-  Trophy,
+  Building2,
   Users,
+  DollarSign,
   AlertCircle,
   CheckCircle,
+  MapPin,
 } from "lucide-react";
 import { useAuthStore } from "../store/authStore";
-import { supabaseService, type Lead } from "../lib/supabaseService";
+import { supabaseService } from "../lib/supabaseService";
 import LoadingSpinner from "./LoadingSpinner";
 import BaseModal from "./modals/BaseModal";
 import ConfirmationModal from "./modals/ConfirmationModal";
@@ -23,88 +24,101 @@ import LeadDetailsModal from "./modals/LeadDetailsModal";
 import ImportLeadsModal from "./modals/ImportLeadsModal";
 import toast from "react-hot-toast";
 
-type StatusFilter =
-  | "all"
+export type SaaSStatus =
   | "new"
   | "contacted"
-  | "qualified"
   | "trial_started"
-  | "won"
-  | "lost";
+  | "closed_won"
+  | "closed_lost";
+
+export interface SaaSLead {
+  id: string;
+  user_id?: string | null;
+  company_id?: string | null;
+  company_name?: string | null;
+  contact_name?: string | null;
+  email?: string | null;
+  phone?: string | null;
+  service_area?: string | null;
+  company_size?: string | null;
+  crm_used_now?: string | null;
+  status?: SaaSStatus | string | null;
+  deal_value?: number | null; // expected monthly or package value
+  notes?: string | null;
+  created_at?: string | null;
+}
+
+type StatusFilter = "all" | SaaSStatus;
 
 interface LeadStats {
   total: number;
   new: number;
   contacted: number;
-  qualified: number;
-  trials: number;
-  won: number;
-  lost: number;
-  avgScore: number;
+  trialStarted: number;
+  closedWon: number;
+  closedLost: number;
+  totalPipeline: number; // sum of deal_value for non-lost leads
+  avgDealValue: number;
 }
 
 const LeadManagement: React.FC = () => {
   const { profile } = useAuthStore();
 
-  const [leads, setLeads] = useState<Lead[]>([]);
+  const [leads, setLeads] = useState<SaaSLead[]>([]);
   const [loading, setLoading] = useState(true);
 
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
-  const [sourceFilter, setSourceFilter] = useState<string>("all");
 
   const [selectedLeads, setSelectedLeads] = useState<string[]>([]);
 
   const [showFormModal, setShowFormModal] = useState(false);
-  const [editingLead, setEditingLead] = useState<Lead | null>(null);
+  const [editingLead, setEditingLead] = useState<SaaSLead | null>(null);
   const [saving, setSaving] = useState(false);
 
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
-  const [leadToDelete, setLeadToDelete] = useState<Lead | null>(null);
+  const [leadToDelete, setLeadToDelete] = useState<SaaSLead | null>(null);
 
   const [showDetailsModal, setShowDetailsModal] = useState(false);
-  const [detailsLead, setDetailsLead] = useState<Lead | null>(null);
+  const [detailsLead, setDetailsLead] = useState<SaaSLead | null>(null);
 
   const [showImportModal, setShowImportModal] = useState(false);
 
-  const [formData, setFormData] = useState<Partial<Lead & { company?: string }>>({
-    // Company you’re selling to
-    company: "",
-    // Main decision maker / owner
-    name: "",
+  const [formData, setFormData] = useState<Partial<SaaSLead>>({
+    company_name: "",
+    contact_name: "",
     email: "",
     phone: "",
-    address: "",
+    service_area: "",
+    company_size: "",
+    crm_used_now: "",
     status: "new",
-    source: "outbound",
-    score: 70,
+    deal_value: 500,
     notes: "",
   });
 
-  // ---------------------------------------------------
-  // LOAD LEADS SAFELY (no infinite spinner)
-  // ---------------------------------------------------
+  // ------------------------------------------------
+  // LOAD LEADS (no hanging, always sets loading=false)
+  // ------------------------------------------------
   useEffect(() => {
     const load = async () => {
       if (!profile) {
-        console.log("[LeadManagement] No profile loaded, skipping lead fetch.");
+        console.log("[LeadManagement] No profile present.");
         setLoading(false);
         return;
       }
 
-      // We’ll accept either company_id or just profile.id as the owner key
       const ownerId = (profile as any).company_id || profile.id;
-
       if (!ownerId) {
-        console.log("[LeadManagement] Missing owner id (company_id / id).");
+        console.log("[LeadManagement] No owner id (company_id or id).");
         setLoading(false);
         return;
       }
 
       try {
-        console.log("[LeadManagement] Fetching leads for owner:", ownerId);
+        console.log("[LeadManagement] Fetching SaaS leads for owner:", ownerId);
         const result = await supabaseService.getLeads(ownerId as string);
-        const safe = Array.isArray(result) ? (result as Lead[]) : [];
+        const safe = Array.isArray(result) ? (result as SaaSLead[]) : [];
         setLeads(safe);
       } catch (err) {
         console.error("[LeadManagement] Error loading leads:", err);
@@ -117,131 +131,146 @@ const LeadManagement: React.FC = () => {
     load();
   }, [profile]);
 
-  // Always work on a safe array
-  const safeLeads: Lead[] = useMemo(
+  // Always treat leads as a safe array
+  const safeLeads: SaaSLead[] = useMemo(
     () => (Array.isArray(leads) ? leads : []),
     [leads]
   );
 
-  // ---------------------------------------------------
-  // STATS: SaaS pipeline for roofing companies
-  // ---------------------------------------------------
+  // ------------------------------------------------
+  // STATS (SaaS selling a roofing CRM)
+  // ------------------------------------------------
   const stats: LeadStats = useMemo(() => {
     if (!safeLeads.length) {
       return {
         total: 0,
         new: 0,
         contacted: 0,
-        qualified: 0,
-        trials: 0,
-        won: 0,
-        lost: 0,
-        avgScore: 0,
+        trialStarted: 0,
+        closedWon: 0,
+        closedLost: 0,
+        totalPipeline: 0,
+        avgDealValue: 0,
       };
     }
 
     let newCount = 0;
     let contacted = 0;
-    let qualified = 0;
-    let trials = 0;
-    let won = 0;
-    let lost = 0;
-    let scoreSum = 0;
+    let trialStarted = 0;
+    let closedWon = 0;
+    let closedLost = 0;
+    let pipelineTotal = 0;
+    let dealValueSum = 0;
+    let dealCount = 0;
 
     safeLeads.forEach((lead) => {
-      const status = (lead.status || "new").toString().toLowerCase();
+      const status = (lead.status || "new").toString() as SaaSStatus;
+      const dealValue = lead.deal_value ?? 0;
 
-      if (status === "new") newCount++;
-      else if (status === "contacted") contacted++;
-      else if (status === "qualified") qualified++;
-      else if (status === "trial_started") trials++;
-      else if (status === "won") won++;
-      else if (status === "lost") lost++;
+      switch (status) {
+        case "new":
+          newCount++;
+          break;
+        case "contacted":
+          contacted++;
+          break;
+        case "trial_started":
+          trialStarted++;
+          break;
+        case "closed_won":
+          closedWon++;
+          break;
+        case "closed_lost":
+          closedLost++;
+          break;
+      }
 
-      scoreSum += (lead as any).score ?? 0;
+      // Pipeline = active + won (not lost)
+      if (status !== "closed_lost") {
+        pipelineTotal += dealValue;
+      }
+
+      if (dealValue > 0) {
+        dealValueSum += dealValue;
+        dealCount++;
+      }
     });
 
-    const total = safeLeads.length;
     return {
-      total,
+      total: safeLeads.length,
       new: newCount,
       contacted,
-      qualified,
-      trials,
-      won,
-      lost,
-      avgScore: total ? Math.round(scoreSum / total) : 0,
+      trialStarted,
+      closedWon,
+      closedLost,
+      totalPipeline: pipelineTotal,
+      avgDealValue: dealCount ? Math.round(dealValueSum / dealCount) : 0,
     };
   }, [safeLeads]);
 
-  // ---------------------------------------------------
-  // FILTERED LEADS (roofing companies)
-  // ---------------------------------------------------
+  // ------------------------------------------------
+  // FILTERED LEADS
+  // ------------------------------------------------
   const filteredLeads = useMemo(() => {
     const term = searchTerm.toLowerCase();
 
     return safeLeads.filter((lead) => {
-      const company =
-        ((lead as any).company ||
-          (lead as any).company_name ||
-          "") as string;
-      const contact = (lead.name || "") as string;
-      const phone = (lead.phone || "") as string;
-      const email = (lead.email || "") as string;
-      const address = (lead.address || "") as string;
-      const status = (lead.status || "").toString().toLowerCase();
-      const source = (lead.source || "").toString().toLowerCase();
+      const company = (lead.company_name || "").toLowerCase();
+      const contact = (lead.contact_name || "").toLowerCase();
+      const email = (lead.email || "").toLowerCase();
+      const phone = lead.phone || "";
+      const area = (lead.service_area || "").toLowerCase();
+      const crm = (lead.crm_used_now || "").toLowerCase();
+      const status = (lead.status || "").toLowerCase() as SaaSStatus;
 
       const matchesSearch =
         !term ||
-        company.toLowerCase().includes(term) ||
-        contact.toLowerCase().includes(term) ||
+        company.includes(term) ||
+        contact.includes(term) ||
+        email.includes(term) ||
         phone.includes(searchTerm) ||
-        email.toLowerCase().includes(term) ||
-        address.toLowerCase().includes(term);
+        area.includes(term) ||
+        crm.includes(term);
 
       const matchesStatus =
-        statusFilter === "all" || status === statusFilter.toLowerCase();
+        statusFilter === "all" || status === statusFilter;
 
-      const matchesSource =
-        sourceFilter === "all" || source === sourceFilter.toLowerCase();
-
-      return matchesSearch && matchesStatus && matchesSource;
+      return matchesSearch && matchesStatus;
     });
-  }, [safeLeads, searchTerm, statusFilter, sourceFilter]);
+  }, [safeLeads, searchTerm, statusFilter]);
 
-  // ---------------------------------------------------
+  // ------------------------------------------------
   // FORM HELPERS
-  // ---------------------------------------------------
+  // ------------------------------------------------
   const openAddLead = () => {
     setEditingLead(null);
     setFormData({
-      company: "",
-      name: "",
+      company_name: "",
+      contact_name: "",
       email: "",
       phone: "",
-      address: "",
+      service_area: "",
+      company_size: "",
+      crm_used_now: "",
       status: "new",
-      source: "outbound",
-      score: 70,
+      deal_value: 500,
       notes: "",
     });
     setShowFormModal(true);
   };
 
-  const openEditLead = (lead: Lead) => {
+  const openEditLead = (lead: SaaSLead) => {
     setEditingLead(lead);
     setFormData({
-      company: ((lead as any).company || (lead as any).company_name || "") as
-        | string
-        | undefined,
-      name: lead.name || "",
+      company_name: lead.company_name || "",
+      contact_name: lead.contact_name || "",
       email: lead.email || "",
       phone: lead.phone || "",
-      address: lead.address || "",
-      status: (lead.status as any) || "new",
-      source: lead.source || "outbound",
-      score: (lead as any).score ?? 70,
+      service_area: lead.service_area || "",
+      company_size: lead.company_size || "",
+      crm_used_now: lead.crm_used_now || "",
+      status: (lead.status as SaaSStatus) || "new",
+      deal_value: lead.deal_value ?? 500,
       notes: lead.notes || "",
     });
     setShowFormModal(true);
@@ -253,13 +282,12 @@ const LeadManagement: React.FC = () => {
     >
   ) => {
     const { name, value } = e.target;
-    setFormData((prev) => ({
-      ...prev,
-      [name]:
-        name === "score"
-          ? Number(value)
-          : (value as string),
-    }));
+    setFormData((prev) => {
+      if (name === "deal_value") {
+        return { ...prev, [name]: Number(value) || 0 };
+      }
+      return { ...prev, [name]: value };
+    });
   };
 
   const saveLead = async () => {
@@ -274,17 +302,8 @@ const LeadManagement: React.FC = () => {
       return;
     }
 
-    // Only send fields we know exist / are safe on your leads table
     const payload: any = {
-      company: formData.company ?? "",
-      name: formData.name ?? "",
-      email: formData.email ?? "",
-      phone: formData.phone ?? "",
-      address: formData.address ?? "",
-      status: formData.status ?? "new",
-      source: formData.source ?? "outbound",
-      score: formData.score ?? 70,
-      notes: formData.notes ?? "",
+      ...formData,
       company_id: (profile as any).company_id ?? null,
       user_id: profile.id,
     };
@@ -296,33 +315,35 @@ const LeadManagement: React.FC = () => {
           editingLead.id,
           payload
         );
-        if (error) throw error;
 
+        if (error) throw error;
         const updated = Array.isArray(data) ? data[0] : data;
+
         setLeads((prev) =>
-          prev.map((l) => (l.id === editingLead.id ? (updated as Lead) : l))
+          prev.map((l) => (l.id === editingLead.id ? (updated as SaaSLead) : l))
         );
-        toast.success("Prospect updated");
+        toast.success("Lead updated");
       } else {
         const { data, error } = await supabaseService.createLead(payload);
-        if (error) throw error;
 
+        if (error) throw error;
         const created = Array.isArray(data) ? data[0] : data;
-        setLeads((prev) => [(created as Lead), ...prev]);
-        toast.success("New roofing company added to pipeline");
+
+        setLeads((prev) => [(created as SaaSLead), ...prev]);
+        toast.success("Lead created");
       }
 
       setShowFormModal(false);
       setEditingLead(null);
     } catch (err) {
       console.error("[LeadManagement] saveLead error:", err);
-      toast.error("Error saving prospect");
+      toast.error("Error saving lead");
     } finally {
       setSaving(false);
     }
   };
 
-  const confirmDeleteLead = (lead: Lead) => {
+  const confirmDeleteLead = (lead: SaaSLead) => {
     setLeadToDelete(lead);
     setShowDeleteConfirm(true);
   };
@@ -333,10 +354,10 @@ const LeadManagement: React.FC = () => {
     try {
       await supabaseService.deleteLead(leadToDelete.id);
       setLeads((prev) => prev.filter((l) => l.id !== leadToDelete.id));
-      toast.success("Prospect deleted");
+      toast.success("Lead deleted");
     } catch (err) {
       console.error("[LeadManagement] deleteLead error:", err);
-      toast.error("Error deleting prospect");
+      toast.error("Error deleting lead");
     } finally {
       setShowDeleteConfirm(false);
       setLeadToDelete(null);
@@ -349,30 +370,19 @@ const LeadManagement: React.FC = () => {
     );
   };
 
-  const openDetails = (lead: Lead) => {
+  const openDetails = (lead: SaaSLead) => {
     setDetailsLead(lead);
     setShowDetailsModal(true);
   };
 
-  const handleLeadUpdateFromDetails = (
-    leadId: string,
-    updates: Partial<Lead>
-  ) => {
-    setLeads((prev) =>
-      prev.map((l) =>
-        l.id === leadId ? { ...l, ...updates } : l
-      )
-    );
-  };
-
-  // ---------------------------------------------------
+  // ------------------------------------------------
   // RENDER
-  // ---------------------------------------------------
+  // ------------------------------------------------
   if (loading) {
     return (
       <LoadingSpinner
         size="lg"
-        text="Loading prospects..."
+        text="Loading leads..."
         className="h-64"
       />
     );
@@ -384,11 +394,11 @@ const LeadManagement: React.FC = () => {
       <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
         <div>
           <h1 className="text-2xl md:text-3xl font-bold text-gray-900 flex items-center gap-2">
-            <Users className="w-7 h-7 text-blue-600" />
-            Roofing CRM Sales Pipeline
+            <Building2 className="w-7 h-7 text-blue-600" />
+            Roofing Company Leads
           </h1>
           <p className="text-gray-600 text-sm md:text-base">
-            Track roofing company owners from first contact to free trial and closed deal.
+            Track every roofing company owner your reps are targeting for the roofing CRM.
           </p>
         </div>
 
@@ -398,7 +408,7 @@ const LeadManagement: React.FC = () => {
             className="inline-flex items-center gap-2 px-3 py-2 text-sm font-medium border border-gray-300 rounded-lg hover:bg-gray-50"
           >
             <Upload className="w-4 h-4" />
-            Import Roofing Companies
+            Import CSV
           </button>
           <button
             onClick={openAddLead}
@@ -415,14 +425,14 @@ const LeadManagement: React.FC = () => {
         <div className="bg-white border rounded-lg p-3 shadow-sm">
           <div className="flex items-center justify-between">
             <span className="text-xs text-gray-500">Total Companies</span>
-            <Users className="w-4 h-4 text-gray-400" />
+            <Building2 className="w-4 h-4 text-gray-400" />
           </div>
           <div className="mt-2 text-xl font-bold">{stats.total}</div>
         </div>
 
         <div className="bg-white border rounded-lg p-3 shadow-sm">
           <div className="flex items-center justify-between">
-            <span className="text-xs text-gray-500">New</span>
+            <span className="text-xs text-gray-500">New Leads</span>
             <Plus className="w-4 h-4 text-blue-400" />
           </div>
           <div className="mt-2 text-xl font-bold text-blue-700">
@@ -442,37 +452,60 @@ const LeadManagement: React.FC = () => {
 
         <div className="bg-white border rounded-lg p-3 shadow-sm">
           <div className="flex items-center justify-between">
-            <span className="text-xs text-gray-500">Qualified</span>
+            <span className="text-xs text-gray-500">Trial Started</span>
             <CheckCircle className="w-4 h-4 text-emerald-400" />
           </div>
           <div className="mt-2 text-xl font-bold text-emerald-700">
-            {stats.qualified}
+            {stats.trialStarted}
           </div>
         </div>
 
         <div className="bg-white border rounded-lg p-3 shadow-sm">
           <div className="flex items-center justify-between">
-            <span className="text-xs text-gray-500">Trials Started</span>
-            <Trophy className="w-4 h-4 text-indigo-500" />
+            <span className="text-xs text-gray-500">Closed Won</span>
+            <DollarSign className="w-4 h-4 text-green-500" />
           </div>
-          <div className="mt-2 text-xl font-bold text-indigo-700">
-            {stats.trials}
+          <div className="mt-2 text-xl font-bold text-green-700">
+            {stats.closedWon}
           </div>
         </div>
 
         <div className="bg-white border rounded-lg p-3 shadow-sm">
           <div className="flex items-center justify-between">
-            <span className="text-xs text-gray-500">Closed Won / Lost</span>
-            <AlertCircle className="w-4 h-4 text-gray-400" />
+            <span className="text-xs text-gray-500">Closed Lost</span>
+            <AlertCircle className="w-4 h-4 text-red-400" />
           </div>
-          <div className="mt-2 text-xs">
-            <span className="font-bold text-green-700 mr-2">
-              {stats.won} Won
-            </span>
-            <span className="font-bold text-red-700">
-              {stats.lost} Lost
-            </span>
+          <div className="mt-2 text-xl font-bold text-red-700">
+            {stats.closedLost}
           </div>
+        </div>
+      </div>
+
+      {/* PIPELINE SUMMARY */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+        <div className="bg-white border rounded-lg p-3 shadow-sm">
+          <div className="flex items-center justify-between">
+            <span className="text-xs text-gray-500">Active Pipeline Value</span>
+            <DollarSign className="w-4 h-4 text-gray-400" />
+          </div>
+          <div className="mt-2 text-xl font-bold">
+            ${stats.totalPipeline.toLocaleString()}
+          </div>
+          <p className="text-[11px] text-gray-500 mt-1">
+            Sum of deal value for all non-lost companies (New, Contacted, Trial, Closed Won).
+          </p>
+        </div>
+        <div className="bg-white border rounded-lg p-3 shadow-sm">
+          <div className="flex items-center justify-between">
+            <span className="text-xs text-gray-500">Avg Deal Value</span>
+            <Users className="w-4 h-4 text-gray-400" />
+          </div>
+          <div className="mt-2 text-xl font-bold">
+            ${stats.avgDealValue.toLocaleString()}
+          </div>
+          <p className="text-[11px] text-gray-500 mt-1">
+            Based on all leads with a non-zero deal value.
+          </p>
         </div>
       </div>
 
@@ -482,7 +515,7 @@ const LeadManagement: React.FC = () => {
           <Search className="w-4 h-4 text-gray-400" />
           <input
             type="text"
-            placeholder="Search roofing companies or contacts..."
+            placeholder="Search by roofing company, owner, email, phone, CRM..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             className="w-full border-none outline-none text-sm bg-transparent"
@@ -497,32 +530,17 @@ const LeadManagement: React.FC = () => {
             }
             className="border rounded-lg px-3 py-1.5 text-sm"
           >
-            <option value="all">All Stages</option>
-            <option value="new">New</option>
+            <option value="all">All Statuses</option>
+            <option value="new">New Lead</option>
             <option value="contacted">Contacted</option>
-            <option value="qualified">Qualified</option>
             <option value="trial_started">Trial Started</option>
-            <option value="won">Closed Won</option>
-            <option value="lost">Closed Lost</option>
-          </select>
-
-          <select
-            value={sourceFilter}
-            onChange={(e) => setSourceFilter(e.target.value)}
-            className="border rounded-lg px-3 py-1.5 text-sm"
-          >
-            <option value="all">All Sources</option>
-            <option value="outbound">Outbound</option>
-            <option value="inbound">Inbound</option>
-            <option value="referral">Referral</option>
-            <option value="facebook">Facebook</option>
-            <option value="google_ads">Google Ads</option>
-            <option value="event">Event / Conference</option>
+            <option value="closed_won">Closed Won</option>
+            <option value="closed_lost">Closed Lost</option>
           </select>
         </div>
       </div>
 
-      {/* LEADS TABLE (Roofing companies) */}
+      {/* LEADS TABLE */}
       <div className="bg-white border rounded-lg shadow-sm overflow-hidden">
         <div className="overflow-x-auto">
           <table className="min-w-full text-xs sm:text-sm">
@@ -537,9 +555,7 @@ const LeadManagement: React.FC = () => {
                     }
                     onChange={(e) =>
                       setSelectedLeads(
-                        e.target.checked
-                          ? filteredLeads.map((l) => l.id as string)
-                          : []
+                        e.target.checked ? filteredLeads.map((l) => l.id) : []
                       )
                     }
                   />
@@ -548,19 +564,19 @@ const LeadManagement: React.FC = () => {
                   Roofing Company
                 </th>
                 <th className="px-3 py-2 text-left font-semibold text-gray-500">
-                  Owner / Contact
+                  Contact
                 </th>
                 <th className="px-3 py-2 text-left font-semibold text-gray-500">
-                  Location
+                  Service Area
                 </th>
                 <th className="px-3 py-2 text-left font-semibold text-gray-500">
-                  Stage
+                  Current CRM
                 </th>
                 <th className="px-3 py-2 text-left font-semibold text-gray-500">
-                  Source
+                  Status
                 </th>
                 <th className="px-3 py-2 text-right font-semibold text-gray-500">
-                  Fit Score
+                  Deal Value
                 </th>
                 <th className="px-3 py-2 text-right font-semibold text-gray-500">
                   Actions
@@ -574,39 +590,19 @@ const LeadManagement: React.FC = () => {
                     colSpan={8}
                     className="px-4 py-8 text-center text-gray-500 text-sm"
                   >
-                    No roofing companies found. Add one or import from CSV.
+                    No roofing company leads found. Try adjusting filters or importing a CSV.
                   </td>
                 </tr>
               ) : (
                 filteredLeads.map((lead) => {
-                  const company =
-                    ((lead as any).company ||
-                      (lead as any).company_name ||
-                      "Roofing Company") as string;
-                  const contact = (lead.name || "Contact Person") as string;
-                  const phone = (lead.phone || "") as string;
-                  const email = (lead.email || "") as string;
-                  const address = (lead.address || "") as string;
-                  const rawStatus = (lead.status || "new")
-                    .toString()
-                    .toLowerCase();
-                  const source = (lead.source || "outbound")
-                    .toString()
-                    .toLowerCase();
-                  const score = (lead as any).score ?? 0;
-
-                  const stageLabel =
-                    rawStatus === "trial_started"
-                      ? "Trial Started"
-                      : rawStatus === "won"
-                      ? "Closed Won"
-                      : rawStatus === "lost"
-                      ? "Closed Lost"
-                      : rawStatus === "qualified"
-                      ? "Qualified"
-                      : rawStatus === "contacted"
-                      ? "Contacted"
-                      : "New";
+                  const company = lead.company_name || "Unnamed Roofing Company";
+                  const contact = lead.contact_name || "—";
+                  const email = lead.email || "";
+                  const phone = lead.phone || "";
+                  const area = lead.service_area || "";
+                  const crm = lead.crm_used_now || "Unknown / None";
+                  const status = (lead.status || "new").toString() as SaaSStatus;
+                  const dealValue = lead.deal_value ?? 0;
 
                   return (
                     <tr
@@ -616,68 +612,72 @@ const LeadManagement: React.FC = () => {
                       <td className="px-3 py-2">
                         <input
                           type="checkbox"
-                          checked={selectedLeads.includes(lead.id as string)}
-                          onChange={() =>
-                            toggleSelectLead(lead.id as string)
-                          }
+                          checked={selectedLeads.includes(lead.id)}
+                          onChange={() => toggleSelectLead(lead.id)}
                         />
                       </td>
                       <td className="px-3 py-2">
                         <div className="font-medium text-gray-900">
                           {company}
                         </div>
+                        <div className="text-[11px] text-gray-500">
+                          Roofing Company
+                        </div>
                       </td>
                       <td className="px-3 py-2">
-                        <div className="font-medium text-gray-900">
-                          {contact}
-                        </div>
-                        <div className="flex flex-col gap-1 text-[11px] text-gray-600">
+                        <div className="text-xs text-gray-900">{contact}</div>
+                        <div className="flex flex-col gap-1 text-[11px] text-gray-700">
                           {phone && (
-                            <div className="flex items-center gap-1">
+                            <span className="flex items-center gap-1">
                               <Phone className="w-3 h-3" />
-                              <span>{phone}</span>
-                            </div>
+                              {phone}
+                            </span>
                           )}
                           {email && (
-                            <div className="flex items-center gap-1">
+                            <span className="flex items-center gap-1">
                               <Mail className="w-3 h-3" />
-                              <span>{email}</span>
-                            </div>
+                              {email}
+                            </span>
                           )}
                         </div>
                       </td>
                       <td className="px-3 py-2 text-xs text-gray-700">
                         <div className="flex items-start gap-1">
                           <MapPin className="w-3 h-3 mt-0.5 text-gray-400" />
-                          <span>{address || "N/A"}</span>
+                          <span>{area || "N/A"}</span>
                         </div>
+                      </td>
+                      <td className="px-3 py-2 text-xs text-gray-700">
+                        {crm}
                       </td>
                       <td className="px-3 py-2 text-xs">
                         <span
                           className={`inline-flex items-center px-2 py-1 rounded-full ${
-                            rawStatus === "trial_started"
-                              ? "bg-indigo-50 text-indigo-700"
-                              : rawStatus === "won"
-                              ? "bg-green-50 text-green-700"
-                              : rawStatus === "lost"
-                              ? "bg-red-50 text-red-700"
-                              : rawStatus === "qualified"
-                              ? "bg-emerald-50 text-emerald-700"
-                              : rawStatus === "contacted"
+                            status === "new"
+                              ? "bg-blue-50 text-blue-700"
+                              : status === "contacted"
                               ? "bg-amber-50 text-amber-700"
-                              : "bg-blue-50 text-blue-700"
+                              : status === "trial_started"
+                              ? "bg-emerald-50 text-emerald-700"
+                              : status === "closed_won"
+                              ? "bg-green-50 text-green-700"
+                              : "bg-red-50 text-red-700"
                           }`}
                         >
-                          {stageLabel}
+                          {status
+                            .replace("_", " ")
+                            .replace("trial", "Trial")
+                            .replace("closed", "Closed")
+                            .replace("won", "Won")
+                            .replace("lost", "Lost")}
                         </span>
-                      </td>
-                      <td className="px-3 py-2 text-xs text-gray-700">
-                        {source.charAt(0).toUpperCase() + source.slice(1)}
                       </td>
                       <td className="px-3 py-2 text-right text-xs">
                         <span className="inline-flex items-center gap-1">
-                          <Trophy className="w-3 h-3 text-yellow-500" />
-                          <span className="font-semibold">{score}</span>
+                          <DollarSign className="w-3 h-3 text-green-500" />
+                          <span className="font-semibold">
+                            ${dealValue.toLocaleString()}
+                          </span>
                         </span>
                       </td>
                       <td className="px-3 py-2 text-right">
@@ -718,7 +718,11 @@ const LeadManagement: React.FC = () => {
           setShowFormModal(false);
           setEditingLead(null);
         }}
-        title={editingLead ? "Edit Roofing Company" : "Add Roofing Company"}
+        title={
+          editingLead
+            ? "Edit Roofing Company Lead"
+            : "Add Roofing Company Lead"
+        }
       >
         <form
           className="space-y-4"
@@ -733,8 +737,8 @@ const LeadManagement: React.FC = () => {
                 Roofing Company Name
               </label>
               <input
-                name="company"
-                value={formData.company || ""}
+                name="company_name"
+                value={formData.company_name || ""}
                 onChange={handleFormChange}
                 className="w-full border rounded-lg px-3 py-2 text-sm"
                 placeholder="Example Roofing & Exteriors"
@@ -745,11 +749,11 @@ const LeadManagement: React.FC = () => {
                 Owner / Decision Maker
               </label>
               <input
-                name="name"
-                value={formData.name || ""}
+                name="contact_name"
+                value={formData.contact_name || ""}
                 onChange={handleFormChange}
                 className="w-full border rounded-lg px-3 py-2 text-sm"
-                placeholder="Contact person"
+                placeholder="Owner or GM name"
               />
             </div>
             <div>
@@ -776,16 +780,43 @@ const LeadManagement: React.FC = () => {
                 placeholder="(555) 555-5555"
               />
             </div>
-            <div className="md:col-span-2">
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+            <div>
               <label className="block text-xs font-medium text-gray-700 mb-1">
-                Service Area / Address
+                Service Area
               </label>
               <input
-                name="address"
-                value={formData.address || ""}
+                name="service_area"
+                value={formData.service_area || ""}
                 onChange={handleFormChange}
                 className="w-full border rounded-lg px-3 py-2 text-sm"
-                placeholder="City, state, or HQ address"
+                placeholder="Columbus, OH / Multi-state, etc."
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-gray-700 mb-1">
+                Company Size
+              </label>
+              <input
+                name="company_size"
+                value={formData.company_size || ""}
+                onChange={handleFormChange}
+                className="w-full border rounded-lg px-3 py-2 text-sm"
+                placeholder="# of sales reps / crews"
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-gray-700 mb-1">
+                Current CRM
+              </label>
+              <input
+                name="crm_used_now"
+                value={formData.crm_used_now || ""}
+                onChange={handleFormChange}
+                className="w-full border rounded-lg px-3 py-2 text-sm"
+                placeholder="AccuLynx, JobNimbus, none, etc."
               />
             </div>
           </div>
@@ -793,52 +824,32 @@ const LeadManagement: React.FC = () => {
           <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
             <div>
               <label className="block text-xs font-medium text-gray-700 mb-1">
-                Stage
+                Status
               </label>
               <select
                 name="status"
-                value={(formData.status as string) || "new"}
+                value={(formData.status as SaaSStatus) || "new"}
                 onChange={handleFormChange}
                 className="w-full border rounded-lg px-3 py-2 text-sm"
               >
-                <option value="new">New</option>
+                <option value="new">New Lead</option>
                 <option value="contacted">Contacted</option>
-                <option value="qualified">Qualified</option>
                 <option value="trial_started">Trial Started</option>
-                <option value="won">Closed Won</option>
-                <option value="lost">Closed Lost</option>
+                <option value="closed_won">Closed Won</option>
+                <option value="closed_lost">Closed Lost</option>
               </select>
             </div>
             <div>
               <label className="block text-xs font-medium text-gray-700 mb-1">
-                Source
-              </label>
-              <select
-                name="source"
-                value={(formData.source as string) || "outbound"}
-                onChange={handleFormChange}
-                className="w-full border rounded-lg px-3 py-2 text-sm"
-              >
-                <option value="outbound">Outbound</option>
-                <option value="inbound">Inbound</option>
-                <option value="referral">Referral</option>
-                <option value="facebook">Facebook</option>
-                <option value="google_ads">Google Ads</option>
-                <option value="event">Event / Conference</option>
-              </select>
-            </div>
-            <div>
-              <label className="block text-xs font-medium text-gray-700 mb-1">
-                Fit Score
+                Deal Value (Monthly or Package)
               </label>
               <input
                 type="number"
-                name="score"
-                value={formData.score ?? 70}
+                name="deal_value"
+                value={formData.deal_value ?? 500}
                 onChange={handleFormChange}
                 className="w-full border rounded-lg px-3 py-2 text-sm"
                 min={0}
-                max={100}
               />
             </div>
           </div>
@@ -853,7 +864,7 @@ const LeadManagement: React.FC = () => {
               onChange={handleFormChange}
               rows={3}
               className="w-full border rounded-lg px-3 py-2 text-sm"
-              placeholder="Current CRM, # of reps, pricing convo, objections, etc."
+              placeholder="Pain points, objections, how they found you, etc."
             />
           </div>
 
@@ -873,7 +884,7 @@ const LeadManagement: React.FC = () => {
               disabled={saving}
               className="px-4 py-2 text-sm rounded-lg bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-50"
             >
-              {saving ? "Saving..." : "Save Company"}
+              {saving ? "Saving..." : "Save Lead"}
             </button>
           </div>
         </form>
@@ -884,33 +895,25 @@ const LeadManagement: React.FC = () => {
         isOpen={showDeleteConfirm}
         onConfirm={deleteLead}
         onCancel={() => setShowDeleteConfirm(false)}
-        title="Delete Company?"
-        message="This will remove this roofing company from your pipeline."
+        title="Delete Roofing Company Lead?"
+        message="This action cannot be undone."
       />
 
       {/* DETAILS MODAL */}
       {detailsLead && (
         <LeadDetailsModal
           isOpen={showDetailsModal}
-          lead={detailsLead}
+          lead={detailsLead as any}
           onClose={() => setShowDetailsModal(false)}
-          onUpdate={handleLeadUpdateFromDetails}
         />
       )}
 
-      {/* IMPORT MODAL – stubbed safely */}
+      {/* IMPORT MODAL */}
       <ImportLeadsModal
         isOpen={showImportModal}
         onClose={() => setShowImportModal(false)}
-        onImport={async (imported) => {
-          // You can later wire this into a real bulk import.
-          toast.success(`Imported ${imported.length} roofing companies (placeholder).`);
-          return {
-            success: imported.length,
-            failed: 0,
-            duplicates: 0,
-            dbDuplicates: 0,
-          };
+        onImport={() => {
+          // Optionally re-fetch leads after import if you wire it up
         }}
       />
     </div>
