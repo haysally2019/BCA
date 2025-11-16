@@ -17,6 +17,7 @@ import { useAuthStore } from './store/authStore';
 import { useDataStore } from './store/dataStore';
 import { supabase } from './lib/supabaseClient';
 import { logError } from './lib/errorUtils';
+import TeamManagement from './components/TeamManagement';
 
 function ScrollToTop() {
   const { pathname } = useLocation();
