@@ -1,8 +1,8 @@
-import { create } from 'zustand';
-import { supabase } from '../lib/supabaseClient';
-import type { User } from '@supabase/supabase-js';
+import { create } from "zustand";
+import { supabase } from "../lib/supabaseClient";
+import type { User } from "@supabase/supabase-js";
 
-interface Profile {
+export interface Profile {
   id: string;
   user_id: string;
   company_id?: string;
@@ -14,7 +14,7 @@ interface Profile {
   company_address?: string;
   personal_address?: string;
   subscription_plan: string;
-  user_role?: string;
+  user_role?: "manager" | "sales_rep"; // <- primary role source
   affiliatewp_id?: number;
   affiliate_referral_url?: string;
   affiliatewp_earnings?: number;
@@ -36,7 +36,13 @@ interface AuthState {
   loading: boolean;
   initialized: boolean;
   signIn: (email: string, password: string) => Promise<void>;
-  signUp: (email: string, password: string, name: string, userType?: 'sales_rep', affiliatewpId?: number) => Promise<void>;
+  signUp: (
+    email: string,
+    password: string,
+    name: string,
+    userType?: "sales_rep",
+    affiliatewpId?: number
+  ) => Promise<void>;
   signOut: () => Promise<void>;
   initialize: () => Promise<{ unsubscribe: () => void } | null>;
   updateProfile: (updates: Partial<Profile>) => Promise<void>;
@@ -45,16 +51,24 @@ interface AuthState {
   silentSessionRefresh: () => Promise<void>;
 }
 
-const createMockProfile = (user: User, name?: string): Profile => ({
-  id: user.id,
-  user_id: user.id,
-  company_name: name || user.email?.split('@')[0] || 'User',
-  full_name: name || user.email?.split('@')[0] || 'User',
-  company_email: user.email,
-  subscription_plan: 'professional',
-  created_at: new Date().toISOString(),
-  updated_at: new Date().toISOString()
-});
+/**
+ * Helper: determine if profile should be treated as a manager.
+ * Logic:
+ *  - If user_role === 'manager' -> manager
+ *  - Else if no company_id or company_id === user_id -> treat as account owner/manager
+ *  - Else -> sales rep
+ */
+const isManagerProfile = (profile: Profile | null): boolean => {
+  if (!profile) return false;
+  if (profile.user_role === "manager") return true;
+
+  // Fallback owner logic: account owner is manager if company_id is empty or equal to self
+  if (!profile.company_id || profile.company_id === profile.user_id) {
+    return true;
+  }
+
+  return false;
+};
 
 export const useAuthStore = create<AuthState>((set, get) => ({
   user: null,
@@ -62,432 +76,386 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   loading: true,
   initialized: false,
 
+  /* ----------------------------------------------------------
+   * SIGN IN
+   * -------------------------------------------------------- */
   signIn: async (email: string, password: string) => {
     try {
+      set({ loading: true });
+
       const { data, error } = await supabase.auth.signInWithPassword({
         email,
         password,
       });
 
-      if (error) throw error;
-
-      if (data.user) {
-        // Create mock profile for immediate use
-        const mockProfile = createMockProfile(data.user);
-        set({ user: data.user, profile: mockProfile });
-
-        // Try to fetch real profile in background
-        try {
-          const { data: profile, error: profileError } = await supabase
-            .from('profiles')
-            .select('*')
-            .eq('user_id', data.user.id)
-            .maybeSingle();
-
-          if (profileError) {
-            throw profileError;
-          }
-
-          if (profile) {
-            console.log('[AuthStore] Real profile loaded:', {
-              id: profile.id,
-              affiliatewp_id: profile.affiliatewp_id,
-              affiliate_referral_url: profile.affiliate_referral_url
-            });
-            set({ profile });
-          }
-        } catch (profileError) {
-          // Using mock profile as fallback
-          console.log('[AuthStore] Using mock profile as fallback');
-        }
-      }
-    } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : 'Sign in failed';
-      throw new Error(errorMessage);
-    }
-  },
-
-  signUp: async (email: string, password: string, name: string, userType: 'sales_rep' = 'sales_rep', affiliatewpId?: number) => {
-    try {
-      console.log('[AuthStore] Starting signup process for:', email);
-
-      const { data, error } = await supabase.auth.signUp({
-        email,
-        password
-      });
-
       if (error) {
-        console.error('[AuthStore] Signup error:', error);
         throw error;
       }
 
-      if (data.user) {
-        console.log('[AuthStore] User created successfully:', data.user.id);
+      if (!data.user) {
+        throw new Error("No user returned from Supabase.");
+      }
 
-        const mockProfile = createMockProfile(data.user, name);
-        set({ user: data.user, profile: mockProfile });
+      const user = data.user;
 
-        let profileCreated = false;
-        let retryCount = 0;
-        const maxRetries = 5;
+      // Fetch real profile (no mock)
+      const { data: profile, error: profileError } = await supabase
+        .from("profiles")
+        .select("*")
+        .eq("user_id", user.id)
+        .single();
 
-        console.log('[AuthStore] Waiting for trigger to create profile...');
-        await new Promise(resolve => setTimeout(resolve, 1500));
+      if (profileError) {
+        console.error("[AuthStore] signIn profile error:", profileError);
+        // If there's truly no profile yet, the backend trigger should create it soon.
+        // But we at least attach the user so the app can proceed.
+        set({ user, profile: null, loading: false, initialized: true });
+        return;
+      }
 
-        while (!profileCreated && retryCount < maxRetries) {
-          try {
-            console.log(`[AuthStore] Checking for profile (attempt ${retryCount + 1}/${maxRetries})`);
+      set({
+        user,
+        profile,
+        loading: false,
+        initialized: true,
+      });
 
-            const { data: existingProfile, error: fetchError } = await supabase
-              .from('profiles')
-              .select('*')
-              .eq('user_id', data.user.id)
-              .maybeSingle();
+      console.log("[AuthStore] signIn complete. Manager?", isManagerProfile(profile));
+    } catch (error) {
+      set({ loading: false });
+      const msg =
+        error instanceof Error ? error.message : "Sign in failed. Please try again.";
+      console.error("[AuthStore] signIn error:", error);
+      throw new Error(msg);
+    }
+  },
 
-            if (fetchError) {
-              console.error('[AuthStore] Error fetching profile:', fetchError);
-              throw fetchError;
-            }
+  /* ----------------------------------------------------------
+   * SIGN UP
+   * -------------------------------------------------------- */
+  signUp: async (
+    email: string,
+    password: string,
+    name: string,
+    userType: "sales_rep" = "sales_rep",
+    affiliatewpId?: number
+  ) => {
+    try {
+      console.log("[AuthStore] Starting signUp for:", email);
 
-            if (existingProfile) {
-              console.log('[AuthStore] Profile found via trigger:', existingProfile.id);
-              console.log('[AuthStore] AffiliateWP account will be created automatically in the background');
+      const { data, error } = await supabase.auth.signUp({
+        email,
+        password,
+      });
 
-              set({ profile: existingProfile });
-              profileCreated = true;
-              console.log('[AuthStore] Signup completed successfully');
-            } else {
-              console.log('[AuthStore] Profile not yet created by trigger, waiting...');
-              retryCount++;
-              if (retryCount < maxRetries) {
-                await new Promise(resolve => setTimeout(resolve, 1000));
-              }
-            }
-          } catch (profileError) {
-            console.error('[AuthStore] Exception during profile fetch:', profileError);
-            retryCount++;
-            if (retryCount < maxRetries) {
-              console.log('[AuthStore] Retrying in 1 second...');
-              await new Promise(resolve => setTimeout(resolve, 1000));
-            }
-          }
+      if (error) {
+        console.error("[AuthStore] signUp error:", error);
+        throw error;
+      }
+
+      if (!data.user) {
+        throw new Error("No user object returned during signUp.");
+      }
+
+      const user = data.user;
+
+      // We assume a DB trigger creates the profile.
+      // We'll poll a few times for the new profile.
+      let profile: Profile | null = null;
+      const maxRetries = 5;
+      let attempt = 0;
+
+      while (attempt < maxRetries && !profile) {
+        const { data: p, error: pError } = await supabase
+          .from("profiles")
+          .select("*")
+          .eq("user_id", user.id)
+          .maybeSingle();
+
+        if (pError) {
+          console.warn(
+            `[AuthStore] signUp profile fetch attempt ${attempt + 1} error:`,
+            pError
+          );
         }
 
-        if (!profileCreated) {
-          console.error('[AuthStore] WARNING: Profile not found after all retries, but user is created');
-          console.log('[AuthStore] User can still access the app with mock profile');
-          console.log('[AuthStore] AffiliateWP account creation will be queued automatically');
+        if (p) {
+          profile = p as Profile;
+          break;
+        }
+
+        attempt++;
+        if (!profile) {
+          await new Promise((resolve) => setTimeout(resolve, 1000));
         }
       }
+
+      // If profile still isn't found, allow app to proceed but with null profile.
+      set({
+        user,
+        profile: profile ?? null,
+        loading: false,
+        initialized: true,
+      });
+
+      console.log(
+        "[AuthStore] signUp completed. Profile found?",
+        !!profile,
+        "Manager?",
+        profile ? isManagerProfile(profile) : false
+      );
     } catch (error) {
-      console.error('[AuthStore] Signup failed:', error);
-      const errorMessage = error instanceof Error ? error.message : 'Sign up failed';
-      throw new Error(errorMessage);
+      console.error("[AuthStore] signUp failed:", error);
+      const msg =
+        error instanceof Error ? error.message : "Sign up failed. Please try again.";
+      throw new Error(msg);
     }
   },
 
+  /* ----------------------------------------------------------
+   * SIGN OUT
+   * -------------------------------------------------------- */
   signOut: async () => {
-    sessionStorage.removeItem('currentRoute');
-
-    set({ user: null, profile: null, loading: false, initialized: false });
-
     try {
+      sessionStorage.removeItem("currentRoute");
       await supabase.auth.signOut();
     } catch (error) {
-      // Sign out error occurred
+      console.error("[AuthStore] signOut error:", error);
+    } finally {
+      set({
+        user: null,
+        profile: null,
+        loading: false,
+        initialized: false,
+      });
     }
-
-    set({ user: null, profile: null, loading: false, initialized: false });
   },
 
+  /* ----------------------------------------------------------
+   * INITIALIZE (ON APP LOAD)
+   * -------------------------------------------------------- */
   initialize: async () => {
-    const { user: currentUser, initialized, loading } = get();
-
-    if (initialized && currentUser && get().profile && loading === false) {
-      console.log('[AuthStore] Already initialized with valid user and profile');
-
-      // Validate session in background to ensure it's still valid
-      setTimeout(async () => {
-        try {
-          const { data: { session } } = await supabase.auth.getSession();
-          if (!session) {
-            console.log('[AuthStore] Session expired during initialization check');
-            set({ user: null, profile: null, initialized: false });
-          }
-        } catch (error) {
-          console.error('[AuthStore] Session check error:', error);
-        }
-      }, 0);
-
+    const { initialized } = get();
+    if (initialized) {
+      console.log("[AuthStore] initialize called but already initialized");
       return null;
     }
 
-    if (currentUser === null && loading === false && initialized) {
-      console.log('[AuthStore] No user and already initialized, skipping');
-      return null;
-    }
-
-    const initTimeout = new Promise<null>((resolve) => {
-      setTimeout(() => {
-        console.warn('[AuthStore] Initialize timeout - forcing completion');
-        set({ loading: false, initialized: true });
-        resolve(null);
-      }, 8000);
-    });
+    set({ loading: true });
 
     try {
-      set({ loading: true });
+      const {
+        data: { session },
+        error,
+      } = await supabase.auth.getSession();
 
-      const initPromise = (async () => {
-        const { data: { session }, error: getSessionError } = await supabase.auth.getSession();
+      if (error) {
+        console.error("[AuthStore] getSession error:", error);
+      }
 
-        if (getSessionError) {
-          if (getSessionError.message.includes('Invalid Refresh Token') ||
-              getSessionError.message.includes('Invalid login credentials') ||
-              getSessionError.message.includes('refresh_token_not_found')) {
-            console.log('[AuthStore] Invalid or expired session - clearing auth state');
-            await supabase.auth.signOut();
-            set({ user: null, profile: null, loading: false });
-            return null;
-          }
+      if (session?.user) {
+        const user = session.user;
+
+        const { data: profile, error: profileError } = await supabase
+          .from("profiles")
+          .select("*")
+          .eq("user_id", user.id)
+          .maybeSingle();
+
+        if (profileError) {
+          console.error("[AuthStore] initialize profile error:", profileError);
+          set({
+            user,
+            profile: null,
+            loading: false,
+            initialized: true,
+          });
+        } else {
+          set({
+            user,
+            profile: profile ?? null,
+            loading: false,
+            initialized: true,
+          });
+        }
+
+        console.log(
+          "[AuthStore] initialize complete. Manager?",
+          isManagerProfile(profile ?? null)
+        );
+      } else {
+        set({
+          user: null,
+          profile: null,
+          loading: false,
+          initialized: true,
+        });
+      }
+
+      // Auth state subscription
+      const {
+        data: { subscription },
+      } = supabase.auth.onAuthStateChange(async (event, session) => {
+        console.log("[AuthStore] Auth event:", event);
+
+        if (event === "SIGNED_OUT") {
+          set({
+            user: null,
+            profile: null,
+            loading: false,
+          });
+          return;
         }
 
         if (session?.user) {
-          const mockProfile = createMockProfile(session.user);
-          set({ user: session.user, profile: mockProfile, loading: false, initialized: true });
+          const user = session.user;
 
-          try {
-            const { data: profile, error: profileError } = await supabase
-              .from('profiles')
-              .select('*')
-              .eq('user_id', session.user.id)
-              .maybeSingle();
+          const { data: profile, error: pError } = await supabase
+            .from("profiles")
+            .select("*")
+            .eq("user_id", user.id)
+            .maybeSingle();
 
-            if (!profileError && profile) {
-              console.log('[AuthStore] Real profile loaded:', {
-                id: profile.id,
-                affiliatewp_id: profile.affiliatewp_id,
-                affiliate_referral_url: profile.affiliate_referral_url
-              });
-              set({ profile, initialized: true });
-            }
-          } catch (profileError) {
-            console.log('[AuthStore] Using mock profile as fallback');
-          }
-        } else {
-          set({ user: null, profile: null, loading: false, initialized: true });
-        }
-
-        const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
-          if (event === 'SIGNED_OUT') {
-            set({ user: null, profile: null, loading: false });
-            return;
-          }
-
-          if (event === 'TOKEN_REFRESHED') {
-            console.log('[AuthStore] Token refreshed event');
-            if (session?.user) {
-              const currentProfile = get().profile;
-
-              if (currentProfile?.user_id === session.user.id) {
-                set({ user: session.user });
-              } else {
-                set({ user: session.user, profile: createMockProfile(session.user) });
-
-                try {
-                  const { data: profile, error: profileError } = await supabase
-                    .from('profiles')
-                    .select('*')
-                    .eq('user_id', session.user.id)
-                    .maybeSingle();
-
-                  if (!profileError && profile) {
-                    set({ profile });
-                  }
-                } catch (error) {
-                  console.log('[AuthStore] Error fetching profile after token refresh');
-                }
-              }
-            } else {
-              console.warn('[AuthStore] Token refresh event with no session - signing out');
-              set({ user: null, profile: null, loading: false });
-            }
-            return;
-          }
-
-          if (event === 'USER_UPDATED') {
-            if (session?.user) {
-              set({ user: session.user });
-
-              try {
-                const { data: profile, error: profileError } = await supabase
-                  .from('profiles')
-                  .select('*')
-                  .eq('user_id', session.user.id)
-                  .maybeSingle();
-
-                if (!profileError && profile) {
-                  set({ profile });
-                }
-              } catch (error) {
-                console.log('[AuthStore] Error refreshing profile after USER_UPDATED');
-              }
-            }
-            return;
-          }
-
-          if (session?.user) {
-            const mockProfile = createMockProfile(session.user);
-            set({ user: session.user, profile: mockProfile });
-
-            try {
-              const { data: profile, error: profileError } = await supabase
-                .from('profiles')
-                .select('*')
-                .eq('user_id', session.user.id)
-                .maybeSingle();
-
-              if (!profileError && profile) {
-                set({ profile });
-              }
-            } catch (error) {
-              console.log('[AuthStore] Using mock profile due to database error');
-            }
+          if (pError) {
+            console.error("[AuthStore] onAuthStateChange profile error:", pError);
+            set({ user, profile: null });
           } else {
-            set({ user: null, profile: null });
+            set({ user, profile: profile ?? null });
           }
-        });
 
-        return subscription;
-      })();
+          console.log(
+            "[AuthStore] onAuthStateChange. Manager?",
+            isManagerProfile(profile ?? null)
+          );
+        } else {
+          set({ user: null, profile: null });
+        }
+      });
 
-      return await Promise.race([initPromise, initTimeout]);
+      return {
+        unsubscribe: () => {
+          subscription.unsubscribe();
+        },
+      };
     } catch (error) {
-      console.error('[AuthStore] Auth initialization error:', error);
-      set({ user: null, profile: null, loading: false, initialized: true });
+      console.error("[AuthStore] initialize error:", error);
+      set({
+        user: null,
+        profile: null,
+        loading: false,
+        initialized: true,
+      });
       return null;
-    } finally {
-      const currentState = get();
-      if (currentState.loading) {
-        set({ loading: false, initialized: true });
-      }
     }
   },
 
+  /* ----------------------------------------------------------
+   * SIMPLE STATE SETTER
+   * -------------------------------------------------------- */
   setInitialized: (value: boolean) => {
     set({ initialized: value });
   },
 
+  /* ----------------------------------------------------------
+   * UPDATE PROFILE
+   * -------------------------------------------------------- */
   updateProfile: async (updates: Partial<Profile>) => {
     const { profile } = get();
     if (!profile) {
-      console.error('[AuthStore] Cannot update profile: no profile found');
-      throw new Error('No profile found');
+      console.error("[AuthStore] updateProfile: no profile in state");
+      throw new Error("No profile loaded.");
     }
-
-    console.log('[AuthStore] Updating profile with data:', updates);
 
     try {
       const { data, error } = await supabase
-        .from('profiles')
+        .from("profiles")
         .update({
           ...updates,
           updated_at: new Date().toISOString(),
         })
-        .eq('user_id', profile.user_id)
-        .select()
+        .eq("id", profile.id)
+        .select("*")
         .single();
 
       if (error) {
-        console.error('[AuthStore] Profile update error:', error);
+        console.error("[AuthStore] updateProfile error:", error);
         throw error;
       }
 
-      if (data) {
-        console.log('[AuthStore] Profile updated successfully:', data);
-        set({ profile: data });
-      } else {
-        console.warn('[AuthStore] No data returned from profile update');
-      }
+      set({ profile: data as Profile });
+      console.log("[AuthStore] Profile updated. Manager?", isManagerProfile(data));
     } catch (error) {
-      console.error('[AuthStore] Exception during profile update:', error);
+      console.error("[AuthStore] updateProfile exception:", error);
       throw error;
     }
   },
 
+  /* ----------------------------------------------------------
+   * REFRESH PROFILE
+   * -------------------------------------------------------- */
   refreshProfile: async () => {
     const { user } = get();
     if (!user) {
-      console.log('[AuthStore] Cannot refresh profile: no user logged in');
+      console.log("[AuthStore] refreshProfile: no user logged in");
       return;
     }
 
     try {
-      console.log('[AuthStore] Refreshing profile for user:', user.id);
-      const timestamp = new Date().getTime();
-
       const { data: profile, error } = await supabase
-        .from('profiles')
-        .select('*')
-        .eq('user_id', user.id)
+        .from("profiles")
+        .select("*")
+        .eq("user_id", user.id)
         .maybeSingle();
 
       if (error) {
-        console.error('[AuthStore] Error refreshing profile:', error);
+        console.error("[AuthStore] refreshProfile error:", error);
         return;
       }
 
       if (profile) {
-        console.log('[AuthStore] Profile refreshed successfully:', {
-          profileId: profile.id,
-          must_change_password: profile.must_change_password,
-          affiliatewp_id: profile.affiliatewp_id,
-          affiliate_referral_url: profile.affiliate_referral_url,
-          timestamp
-        });
-        set({ profile });
-      } else {
-        console.warn('[AuthStore] No profile found for user');
+        set({ profile: profile as Profile });
+        console.log(
+          "[AuthStore] Profile refreshed. Manager?",
+          isManagerProfile(profile as Profile)
+        );
       }
     } catch (error) {
-      console.error('[AuthStore] Exception refreshing profile:', error);
+      console.error("[AuthStore] refreshProfile exception:", error);
     }
   },
 
+  /* ----------------------------------------------------------
+   * SILENT SESSION REFRESH
+   * -------------------------------------------------------- */
   silentSessionRefresh: async () => {
-    const { user, profile, initialized } = get();
-
-    if (!user || !initialized) {
-      console.log('[AuthStore] Silent refresh skipped - not initialized or no user');
+    const { initialized } = get();
+    if (!initialized) {
+      console.log(
+        "[AuthStore] silentSessionRefresh skipped: store not initialized yet"
+      );
       return;
     }
 
     try {
-      console.log('[AuthStore] Silent session refresh - validating session');
-
-      const { data: { session }, error } = await supabase.auth.getSession();
+      const {
+        data: { session },
+        error,
+      } = await supabase.auth.getSession();
 
       if (error) {
-        console.error('[AuthStore] Silent session refresh error:', error);
-        if (error.message.includes('Invalid Refresh Token') ||
-            error.message.includes('Invalid login credentials')) {
-          console.log('[AuthStore] Invalid token during silent refresh - signing out');
-          await get().signOut();
-        }
+        console.error("[AuthStore] silentSessionRefresh getSession error:", error);
         return;
       }
 
-      if (session?.user) {
-        console.log('[AuthStore] Silent session refresh successful');
-        if (session.user.id !== user.id) {
-          console.warn('[AuthStore] User ID mismatch during silent refresh');
-          set({ user: session.user });
-        }
-      } else {
-        console.log('[AuthStore] No active session during silent refresh');
+      if (!session?.user) {
+        console.log("[AuthStore] silentSessionRefresh: no active session");
+        return;
       }
+
+      // If you want to force re-fetch profile here, you can:
+      // await get().refreshProfile();
     } catch (error) {
-      console.error('[AuthStore] Exception during silent session refresh:', error);
+      console.error("[AuthStore] silentSessionRefresh exception:", error);
     }
   },
 }));
