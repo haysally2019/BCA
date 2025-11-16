@@ -1,48 +1,47 @@
-// src/lib/leadService.ts
 import { supabase } from "./supabaseClient";
 
-export type LeadStatus =
-  | "new"
-  | "contacted"
-  | "qualified"
-  | "proposal"
-  | "won"
-  | "lost";
+// Pipeline statuses
+export const LEAD_STATUSES = [
+  "new",
+  "contacted",
+  "qualified",
+  "proposal",
+  "won",
+  "lost",
+] as const;
+
+export type LeadStatus = (typeof LEAD_STATUSES)[number];
 
 export interface LeadInput {
   name: string;
-  phone?: string;
-  email?: string;
-  address?: string;
-  notes?: string;
+  phone?: string | null;
+  email?: string | null;
+  address?: string | null;
+  notes?: string | null;
   status?: LeadStatus;
-  assigned_to?: string | null; // MUST be auth.uid() of a rep
+  assigned_to?: string | null; // auth.uid() only
 }
 
 export interface LeadRecord extends LeadInput {
   id: string;
   created_at: string;
-  created_by: string; // auth.uid()
+  created_by: string;
   assigned_to: string;
 }
 
+// Fetch current authenticated user ID
 async function getCurrentUserId(): Promise<string> {
   const {
     data: { user },
-    error,
   } = await supabase.auth.getUser();
 
-  if (error) throw error;
-  if (!user) throw new Error("No authenticated user");
-
+  if (!user) throw new Error("User not authenticated");
   return user.id;
 }
 
-// ---------------------------------------------------------
-// CREATE LEAD (RLS SAFE)
-// ---------------------------------------------------------
+// CREATE lead (RLS safe)
 export async function createLead(input: LeadInput): Promise<LeadRecord> {
-  const userId = await getCurrentUserId();
+  const uid = await getCurrentUserId();
 
   const payload = {
     name: input.name,
@@ -51,10 +50,8 @@ export async function createLead(input: LeadInput): Promise<LeadRecord> {
     address: input.address || null,
     notes: input.notes || null,
     status: input.status || "new",
-
-    // MUST MATCH RLS
-    created_by: userId,
-    assigned_to: input.assigned_to || userId,
+    created_by: uid,
+    assigned_to: input.assigned_to || uid,
   };
 
   const { data, error } = await supabase
@@ -63,17 +60,12 @@ export async function createLead(input: LeadInput): Promise<LeadRecord> {
     .select("*")
     .single();
 
-  if (error) {
-    console.error("[createLead]", error);
-    throw error;
-  }
+  if (error) throw error;
 
   return data as LeadRecord;
 }
 
-// ---------------------------------------------------------
-// UPDATE LEAD (RLS SAFE)
-// ---------------------------------------------------------
+// UPDATE lead
 export async function updateLead(
   id: string,
   updates: Partial<LeadInput>
@@ -85,29 +77,18 @@ export async function updateLead(
     .select("*")
     .single();
 
-  if (error) {
-    console.error("[updateLead]", error);
-    throw error;
-  }
-
+  if (error) throw error;
   return data as LeadRecord;
 }
 
-// ---------------------------------------------------------
-// GET LEADS FOR CURRENT USER
-// RLS ensures reps only see their leads
-// Managers see team leads if your RLS allows
-// ---------------------------------------------------------
-export async function getMyLeads(): Promise<LeadRecord[]> {
+// GET leads (RLS enforced)
+export async function getLeads(): Promise<LeadRecord[]> {
   const { data, error } = await supabase
     .from("leads")
     .select("*")
     .order("created_at", { ascending: false });
 
-  if (error) {
-    console.error("[getMyLeads]", error);
-    throw error;
-  }
+  if (error) throw error;
 
-  return data || [];
+  return data as LeadRecord[];
 }
