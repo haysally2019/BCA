@@ -136,11 +136,10 @@ const CommissionsTracker: React.FC = () => {
         await loadCommissionsData(profile.id);
       }
 
-      const syncedCount = payload?.count || 0;
-      toast.success(`AffiliateWP metrics synced! Updated ${syncedCount} affiliate(s).`, { id: toastId });
+      toast.success("AffiliateWP metrics synced", { id: toastId });
     } catch (err) {
       console.error("[CommissionsTracker] sync error", err);
-      toast.error("Failed to sync AffiliateWP metrics. Please try again.", { id: toastId });
+      toast.error("Failed to sync AffiliateWP metrics", { id: toastId });
     } finally {
       setSyncingMetrics(false);
     }
