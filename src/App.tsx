@@ -15,7 +15,7 @@ import Auth from "./components/Auth";
 import { useAuthStore } from "./store/authStore";
 
 // ----------------------------
-// Protected Route
+// Protected Route Component
 // ----------------------------
 const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
   const { user, loading } = useAuthStore();
@@ -36,7 +36,7 @@ const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
 };
 
 // ----------------------------
-// App Component
+// Main App Component
 // ----------------------------
 const App: React.FC = () => {
   return (
@@ -45,64 +45,18 @@ const App: React.FC = () => {
       {/* Sidebar */}
       <Sidebar />
 
-      {/* Main Content */}
+      {/* Main Content Area */}
       <div className="flex-1 overflow-y-auto">
         <MobileNav />
 
         <div className="p-4 md:p-6">
           <Routes>
 
-            {/* Public Route */}
+            {/* PUBLIC ROUTES */}
             <Route path="/auth" element={<Auth />} />
 
-            {/* Protected Routes */}
+            {/* PROTECTED ROUTES */}
             <Route
               path="/dashboard"
               element={
-                <ProtectedRoute>
-                  <Dashboard />
-                </ProtectedRoute>
-              }
-            />
-
-            <Route
-              path="/sales-tools"
-              element={
-                <ProtectedRoute>
-                  <SalesTools />
-                </ProtectedRoute>
-              }
-            />
-
-            <Route
-              path="/leads"
-              element={
-                <ProtectedRoute>
-                  <LeadManagement />
-                </ProtectedRoute>
-              }
-            />
-
-            <Route
-              path="/team"
-              element={
-                <ProtectedRoute>
-                  <TeamManagement />
-                </ProtectedRoute>
-              }
-            />
-
-            <Route
-              path="/commissions"
-              element={
-                <ProtectedRoute>
-                  <CommissionsTracker />
-                </ProtectedRoute>
-              }
-            />
-
-            <Route
-              path="/settings"
-              element={
-                <ProtectedRoute>
-                  <Settings /
+                <ProtectedRout
