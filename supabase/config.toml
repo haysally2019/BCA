@@ -1,0 +1,11 @@
+# Supabase Configuration File
+# This file is used to configure Supabase hooks and other settings
+
+[auth]
+# Enable custom access token hook for JWT claims
+[auth.hook.custom_access_token]
+enabled = true
+uri = "pg-functions://postgres/public/custom_access_token_hook"
+
+# This hook will automatically add user_role and company_id to JWT tokens
+# during authentication and token refresh operations

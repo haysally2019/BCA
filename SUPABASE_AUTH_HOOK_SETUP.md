@@ -19,22 +19,32 @@ When activated, this hook will:
 
 ### Option 1: Supabase Dashboard (Recommended)
 
-1. **Navigate to your Supabase project:**
-   - Go to: https://gpupamrhpmrgslqnzzpb.supabase.co
+**IMPORTANT: How to Access Your Supabase Dashboard**
 
-2. **Open Authentication Hooks:**
-   - Click on "Authentication" in the left sidebar
-   - Click on "Hooks" tab
+Your Supabase project reference: `gpupamrhpmrgslqnzzpb`
 
-3. **Enable Custom Access Token Hook:**
-   - Find "Custom Access Token" section
-   - Toggle it to "Enabled"
-   - In the dropdown, select: `public.custom_access_token_hook`
-   - Click "Save" or "Confirm"
+**To access the Supabase Dashboard:**
+1. Go to: **https://supabase.com/dashboard**
+2. Sign in with your Supabase account credentials (the account you used to create the project)
+3. You'll see a list of your projects
+4. Click on the project **gpupamrhpmrgslqnzzpb** to open the dashboard
 
-4. **Verify Configuration:**
+**Steps to Enable the Hook:**
+
+1. **Navigate to Authentication Settings:**
+   - In the left sidebar, click on "Authentication" (shield icon)
+   - Click on the "Hooks" tab at the top of the page
+
+2. **Enable Custom Access Token Hook:**
+   - Scroll down to find the "Custom Access Token" section
+   - Toggle the switch to "Enabled"
+   - In the dropdown menu, select: `public.custom_access_token_hook`
+   - Click "Save" or "Confirm" button
+
+3. **Verify Configuration:**
    - The hook should now show as "Enabled"
    - Status indicator should be green/active
+   - You should see "public.custom_access_token_hook" listed as the active function
 
 ### Option 2: Supabase CLI (For Local Development)
 

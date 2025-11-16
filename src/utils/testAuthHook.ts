@@ -75,13 +75,17 @@ export async function testAuthHook() {
     console.log('DATABASE JWT TEST:');
     console.log('-'.repeat(60));
 
-    const { data: jwtTest, error: jwtError } = await supabase.rpc('test_jwt_claims');
+    const { data: jwtTest, error: jwtError } = await supabase.rpc('test_auth_hook_claims');
 
     if (jwtError) {
-      // Function might not exist, that's okay
-      console.log('⚠️  Could not test database JWT function (this is okay)');
+      console.log('⚠️  Could not test database JWT function:', jwtError.message);
     } else {
-      console.log('Database JWT claims:', jwtTest);
+      console.log('Database JWT test result:', jwtTest);
+      if (jwtTest && jwtTest.hook_active) {
+        console.log('✅ Database confirms hook is active!');
+      } else {
+        console.log('❌ Database confirms hook is NOT active');
+      }
     }
 
     // Conclusion
