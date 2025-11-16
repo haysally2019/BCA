@@ -15,53 +15,34 @@ import LeadManagement from "./components/LeadManagement";
 import CommissionsTracker from "./components/CommissionsTracker";
 import Settings from "./components/Settings";
 import TeamManagement from "./components/TeamManagement";
+import Auth from "./components/Auth";
 
-import Auth from "./components/Auth"; // <-- ensure you have this
+import ProtectedRoute from "./components/ProtectedRoute";
 
-import { useAuthStore } from "./store/authStore";
-
-// --------------------------------------
-// Protected Route Wrapper
-// --------------------------------------
-const ProtectedRoute = ({ children }) => {
-  const { user, loading } = useAuthStore();
-
-  if (loading) {
-    return (
-      <div className="w-full h-screen flex items-center justify-center text-gray-700">
-        Loading...
-      </div>
-    );
-  }
-
-  if (!user) {
-    return <Navigate to="/auth" replace />;
-  }
-
-  return children;
-};
-
-// --------------------------------------
-// App Component
-// --------------------------------------
 const App: React.FC = () => {
   return (
     <Router>
       <div className="flex h-screen bg-gray-50">
+        
+        {/* Sidebar should only show when logged in */}
+        <ProtectedRoute>
+          <Sidebar />
+        </ProtectedRoute>
 
-        {/* Sidebar (only visible when logged in) */}
-        <AuthGateSidebar />
-
-        {/* Page Content */}
         <div className="flex-1 overflow-y-auto">
-          <AuthGateMobileNav />
+
+          {/* Mobile Nav only when logged in */}
+          <ProtectedRoute>
+            <MobileNav />
+          </ProtectedRoute>
 
           <div className="p-4 md:p-6">
             <Routes>
-              {/* AUTH SCREEN */}
+
+              {/* Public Route */}
               <Route path="/auth" element={<Auth />} />
 
-              {/* PROTECTED ROUTES */}
+              {/* Protected Routes */}
               <Route
                 path="/dashboard"
                 element={
@@ -116,10 +97,10 @@ const App: React.FC = () => {
                 }
               />
 
-              {/* DEFAULT ROUTE */}
+              {/* Redirect root → dashboard */}
               <Route path="/" element={<Navigate to="/dashboard" replace />} />
 
-              {/* CATCH ALL */}
+              {/* Catch-all redirect */}
               <Route path="*" element={<Navigate to="/dashboard" replace />} />
             </Routes>
           </div>
@@ -127,24 +108,6 @@ const App: React.FC = () => {
       </div>
     </Router>
   );
-};
-
-// --------------------------------------
-// Hide Sidebar when logged out
-// --------------------------------------
-const AuthGateSidebar = () => {
-  const { user, loading } = useAuthStore();
-  if (loading || !user) return null;
-  return <Sidebar />;
-};
-
-// --------------------------------------
-// Hide MobileNav when logged out
-// --------------------------------------
-const AuthGateMobileNav = () => {
-  const { user, loading } = useAuthStore();
-  if (loading || !user) return null;
-  return <MobileNav />;
 };
 
 export default App;
