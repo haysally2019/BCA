@@ -26,12 +26,13 @@ export const supabaseService = {
      LEADS — FULLY MATCHED TO NEW DATABASE SCHEMA
   ============================================================ */
 
-  async getLeads(ownerId: string) {
+  async getLeads(ownerId?: string) {
     try {
+      // RLS policies handle access control automatically
+      // Admins see all leads, managers see company leads, reps see their own
       const { data, error } = await supabase
         .from("leads")
         .select("*")
-        .eq("company_id", ownerId)
         .order("created_at", { ascending: false });
 
       if (error) throw error;

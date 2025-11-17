@@ -9,6 +9,7 @@ import {
   Phone,
   Mail,
   Building2,
+  UserPlus,
 } from "lucide-react";
 import toast from "react-hot-toast";
 
@@ -42,6 +43,7 @@ export interface SaaSLead {
   created_at?: string | null;
   user_id?: string | null;
   company_id?: string | null;
+  assigned_to?: string | null;
 }
 
 type StatusFilter = "all" | SaaSStatus;
@@ -72,11 +74,16 @@ const LeadManagement: React.FC = () => {
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [showDetailsModal, setShowDetailsModal] = useState(false);
   const [showImportModal, setShowImportModal] = useState(false);
+  const [showAssignModal, setShowAssignModal] = useState(false);
 
   const [editingLead, setEditingLead] = useState<SaaSLead | null>(null);
   const [leadToDelete, setLeadToDelete] = useState<SaaSLead | null>(null);
   const [detailsLead, setDetailsLead] = useState<SaaSLead | null>(null);
+  const [leadToAssign, setLeadToAssign] = useState<SaaSLead | null>(null);
   const [saving, setSaving] = useState(false);
+
+  const [teamMembers, setTeamMembers] = useState<any[]>([]);
+  const [selectedAssignee, setSelectedAssignee] = useState<string>("");
 
   const [formData, setFormData] = useState({
     company_name: "",
@@ -91,6 +98,9 @@ const LeadManagement: React.FC = () => {
     notes: "",
   });
 
+  // Check if user is manager or admin
+  const isManagerOrAdmin = profile?.user_role === "manager" || profile?.user_role === "admin";
+
   // LOAD LEADS
   useEffect(() => {
     const load = async () => {
@@ -99,10 +109,10 @@ const LeadManagement: React.FC = () => {
         return;
       }
 
-      const ownerId = (profile as any).company_id || profile.user_id;
-
       try {
-        const result = await supabaseService.getLeads(ownerId as string);
+        // RLS policies automatically filter based on role
+        // Admins see all, managers see company leads, reps see their own
+        const result = await supabaseService.getLeads();
         const safe = Array.isArray(result) ? (result as SaaSLead[]) : [];
         setLeads(safe);
       } catch (err) {
@@ -114,6 +124,23 @@ const LeadManagement: React.FC = () => {
 
     load();
   }, [profile]);
+
+  // LOAD TEAM MEMBERS (for assignment dropdown)
+  useEffect(() => {
+    const loadTeam = async () => {
+      if (!profile || !isManagerOrAdmin) return;
+
+      try {
+        const companyId = profile.company_id || profile.user_id;
+        const members = await supabaseService.getTeamMembers(companyId);
+        setTeamMembers(members);
+      } catch (err) {
+        console.error("Error loading team members:", err);
+      }
+    };
+
+    loadTeam();
+  }, [profile, isManagerOrAdmin]);
 
   const safeLeads = Array.isArray(leads) ? leads : [];
 
@@ -334,6 +361,43 @@ const LeadManagement: React.FC = () => {
   const openDetails = (lead: SaaSLead) => {
     setDetailsLead(lead);
     setShowDetailsModal(true);
+  };
+
+  // OPEN ASSIGN MODAL
+  const openAssignModal = (lead: SaaSLead) => {
+    setLeadToAssign(lead);
+    setSelectedAssignee(lead.assigned_to || "");
+    setShowAssignModal(true);
+  };
+
+  // ASSIGN LEAD
+  const assignLead = async () => {
+    if (!leadToAssign) return;
+
+    setSaving(true);
+    try {
+      const result = await supabaseService.updateLead(leadToAssign.id, {
+        assigned_to: selectedAssignee || null,
+      });
+
+      if (result.error) throw result.error;
+
+      setLeads((prev) =>
+        prev.map((l) =>
+          l.id === leadToAssign.id ? { ...l, assigned_to: selectedAssignee || null } : l
+        )
+      );
+
+      toast.success("Lead assigned successfully");
+      setShowAssignModal(false);
+      setLeadToAssign(null);
+      setSelectedAssignee("");
+    } catch (err) {
+      console.error("Error assigning lead:", err);
+      toast.error("Error assigning lead");
+    } finally {
+      setSaving(false);
+    }
   };
 
   // LOADING STATE
@@ -572,18 +636,30 @@ const LeadManagement: React.FC = () => {
                         <button
                           onClick={() => openDetails(lead)}
                           className="p-1.5 rounded-full hover:bg-slate-100 transition"
+                          title="View details"
                         >
                           <Eye className="w-3.5 h-3.5 text-slate-600" />
                         </button>
                         <button
                           onClick={() => openEditLead(lead)}
                           className="p-1.5 rounded-full hover:bg-slate-100 transition"
+                          title="Edit lead"
                         >
                           <Edit3 className="w-3.5 h-3.5 text-slate-600" />
                         </button>
+                        {isManagerOrAdmin && (
+                          <button
+                            onClick={() => openAssignModal(lead)}
+                            className="p-1.5 rounded-full hover:bg-blue-50 transition"
+                            title="Assign lead"
+                          >
+                            <UserPlus className="w-3.5 h-3.5 text-blue-600" />
+                          </button>
+                        )}
                         <button
                           onClick={() => confirmDeleteLead(lead)}
                           className="p-1.5 rounded-full hover:bg-rose-50 transition"
+                          title="Delete lead"
                         >
                           <Trash2 className="w-3.5 h-3.5 text-rose-600" />
                         </button>
@@ -749,6 +825,55 @@ const LeadManagement: React.FC = () => {
         isOpen={showImportModal}
         onClose={() => setShowImportModal(false)}
       />
+
+      {/* ASSIGN LEAD MODAL */}
+      <BaseModal
+        isOpen={showAssignModal}
+        onClose={() => setShowAssignModal(false)}
+        title="Assign Lead"
+        width="max-w-md"
+      >
+        <div className="space-y-4">
+          <div>
+            <p className="text-sm text-gray-600 mb-4">
+              Assign <span className="font-semibold">{leadToAssign?.company_name}</span> to a team member:
+            </p>
+
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Assign To
+            </label>
+            <select
+              value={selectedAssignee}
+              onChange={(e) => setSelectedAssignee(e.target.value)}
+              className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
+            >
+              <option value="">Unassigned</option>
+              {teamMembers.map((member) => (
+                <option key={member.user_id} value={member.user_id}>
+                  {member.full_name || member.company_name || member.company_email}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div className="flex justify-end gap-3 pt-4 border-t">
+            <button
+              onClick={() => setShowAssignModal(false)}
+              className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors"
+              disabled={saving}
+            >
+              Cancel
+            </button>
+            <button
+              onClick={assignLead}
+              className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50"
+              disabled={saving}
+            >
+              {saving ? "Assigning..." : "Assign Lead"}
+            </button>
+          </div>
+        </div>
+      </BaseModal>
     </div>
   );
 };
