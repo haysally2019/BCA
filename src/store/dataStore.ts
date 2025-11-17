@@ -1,7 +1,4 @@
-import supabase from "./supabaseService"; // ✅ FIXED — default import
-
-// Example structure — keeping your logic intact
-// If your file had more functionality, this patch preserves it.
+import supabase from "../lib/supabaseService"; // ✅ Correct relative path
 
 export async function fetchData(table: string) {
   try {
