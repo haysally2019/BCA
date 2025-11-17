@@ -1,24 +1,8 @@
-import { createAffiliateProfile } from "./affiliateService";
+import { createClient } from "@supabase/supabase-js";
 
-export async function signUp(email: string, password: string) {
-  const { data, error } = await supabase.auth.signUp({ email, password });
-  if (error || !data.user) return { error };
+const supabaseUrl = import.meta.env.VITE_SUPABASE_URL!;
+const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY!;
 
-  const userId = data.user.id;
+const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
-  // CREATE AFFILIATE
-  const affiliate = await createAffiliateProfile(email);
-
-  // UPDATE PROFILES TABLE
-  if (affiliate.ok) {
-    await supabase
-      .from("profiles")
-      .update({
-        affiliate_id: affiliate.affiliate_id,
-        affiliate_url: affiliate.affiliate_url,
-      })
-      .eq("user_id", userId);
-  }
-
-  return { user: data.user };
-}
+export default supabase;
