@@ -1,6 +1,9 @@
-import React from "react"; // REQUIRED in Vite React apps
+import React from "react";
 import { useEffect, useState } from "react";
-import supabase from "../lib/supabaseService"; // matches your current export
+import supabase from "../lib/supabaseService";
+
+// TEMPORARY SYNC
+import { runAffiliateSync } from "../utils/runAffiliateSync";
 
 export default function Dashboard() {
   const [loading, setLoading] = useState(true);
@@ -9,11 +12,19 @@ export default function Dashboard() {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
+    // ------------------------------------------------
+    // 🔥 TEMPORARY: RUN PHASE 2 AUTO-GENERATION
+    // This will generate missing affiliate links for ALL users.
+    // After it runs once successfully, DELETE this line.
+    // ------------------------------------------------
+    runAffiliateSync();
+    // ------------------------------------------------
+
     async function loadAffiliateData() {
       try {
         setLoading(true);
 
-        // 1. Get the logged-in user
+        // 1. Get logged-in user
         const {
           data: { user },
           error: userError,
@@ -41,8 +52,7 @@ export default function Dashboard() {
 
         setAffiliateId(data?.affiliate_id || null);
         setAffiliateUrl(data?.affiliate_url || null);
-
-      } catch (err: any) {
+      } catch (err) {
         console.error("[Dashboard] unexpected error:", err);
         setError("Unexpected error loading dashboard.");
       }
@@ -62,7 +72,9 @@ export default function Dashboard() {
         <h1 className="text-2xl font-bold mb-6">Dashboard</h1>
 
         <div className="p-4 border rounded-lg bg-white shadow">
-          <p className="animate-pulse text-gray-400">Loading your affiliate info…</p>
+          <p className="animate-pulse text-gray-400">
+            Loading your affiliate info…
+          </p>
         </div>
       </div>
     );
@@ -92,7 +104,9 @@ export default function Dashboard() {
         <h1 className="text-2xl font-bold mb-6">Dashboard</h1>
 
         <div className="p-4 border rounded-lg bg-yellow-100 text-yellow-800 shadow">
-          <p>Your affiliate link is still generating. Try refreshing in a moment.</p>
+          <p>
+            Your affiliate link is still generating. Try refreshing in a moment.
+          </p>
         </div>
       </div>
     );
