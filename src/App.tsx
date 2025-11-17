@@ -1,5 +1,5 @@
 import React from "react";
-import { BrowserRouter as Router, Routes, Route, Navigate } from "react-router-dom";
+import { Routes, Route, Navigate } from "react-router-dom";
 
 import Sidebar from "./components/Sidebar";
 import MobileNav from "./components/MobileNav";
@@ -9,52 +9,121 @@ import SalesTools from "./components/SalesTools";
 import LeadManagement from "./components/LeadManagement";
 import CommissionsTracker from "./components/CommissionsTracker";
 import Settings from "./components/Settings";
-
 import TeamManagement from "./components/TeamManagement";
+import Auth from "./components/Auth";
 
 import { useAuthStore } from "./store/authStore";
 
-const App: React.FC = () => {
-  const { loading } = useAuthStore(); // we are NOT blocking on `user` anymore
+// ----------------------------
+// Protected Route Component
+// ----------------------------
+const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
+  const { user, loading } = useAuthStore();
 
   if (loading) {
     return (
-      <div className="w-full h-screen flex items-center justify-center text-gray-700">
+      <div className="w-full h-screen flex items-center justify-center">
         Loading...
       </div>
     );
   }
 
+  if (!user) {
+    return <Navigate to="/auth" replace />;
+  }
+
+  return <>{children}</>;
+};
+
+// ----------------------------
+// Main App Component
+// ----------------------------
+const App: React.FC = () => {
+  const { user } = useAuthStore();
+
   return (
-    <Router>
-      <div className="flex h-screen bg-gray-50">
-        <Sidebar />
+    <div className="flex h-screen bg-gray-50">
 
-        <div className="flex-1 overflow-y-auto">
-          <MobileNav />
+      {/* ONLY SHOW SIDEBAR IF LOGGED IN */}
+      {user && <Sidebar />}
 
-          <div className="p-4 md:p-6">
-            <Routes>
-              <Route path="/dashboard" element={<Dashboard />} />
-              <Route path="/sales-tools" element={<SalesTools />} />
-              <Route path="/leads" element={<LeadManagement />} />
+      {/* MAIN CONTENT AREA */}
+      <div className="flex-1 overflow-y-auto">
 
-              {/* Team Management */}
-              <Route path="/team" element={<TeamManagement />} />
+        {/* ONLY SHOW MOBILE NAV IF LOGGED IN */}
+        {user && <MobileNav />}
 
-              <Route path="/commissions" element={<CommissionsTracker />} />
-              <Route path="/settings" element={<Settings />} />
+        <div className="p-4 md:p-6">
+          <Routes>
 
-              {/* Default route */}
-              <Route path="/" element={<Navigate to="/dashboard" replace />} />
+            {/* PUBLIC ROUTE */}
+            <Route path="/auth" element={<Auth />} />
 
-              {/* Catch-all */}
-              <Route path="*" element={<Navigate to="/dashboard" replace />} />
-            </Routes>
-          </div>
+            {/* PROTECTED ROUTES */}
+            <Route
+              path="/dashboard"
+              element={
+                <ProtectedRoute>
+                  <Dashboard />
+                </ProtectedRoute>
+              }
+            />
+
+            <Route
+              path="/sales-tools"
+              element={
+                <ProtectedRoute>
+                  <SalesTools />
+                </ProtectedRoute>
+              }
+            />
+
+            <Route
+              path="/leads"
+              element={
+                <ProtectedRoute>
+                  <LeadManagement />
+                </ProtectedRoute>
+              }
+            />
+
+            <Route
+              path="/team"
+              element={
+                <ProtectedRoute>
+                  <TeamManagement />
+                </ProtectedRoute>
+              }
+            />
+
+            <Route
+              path="/commissions"
+              element={
+                <ProtectedRoute>
+                  <CommissionsTracker />
+                </ProtectedRoute>
+              }
+            />
+
+            <Route
+              path="/settings"
+              element={
+                <ProtectedRoute>
+                  <Settings />
+                </ProtectedRoute>
+              }
+            />
+
+            {/* DEFAULT REDIRECT */}
+            <Route path="/" element={<Navigate to="/dashboard" replace />} />
+
+            {/* CATCH-ALL */}
+            <Route path="*" element={<Navigate to="/dashboard" replace />} />
+
+          </Routes>
         </div>
       </div>
-    </Router>
+    </div>
   );
 };
 
