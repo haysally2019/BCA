@@ -104,7 +104,7 @@ const LeadManagement: React.FC = () => {
         return;
       }
 
-      const ownerId = (profile as any).company_id || profile.id;
+      const ownerId = (profile as any).company_id || profile.user_id;
 
       try {
         const result = await supabaseService.getLeads(ownerId as string);
@@ -280,8 +280,8 @@ const LeadManagement: React.FC = () => {
       status: formData.status,
       deal_value: formData.deal_value,
       notes: formData.notes,
-      user_id: profile.id,
-      company_id: profile.company_id || profile.id,
+      user_id: profile.user_id,
+      company_id: profile.company_id || profile.user_id,
     };
 
     setSaving(true);
