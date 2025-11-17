@@ -2,7 +2,7 @@ import React from "react";
 import { useEffect, useState } from "react";
 import supabase from "../lib/supabaseService";
 
-// TEMPORARY SYNC
+// TEMP: Import Phase 2 sync
 import { runAffiliateSync } from "../utils/runAffiliateSync";
 
 export default function Dashboard() {
@@ -12,13 +12,13 @@ export default function Dashboard() {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    // ------------------------------------------------
-    // 🔥 TEMPORARY: RUN PHASE 2 AUTO-GENERATION
-    // This will generate missing affiliate links for ALL users.
-    // After it runs once successfully, DELETE this line.
-    // ------------------------------------------------
+    // -------------------------------------------------------------
+    // 🔥 TEMPORARY: RUN PHASE 2 AFFILIATE SYNC FOR ALL USERS
+    // This generates missing affiliate_id and affiliate_url values.
+    // After it runs successfully ONCE, remove this line!
+    // -------------------------------------------------------------
     runAffiliateSync();
-    // ------------------------------------------------
+    // -------------------------------------------------------------
 
     async function loadAffiliateData() {
       try {
@@ -36,7 +36,7 @@ export default function Dashboard() {
           return;
         }
 
-        // 2. Fetch affiliate info from profiles
+        // 2. Query profile for affiliate data
         const { data, error: profileError } = await supabase
           .from("profiles")
           .select("affiliate_id, affiliate_url")
@@ -44,7 +44,7 @@ export default function Dashboard() {
           .single();
 
         if (profileError) {
-          console.error("[Dashboard] profile fetch error:", profileError);
+          console.error("[Dashboard] Profile fetch error:", profileError);
           setError("Could not load your profile.");
           setLoading(false);
           return;
@@ -53,7 +53,7 @@ export default function Dashboard() {
         setAffiliateId(data?.affiliate_id || null);
         setAffiliateUrl(data?.affiliate_url || null);
       } catch (err) {
-        console.error("[Dashboard] unexpected error:", err);
+        console.error("[Dashboard] Unexpected error:", err);
         setError("Unexpected error loading dashboard.");
       }
 
@@ -70,7 +70,6 @@ export default function Dashboard() {
     return (
       <div className="p-6">
         <h1 className="text-2xl font-bold mb-6">Dashboard</h1>
-
         <div className="p-4 border rounded-lg bg-white shadow">
           <p className="animate-pulse text-gray-400">
             Loading your affiliate info…
@@ -87,7 +86,6 @@ export default function Dashboard() {
     return (
       <div className="p-6">
         <h1 className="text-2xl font-bold mb-6">Dashboard</h1>
-
         <div className="p-4 border rounded-lg bg-red-100 text-red-700 shadow">
           <p>{error}</p>
         </div>
@@ -102,11 +100,8 @@ export default function Dashboard() {
     return (
       <div className="p-6">
         <h1 className="text-2xl font-bold mb-6">Dashboard</h1>
-
         <div className="p-4 border rounded-lg bg-yellow-100 text-yellow-800 shadow">
-          <p>
-            Your affiliate link is still generating. Try refreshing in a moment.
-          </p>
+          <p>Your affiliate link is still generating. Try refreshing in a moment.</p>
         </div>
       </div>
     );
@@ -120,16 +115,16 @@ export default function Dashboard() {
   };
 
   // -----------------------------------------
-  // Ready State (Affiliate Link Available)
+  // Ready State
   // -----------------------------------------
   return (
     <div className="p-6 space-y-6">
       <h1 className="text-2xl font-bold">Dashboard</h1>
 
-      {/* Affiliate Card */}
       <div className="p-6 border rounded-lg bg-white shadow space-y-4">
         <h2 className="text-xl font-semibold">Your Affiliate Link</h2>
 
+        {/* Affiliate URL */}
         <div className="space-y-1">
           <label className="text-sm text-gray-600">Referral Link</label>
           <input
@@ -145,6 +140,7 @@ export default function Dashboard() {
           </button>
         </div>
 
+        {/* Affiliate ID */}
         <div className="space-y-1 pt-3">
           <label className="text-sm text-gray-600">Affiliate ID</label>
           <input
