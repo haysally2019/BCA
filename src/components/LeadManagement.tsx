@@ -7,7 +7,7 @@ import {
   LEAD_STATUSES,
   type LeadRecord,
   type LeadInput
-} from "/lib/leadService";
+} from "./lib/leadService";
 
 import LeadModal from "./leads/LeadModal";
 import { useAuthStore } from "../store/authStore";
