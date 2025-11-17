@@ -2,7 +2,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { supabase } from "@/lib/supabaseService";
+import { supabase } from "../lib/supabaseService";
 
 export default function Dashboard() {
   const [loading, setLoading] = useState(true);
