@@ -850,7 +850,7 @@ const LeadManagement: React.FC = () => {
               <option value="">Unassigned</option>
               {teamMembers.map((member) => (
                 <option key={member.user_id} value={member.user_id}>
-                  {member.full_name || member.company_name || member.company_email}
+                  {member.full_name || member.email || member.company_name || 'Unknown User'}
                 </option>
               ))}
             </select>
