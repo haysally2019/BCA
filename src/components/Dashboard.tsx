@@ -1,8 +1,7 @@
-// src/dashboard.tsx
 "use client";
 
 import { useEffect, useState } from "react";
-import { supabase } from "../lib/supabaseService";
+import { supabase } from "../lib/supabaseService";   // FIXED IMPORT PATH
 
 export default function Dashboard() {
   const [loading, setLoading] = useState(true);
@@ -15,7 +14,7 @@ export default function Dashboard() {
       try {
         setLoading(true);
 
-        // Get Supabase user
+        // 1. Get the logged-in user
         const {
           data: { user },
           error: userError,
@@ -27,26 +26,26 @@ export default function Dashboard() {
           return;
         }
 
-        // Fetch profile row
-        const { data: profile, error: profileError } = await supabase
+        // 2. Fetch affiliate info from profiles
+        const { data, error: profileError } = await supabase
           .from("profiles")
           .select("affiliate_id, affiliate_url")
           .eq("user_id", user.id)
           .single();
 
         if (profileError) {
-          console.error(profileError);
-          setError("Could not load profile.");
+          console.error("[Dashboard] profile fetch error:", profileError);
+          setError("Could not load your profile.");
           setLoading(false);
           return;
         }
 
-        setAffiliateId(profile?.affiliate_id || null);
-        setAffiliateUrl(profile?.affiliate_url || null);
+        setAffiliateId(data?.affiliate_id || null);
+        setAffiliateUrl(data?.affiliate_url || null);
 
       } catch (err: any) {
-        console.error(err);
-        setError("Unexpected error loading affiliate data.");
+        console.error("[Dashboard] unexpected error:", err);
+        setError("Unexpected error loading dashboard.");
       }
 
       setLoading(false);
@@ -55,24 +54,24 @@ export default function Dashboard() {
     loadAffiliateData();
   }, []);
 
-  // -----------------------------
-  // LOADING STATE
-  // -----------------------------
+  // -----------------------------------------
+  // Loading State
+  // -----------------------------------------
   if (loading) {
     return (
       <div className="p-6">
         <h1 className="text-2xl font-bold mb-6">Dashboard</h1>
 
         <div className="p-4 border rounded-lg bg-white shadow">
-          <p className="animate-pulse text-gray-400">Loading your affiliate link…</p>
+          <p className="animate-pulse text-gray-400">Loading your affiliate info…</p>
         </div>
       </div>
     );
   }
 
-  // -----------------------------
-  // ERROR STATE
-  // -----------------------------
+  // -----------------------------------------
+  // Error State
+  // -----------------------------------------
   if (error) {
     return (
       <div className="p-6">
@@ -85,28 +84,31 @@ export default function Dashboard() {
     );
   }
 
-  // -----------------------------
-  // NO AFFILIATE YET
-  // -----------------------------
+  // -----------------------------------------
+  // No Affiliate Yet
+  // -----------------------------------------
   if (!affiliateUrl) {
     return (
       <div className="p-6">
         <h1 className="text-2xl font-bold mb-6">Dashboard</h1>
 
         <div className="p-4 border rounded-lg bg-yellow-100 text-yellow-800 shadow">
-          <p>Your affiliate link is not ready yet. Refresh in a moment.</p>
+          <p>Your affiliate link is still generating. Try refreshing in a moment.</p>
         </div>
       </div>
     );
   }
 
-  // -----------------------------
-  // READY STATE
-  // -----------------------------
+  // -----------------------------------------
+  // Copy Handler
+  // -----------------------------------------
   const copyToClipboard = () => {
     navigator.clipboard.writeText(affiliateUrl);
   };
 
+  // -----------------------------------------
+  // Ready State (Affiliate Link Available)
+  // -----------------------------------------
   return (
     <div className="p-6 space-y-6">
       <h1 className="text-2xl font-bold">Dashboard</h1>
