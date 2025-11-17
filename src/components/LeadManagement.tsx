@@ -1,12 +1,12 @@
 import React, { useState, useEffect } from "react";
 
 import {
+  LEAD_STATUSES,
   createLead,
   updateLead,
   getLeads,
-  LEAD_STATUSES,
-  type LeadRecord,
-  type LeadInput
+  type LeadInput,
+  type LeadRecord
 } from "./lib/leadService";
 
 import LeadModal from "./leads/LeadModal";
@@ -69,7 +69,6 @@ const LeadManagement: React.FC = () => {
         </button>
       </div>
 
-      {/* Pipeline Filter */}
       <div className="flex space-x-4 mt-4">
         {LEAD_STATUSES.map((s) => (
           <button
@@ -84,7 +83,6 @@ const LeadManagement: React.FC = () => {
         ))}
       </div>
 
-      {/* Lead List */}
       <div className="mt-6 space-y-3">
         {loading && <div>Loading leads...</div>}
 
@@ -99,18 +97,15 @@ const LeadManagement: React.FC = () => {
               <div className="text-gray-600 text-sm">
                 Status: {lead.status.toUpperCase()}
               </div>
-              <div className="text-sm">
-                {lead.phone} • {lead.email}
-              </div>
+              <div className="text-sm">{lead.phone} • {lead.email}</div>
             </div>
           ))}
       </div>
 
-      {/* Modal */}
       <LeadModal
         open={modal}
         lead={editLead}
-        reps={[]} 
+        reps={[]}
         onClose={() => setModal(false)}
         onSave={saveLead}
       />
