@@ -3,39 +3,34 @@ import supabase from "../lib/supabaseService";
 export async function runAffiliateSync() {
   console.log("🔄 Starting Affiliate Sync...");
 
-  // 1. Load profiles missing data
-  const { data: profiles, error: profileError } = await supabase
+  // 1. LOAD PROFILES MISSING AFFILIATE INFO
+  const { data: profiles, error } = await supabase
     .from("profiles")
-    .select("id, user_id, affiliate_id, affiliate_url");
+    .select("id, user_id, email, affiliate_id, affiliate_url");
 
-  if (profileError) {
-    console.error("❌ Profile load error:", profileError);
+  if (error) {
+    console.error("❌ Profile query failed:", error);
     return;
   }
 
-  console.log("🔍 Found profiles:", profiles);
+  console.log("🔍 Profiles loaded:", profiles);
 
   for (const p of profiles) {
+    // Skip users who already have affiliate info
     if (p.affiliate_id && p.affiliate_url) {
       console.log(`✔ Skipping ${p.id}, already synced`);
       continue;
     }
 
-    // 2. Get email from auth.users
-    const { data: authUser, error: userError } = await supabase
-      .from("auth.users")
-      .select("email")
-      .eq("id", p.user_id)
-      .single();
-
-    if (userError || !authUser) {
-      console.error(`❌ No email found for profile ${p.id}`);
+    // ❗ EMAIL MUST BE STORED IN PROFILES NOW
+    if (!p.email) {
+      console.error(`❌ Profile ${p.id} has no email → cannot sync`);
       continue;
     }
 
-    console.log(`📧 Syncing ${authUser.email}`);
+    console.log(`📧 Syncing AffiliateWP for: ${p.email}`);
 
-    // 3. Create affiliate in AffiliateWP
+    // 2. CREATE AFFILIATE IN AFFILIATEWP
     const res = await fetch(
       `${import.meta.env.VITE_AFFWP_BASE_URL}/wp-json/affwp/v1/affiliates`,
       {
@@ -51,8 +46,8 @@ export async function runAffiliateSync() {
             ),
         },
         body: JSON.stringify({
-          email: authUser.email,
-          payment_email: authUser.email,
+          email: p.email,
+          payment_email: p.email,
           status: "active",
         }),
       }
@@ -61,26 +56,27 @@ export async function runAffiliateSync() {
     const json = await res.json();
 
     if (!res.ok) {
-      console.error(`❌ AffiliateWP error for ${authUser.email}`, json);
+      console.error(`❌ AffiliateWP error for ${p.email}:`, json);
       continue;
     }
 
-    console.log(`🎉 Created affiliate for ${authUser.email}`, json);
+    console.log(`🎉 Affiliate created:`, json);
 
-    // 4. Update profile
+    const affiliate_id = String(json.affiliate_id);
+    const affiliate_url =
+      import.meta.env.VITE_MARKETING_URL + "/?ref=" + affiliate_id;
+
+    // 3. UPDATE PROFILE WITH GENERATED LINK
     await supabase
       .from("profiles")
       .update({
-        affiliate_id: String(json.affiliate_id),
-        affiliate_url:
-          import.meta.env.VITE_MARKETING_URL +
-          "/?ref=" +
-          String(json.affiliate_id),
+        affiliate_id,
+        affiliate_url,
       })
       .eq("id", p.id);
 
-    console.log(`✔ Updated profile ${p.id}`);
+    console.log(`✔ Profile updated: ${p.id}`);
   }
 
-  console.log("🏁 Sync complete!");
+  console.log("🏁 Affiliate Sync Complete");
 }
