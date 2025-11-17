@@ -724,4 +724,3 @@ const LeadManagement: React.FC = () => {
       onClose={() => setShowImportModal(false)}
     />
   </div>
-);
