@@ -2,7 +2,7 @@ import React from "react";
 import { useEffect, useState } from "react";
 import supabase from "../lib/supabaseService";
 
-// TEMP: Import Phase 2 sync
+// TEMPORARY — sync missing affiliate links (remove after running once)
 import { runAffiliateSync } from "../utils/runAffiliateSync";
 
 export default function Dashboard() {
@@ -13,9 +13,8 @@ export default function Dashboard() {
 
   useEffect(() => {
     // -------------------------------------------------------------
-    // 🔥 TEMPORARY: RUN PHASE 2 AFFILIATE SYNC FOR ALL USERS
-    // This generates missing affiliate_id and affiliate_url values.
-    // After it runs successfully ONCE, remove this line!
+    // 🔥 TEMP SYNC: RUN ONCE AFTER YOU FIX PROFILES WITH SQL
+    // Delete this line after your affiliate links populate.
     // -------------------------------------------------------------
     runAffiliateSync();
     // -------------------------------------------------------------
@@ -36,7 +35,7 @@ export default function Dashboard() {
           return;
         }
 
-        // 2. Query profile for affiliate data
+        // 2. Fetch affiliate info from PROFILES (no auth.users needed)
         const { data, error: profileError } = await supabase
           .from("profiles")
           .select("affiliate_id, affiliate_url")
@@ -94,7 +93,7 @@ export default function Dashboard() {
   }
 
   // -----------------------------------------
-  // No Affiliate Yet
+  // No Affiliate ID available
   // -----------------------------------------
   if (!affiliateUrl) {
     return (
@@ -115,7 +114,7 @@ export default function Dashboard() {
   };
 
   // -----------------------------------------
-  // Ready State
+  // Success: Display affiliate info
   // -----------------------------------------
   return (
     <div className="p-6 space-y-6">
