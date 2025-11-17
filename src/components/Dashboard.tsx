@@ -1,7 +1,9 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { LineChart, Line, XAxis, YAxis, Tooltip, CartesianGrid, ResponsiveContainer } from 'recharts';
+import { RefreshCw, AlertCircle, Info } from 'lucide-react';
 import { useSupabase } from '../context/SupabaseProvider';
 import { useAuthStore } from '../store/authStore';
+import toast from 'react-hot-toast';
 
 type MetricsRow = {
   date: string;
@@ -62,6 +64,8 @@ const Dashboard: React.FC = () => {
   const [series, setSeries] = useState<MetricsRow[]>([]);
   const [latest, setLatest] = useState<MetricsRow | null>(null);
   const [referrals, setReferrals] = useState<ReferralRow[]>([]);
+  const [syncStatus, setSyncStatus] = useState<any>(null);
+  const [syncing, setSyncing] = useState(false);
 
   const role = (profile?.user_role || '').toLowerCase();
   const isManager = rolesManager.has(role);
@@ -160,9 +164,46 @@ const Dashboard: React.FC = () => {
     }
   }, [supabase, isManager, affiliateId]);
 
+  const loadSyncStatus = useCallback(async () => {
+    try {
+      const { data, error } = await supabase.rpc('get_metrics_sync_status');
+      if (!error && data) {
+        setSyncStatus(data);
+      }
+    } catch (e) {
+      console.error('[Dashboard] sync status error', e);
+    }
+  }, [supabase]);
+
   const loadAll = useCallback(async () => {
-    await Promise.all([loadMetrics(), loadReferrals()]);
-  }, [loadMetrics, loadReferrals]);
+    await Promise.all([loadMetrics(), loadReferrals(), loadSyncStatus()]);
+  }, [loadMetrics, loadReferrals, loadSyncStatus]);
+
+  const triggerManualSync = async () => {
+    setSyncing(true);
+    const toastId = toast.loading('Syncing AffiliateWP metrics...');
+
+    try {
+      const { data, error } = await supabase.rpc('sync_affiliatewp_metrics');
+
+      if (error) throw error;
+
+      if (data?.success) {
+        toast.success('Metrics sync initiated! Data will update shortly.', { id: toastId });
+
+        setTimeout(async () => {
+          await loadAll();
+        }, 3000);
+      } else {
+        throw new Error(data?.error || 'Sync failed');
+      }
+    } catch (err: any) {
+      console.error('[Dashboard] manual sync error', err);
+      toast.error(err.message || 'Failed to sync metrics', { id: toastId });
+    } finally {
+      setSyncing(false);
+    }
+  };
 
   useEffect(() => {
     loadAll();
@@ -213,6 +254,26 @@ const Dashboard: React.FC = () => {
               ? 'AffiliateWP performance across your entire team.'
               : 'Your AffiliateWP visits, referrals, and commissions.'}
           </p>
+          {syncStatus && (
+            <div className="flex items-center gap-2 mt-1">
+              {syncStatus.sync_health === 'healthy' ? (
+                <span className="inline-flex items-center gap-1 text-xs text-green-600">
+                  <Info className="w-3 h-3" />
+                  Last updated: {syncStatus.last_metrics_date || 'Never'}
+                </span>
+              ) : syncStatus.sync_health === 'warning' ? (
+                <span className="inline-flex items-center gap-1 text-xs text-yellow-600">
+                  <AlertCircle className="w-3 h-3" />
+                  Data from yesterday - syncing hourly
+                </span>
+              ) : (
+                <span className="inline-flex items-center gap-1 text-xs text-red-600">
+                  <AlertCircle className="w-3 h-3" />
+                  No recent data - sync may be delayed
+                </span>
+              )}
+            </div>
+          )}
         </div>
         <div className="flex items-center gap-2">
           <label className="text-sm text-gray-600">Range</label>
@@ -221,6 +282,14 @@ const Dashboard: React.FC = () => {
             <option value="30">Last 30 days</option>
             <option value="90">Last 90 days</option>
           </Select>
+          <button
+            onClick={triggerManualSync}
+            disabled={syncing}
+            className="inline-flex items-center gap-1 rounded-md bg-red-600 px-3 py-2 text-sm font-medium text-white hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            <RefreshCw className={`w-4 h-4 ${syncing ? 'animate-spin' : ''}`} />
+            Sync Now
+          </button>
           <button
             onClick={loadAll}
             className="inline-flex items-center rounded-md bg-gray-100 px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-200"
@@ -244,7 +313,20 @@ const Dashboard: React.FC = () => {
         {loading ? (
           <p className="text-gray-500 text-sm">Loading chart…</p>
         ) : series.length === 0 ? (
-          <p className="text-gray-500 text-sm">No data for this range yet.</p>
+          <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+            <div className="flex items-start gap-3">
+              <Info className="w-5 h-5 text-blue-600 flex-shrink-0 mt-0.5" />
+              <div>
+                <h3 className="text-sm font-semibold text-blue-900 mb-1">No metrics data available</h3>
+                <p className="text-sm text-blue-700 mb-2">
+                  Metrics sync automatically every hour. Your first data should appear within the next hour.
+                </p>
+                <p className="text-xs text-blue-600">
+                  Click "Sync Now" above to fetch metrics immediately.
+                </p>
+              </div>
+            </div>
+          </div>
         ) : (
           <div style={{ width: '100%', height: 320 }}>
             <ResponsiveContainer>
