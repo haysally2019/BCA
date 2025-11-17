@@ -1,136 +1,121 @@
 import React, { useState, useEffect } from "react";
-import { LeadInput, LeadRecord, LEAD_STATUSES } from "../../lib/leadService";
 
-interface Props {
-  open: boolean;
-  onClose: () => void;
-  onSave: (payload: LeadInput) => Promise<void>;
-  lead?: LeadRecord | null;
-  reps?: { id: string; full_name: string }[];
-}
+import {
+  createLead,
+  updateLead,
+  getLeads,
+  LEAD_STATUSES,
+  type LeadRecord,
+  type LeadInput
+} from "./lib/leadService";
 
-const LeadModal: React.FC<Props> = ({ open, onClose, onSave, lead, reps }) => {
-  const [form, setForm] = useState<LeadInput>({
-    name: "",
-    phone: "",
-    email: "",
-    address: "",
-    notes: "",
-    status: "new",
-  });
+import LeadModal from "./leads/LeadModal";
+import { useAuthStore } from "../store/authStore";
+
+const LeadManagement: React.FC = () => {
+  const { profile } = useAuthStore();
+  const [leads, setLeads] = useState<LeadRecord[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [modal, setModal] = useState(false);
+  const [editLead, setEditLead] = useState<LeadRecord | null>(null);
+
+  const load = async () => {
+    setLoading(true);
+    try {
+      const data = await getLeads();
+      setLeads(data);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   useEffect(() => {
-    if (lead) {
-      setForm({
-        name: lead.name,
-        phone: lead.phone,
-        email: lead.email,
-        address: lead.address,
-        notes: lead.notes,
-        status: lead.status,
-        assigned_to: lead.assigned_to,
-      });
+    load();
+  }, []);
+
+  const saveLead = async (form: LeadInput) => {
+    if (editLead) {
+      const updated = await updateLead(editLead.id, form);
+      setLeads((prev) =>
+        prev.map((l) => (l.id === editLead.id ? updated : l))
+      );
+    } else {
+      const newLead = await createLead(form);
+      setLeads((prev) => [newLead, ...prev]);
     }
-  }, [lead]);
+    setModal(false);
+    setEditLead(null);
+  };
 
-  if (!open) return null;
-
-  const handleChange = (field: keyof LeadInput, value: any) => {
-    setForm((prev) => ({ ...prev, [field]: value }));
+  const openEdit = (lead: LeadRecord) => {
+    setEditLead(lead);
+    setModal(true);
   };
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-40 flex justify-center items-center z-50">
-      <div className="bg-white rounded-lg p-6 w-full max-w-lg shadow-xl">
+    <div className="p-4">
 
-        <h2 className="text-xl font-semibold mb-4">
-          {lead ? "Edit Lead" : "Create Lead"}
-        </h2>
+      <div className="flex justify-between items-center">
+        <h1 className="text-2xl font-semibold">Lead Management</h1>
 
-        <div className="space-y-3">
-          <input
-            value={form.name}
-            onChange={(e) => handleChange("name", e.target.value)}
-            placeholder="Lead Name"
-            className="w-full px-3 py-2 border rounded"
-          />
-
-          <input
-            value={form.phone || ""}
-            onChange={(e) => handleChange("phone", e.target.value)}
-            placeholder="Phone"
-            className="w-full px-3 py-2 border rounded"
-          />
-
-          <input
-            value={form.email || ""}
-            onChange={(e) => handleChange("email", e.target.value)}
-            placeholder="Email"
-            className="w-full px-3 py-2 border rounded"
-          />
-
-          <input
-            value={form.address || ""}
-            onChange={(e) => handleChange("address", e.target.value)}
-            placeholder="Address"
-            className="w-full px-3 py-2 border rounded"
-          />
-
-          <textarea
-            value={form.notes || ""}
-            onChange={(e) => handleChange("notes", e.target.value)}
-            placeholder="Notes"
-            className="w-full px-3 py-2 border rounded"
-            rows={4}
-          />
-
-          {/* STATUS */}
-          <select
-            className="w-full px-3 py-2 border rounded"
-            value={form.status}
-            onChange={(e) => handleChange("status", e.target.value)}
-          >
-            {LEAD_STATUSES.map((s) => (
-              <option key={s} value={s}>
-                {s.toUpperCase()}
-              </option>
-            ))}
-          </select>
-
-          {/* ASSIGN TO REP */}
-          {reps && (
-            <select
-              className="w-full px-3 py-2 border rounded"
-              value={form.assigned_to || ""}
-              onChange={(e) => handleChange("assigned_to", e.target.value)}
-            >
-              <option value="">Assign to...</option>
-              {reps.map((rep) => (
-                <option key={rep.id} value={rep.id}>
-                  {rep.full_name}
-                </option>
-              ))}
-            </select>
-          )}
-        </div>
-
-        <div className="flex justify-end mt-5 space-x-3">
-          <button
-            onClick={onClose}
-            className="px-4 py-2 border border-gray-400 rounded"
-          >
-            Cancel
-          </button>
-          <button
-            onClick={() => onSave(form)}
-            className="px-4 py-2 bg-blue-600 text-white rounded"
-          >
-            Save Lead
-          </button>
-        </div>
+        <button
+          onClick={() => {
+            setEditLead(null);
+            setModal(true);
+          }}
+          className="px-4 py-2 bg-blue-600 text-white rounded"
+        >
+          + New Lead
+        </button>
       </div>
+
+      {/* Pipeline Filter */}
+      <div className="flex space-x-4 mt-4">
+        {LEAD_STATUSES.map((s) => (
+          <button
+            key={s}
+            onClick={() =>
+              setLeads((prev) => prev.filter((l) => l.status === s))
+            }
+            className="px-3 py-1 rounded bg-gray-200 text-gray-700"
+          >
+            {s.toUpperCase()}
+          </button>
+        ))}
+      </div>
+
+      {/* Lead List */}
+      <div className="mt-6 space-y-3">
+        {loading && <div>Loading leads...</div>}
+
+        {!loading &&
+          leads.map((lead) => (
+            <div
+              key={lead.id}
+              className="bg-white border rounded p-4 shadow-sm hover:shadow cursor-pointer"
+              onClick={() => openEdit(lead)}
+            >
+              <div className="font-semibold text-lg">{lead.name}</div>
+              <div className="text-gray-600 text-sm">
+                Status: {lead.status.toUpperCase()}
+              </div>
+              <div className="text-sm">
+                {lead.phone} • {lead.email}
+              </div>
+            </div>
+          ))}
+      </div>
+
+      {/* Modal */}
+      <LeadModal
+        open={modal}
+        lead={editLead}
+        reps={[]} 
+        onClose={() => setModal(false)}
+        onSave={saveLead}
+      />
     </div>
   );
 };
 
-export default LeadModal;
+export default LeadManagement;
