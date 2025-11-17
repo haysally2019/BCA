@@ -1,4 +1,4 @@
-import supabase from "../lib/supabaseService"; // ✅ Correct relative path
+import supabase from "../lib/supabaseService"; // ✅ Correct path
 
 export async function fetchData(table: string) {
   try {
