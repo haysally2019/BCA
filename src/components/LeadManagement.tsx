@@ -348,436 +348,380 @@ const LeadManagement: React.FC = () => {
   }
 
   // RENDER UI
-  return (
-    <div className="space-y-6">
-      {/* HEADER */}
-      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
+ return (
+  <div className="space-y-8">
+
+    {/* HEADER */}
+    <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+      <div className="space-y-1">
+        <h1 className="text-3xl font-bold text-gray-900 flex items-center gap-2">
+          <Building2 className="w-8 h-8 text-blue-600" />
+          Roofing Company Leads
+        </h1>
+        <p className="text-gray-600 text-sm">
+          Manage roofing company prospects your team is actively selling to.
+        </p>
+      </div>
+
+      <div className="flex flex-wrap gap-3">
+        <button
+          onClick={() => setShowImportModal(true)}
+          className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium 
+          border border-gray-300 rounded-xl bg-white hover:bg-gray-50 shadow-sm transition"
+        >
+          <Upload className="w-4 h-4" />
+          Import CSV
+        </button>
+
+        <button
+          onClick={openAddLead}
+          className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium 
+          bg-blue-600 text-white rounded-xl shadow-sm hover:bg-blue-700 transition"
+        >
+          <Plus className="w-4 h-4" />
+          Add Company
+        </button>
+      </div>
+    </div>
+
+    {/* STATS */}
+    <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
+      {[
+        { label: "Total Leads", value: stats.total, color: "text-gray-800" },
+        { label: "New", value: stats.new, color: "text-blue-600" },
+        { label: "Contacted", value: stats.contacted, color: "text-amber-600" },
+        { label: "Trial Started", value: stats.trialStarted, color: "text-emerald-600" },
+        { label: "Closed Won", value: stats.closedWon, color: "text-green-600" },
+        { label: "Closed Lost", value: stats.closedLost, color: "text-red-600" },
+      ].map((stat) => (
+        <div
+          key={stat.label}
+          className="bg-white rounded-xl border border-gray-200 p-4 shadow-sm hover:shadow-md 
+          transition cursor-default"
+        >
+          <div className="text-[11px] uppercase tracking-wide text-gray-500 font-medium">
+            {stat.label}
+          </div>
+          <div className={`mt-1 text-2xl font-bold ${stat.color}`}>
+            {stat.value}
+          </div>
+        </div>
+      ))}
+    </div>
+
+    {/* FILTER BAR */}
+    <div className="bg-white border rounded-xl p-4 shadow-sm flex flex-col md:flex-row 
+    gap-4 md:items-center md:justify-between">
+
+      {/* SEARCH */}
+      <div className="flex items-center gap-2 border border-gray-200 rounded-xl px-4 py-2 
+      bg-gray-50 shadow-inner flex-1">
+        <Search className="w-5 h-5 text-gray-400" />
+        <input
+          type="text"
+          placeholder="Search: company, owner, email, phone, CRM..."
+          className="w-full bg-transparent text-sm outline-none"
+          value={searchTerm}
+          onChange={(e) => setSearchTerm(e.target.value)}
+        />
+      </div>
+
+      {/* STATUS FILTER */}
+      <select
+        value={statusFilter}
+        onChange={(e) => setStatusFilter(e.target.value as StatusFilter)}
+        className="border border-gray-300 rounded-xl px-4 py-2 text-sm bg-white shadow-sm"
+      >
+        <option value="all">All Statuses</option>
+        <option value="new">New</option>
+        <option value="contacted">Contacted</option>
+        <option value="trial_started">Trial Started</option>
+        <option value="closed_won">Closed Won</option>
+        <option value="closed_lost">Closed Lost</option>
+      </select>
+    </div>
+
+    {/* TABLE */}
+    <div className="bg-white border rounded-xl shadow-sm overflow-hidden">
+      <div className="overflow-x-auto">
+        <table className="min-w-full text-sm">
+          <thead className="bg-gray-50 border-b">
+            <tr className="text-gray-600 text-xs uppercase tracking-wider">
+              <th className="px-4 py-3">
+                <input
+                  type="checkbox"
+                  checked={
+                    filteredLeads.length > 0 &&
+                    selectedLeads.length === filteredLeads.length
+                  }
+                  onChange={(e) =>
+                    setSelectedLeads(
+                      e.target.checked ? filteredLeads.map((l) => l.id) : []
+                    )
+                  }
+                />
+              </th>
+              <th className="px-4 py-3 text-left font-medium">Company</th>
+              <th className="px-4 py-3 text-left font-medium">Contact</th>
+              <th className="px-4 py-3 text-left font-medium">Current CRM</th>
+              <th className="px-4 py-3 text-left font-medium">Status</th>
+              <th className="px-4 py-3 text-right font-medium">Deal Value</th>
+              <th className="px-4 py-3 text-right font-medium">Actions</th>
+            </tr>
+          </thead>
+
+          <tbody>
+            {filteredLeads.length === 0 ? (
+              <tr>
+                <td colSpan={7} className="px-4 py-12 text-center text-gray-500">
+                  No leads match your filters.
+                </td>
+              </tr>
+            ) : (
+              filteredLeads.map((lead) => (
+                <tr
+                  key={lead.id}
+                  className="border-b last:border-0 hover:bg-gray-50 transition"
+                >
+                  <td className="px-4 py-3">
+                    <input
+                      type="checkbox"
+                      checked={selectedLeads.includes(lead.id)}
+                      onChange={() => toggleSelectLead(lead.id)}
+                    />
+                  </td>
+
+                  {/* COMPANY */}
+                  <td className="px-4 py-3">
+                    <div className="font-semibold text-gray-900">
+                      {lead.company_name || "Unnamed Company"}
+                    </div>
+                    <div className="text-[11px] text-gray-500">Roofing Contractor</div>
+                  </td>
+
+                  {/* CONTACT */}
+                  <td className="px-4 py-3 space-y-1">
+                    <div className="font-medium text-gray-800 text-sm">
+                      {lead.contact_name || "—"}
+                    </div>
+                    <div className="text-[11px] text-gray-600 space-y-0.5">
+                      {lead.email && (
+                        <div className="flex items-center gap-1">
+                          <Mail className="w-3 h-3" />
+                          {lead.email}
+                        </div>
+                      )}
+                      {lead.phone && (
+                        <div className="flex items-center gap-1">
+                          <Phone className="w-3 h-3" />
+                          {lead.phone}
+                        </div>
+                      )}
+                    </div>
+                  </td>
+
+                  {/* CRM */}
+                  <td className="px-4 py-3 text-gray-700">
+                    {lead.crm_used_now || "Unknown"}
+                  </td>
+
+                  {/* STATUS */}
+                  <td className="px-4 py-3">
+                    <span
+                      className={`px-3 py-1 rounded-full text-xs font-medium shadow-sm
+                      ${
+                        lead.status === "new"
+                          ? "bg-blue-50 text-blue-700"
+                          : lead.status === "contacted"
+                          ? "bg-amber-50 text-amber-700"
+                          : lead.status === "trial_started"
+                          ? "bg-emerald-50 text-emerald-700"
+                          : lead.status === "closed_won"
+                          ? "bg-green-50 text-green-700"
+                          : "bg-red-50 text-red-700"
+                      }`}
+                    >
+                      {lead.status?.replace("_", " ").toUpperCase()}
+                    </span>
+                  </td>
+
+                  {/* VALUE */}
+                  <td className="px-4 py-3 text-right font-semibold text-gray-800">
+                    ${Number(lead.deal_value ?? 0).toLocaleString()}
+                  </td>
+
+                  {/* ACTIONS */}
+                  <td className="px-4 py-3 text-right">
+                    <div className="flex justify-end gap-2">
+                      <button
+                        onClick={() => openDetails(lead)}
+                        className="p-2 rounded-lg hover:bg-gray-100 transition"
+                      >
+                        <Eye className="w-4 h-4 text-gray-700" />
+                      </button>
+
+                      <button
+                        onClick={() => openEditLead(lead)}
+                        className="p-2 rounded-lg hover:bg-gray-100 transition"
+                      >
+                        <Edit3 className="w-4 h-4 text-gray-700" />
+                      </button>
+
+                      <button
+                        onClick={() => confirmDeleteLead(lead)}
+                        className="p-2 rounded-lg hover:bg-red-50 transition"
+                      >
+                        <Trash2 className="w-4 h-4 text-red-600" />
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              ))
+            )}
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    {/* MODALS */}
+    <BaseModal
+      isOpen={showFormModal}
+      onClose={() => setShowFormModal(false)}
+      title={editingLead ? "Edit Lead" : "Add Roofing Company Lead"}
+      width="max-w-2xl"
+    >
+      {/* Form Body */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        {/* unchanged — only added rounded-xl, better spacing */}
+        {[
+          ["Company Name", "company_name"],
+          ["Contact Name", "contact_name"],
+          ["Email", "email"],
+          ["Phone", "phone"],
+          ["Service Area", "service_area"],
+        ].map(([label, name]) => (
+          <div key={name}>
+            <label className="text-xs font-semibold text-gray-600 mb-1 block">{label}</label>
+            <input
+              type="text"
+              name={name}
+              value={(formData as any)[name]}
+              onChange={handleFormChange}
+              className="border border-gray-300 rounded-xl px-3 py-2 w-full text-sm"
+            />
+          </div>
+        ))}
+
+        {/* COMPANY SIZE */}
         <div>
-          <h1 className="text-2xl md:text-3xl font-bold text-gray-900 flex items-center gap-2">
-            <Building2 className="w-7 h-7 text-blue-600" />
-            Roofing Company Leads
-          </h1>
-          <p className="text-gray-600 text-sm md:text-base">
-            Track roofing company owners your reps are selling the CRM to.
-          </p>
-        </div>
-
-        <div className="flex flex-wrap gap-2">
-          <button
-            onClick={() => setShowImportModal(true)}
-            className="inline-flex items-center gap-2 px-3 py-2 text-sm font-medium border border-gray-300 rounded-lg hover:bg-gray-50"
+          <label className="text-xs font-semibold text-gray-600 mb-1 block">Company Size</label>
+          <select
+            name="company_size"
+            value={formData.company_size}
+            onChange={handleFormChange}
+            className="border border-gray-300 rounded-xl px-3 py-2 w-full text-sm"
           >
-            <Upload className="w-4 h-4" />
-            Import CSV
-          </button>
+            <option value="">Select...</option>
+            <option value="1-3">1–3 Employees</option>
+            <option value="4-10">4–10 Employees</option>
+            <option value="11-30">11–30 Employees</option>
+            <option value="31-100">31–100 Employees</option>
+            <option value="100+">100+ Employees</option>
+          </select>
+        </div>
 
-          <button
-            onClick={openAddLead}
-            className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium bg-blue-600 text-white rounded-lg hover:bg-blue-700"
-          >
-            <Plus className="w-4 h-4" />
-            Add Company
-          </button>
-        </div>
-      </div>
-
-      {/* STATS */}
-      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
-        <div className="bg-white border rounded-lg p-3 shadow-sm">
-          <span className="text-xs text-gray-500">Total</span>
-          <div className="text-xl font-bold">{stats.total}</div>
-        </div>
-        <div className="bg-white border rounded-lg p-3 shadow-sm">
-          <span className="text-xs text-gray-500">New</span>
-          <div className="text-xl font-bold text-blue-600">{stats.new}</div>
-        </div>
-        <div className="bg-white border rounded-lg p-3 shadow-sm">
-          <span className="text-xs text-gray-500">Contacted</span>
-          <div className="text-xl font-bold text-amber-600">
-            {stats.contacted}
-          </div>
-        </div>
-        <div className="bg-white border rounded-lg p-3 shadow-sm">
-          <span className="text-xs text-gray-500">Trial Started</span>
-          <div className="text-xl font-bold text-emerald-600">
-            {stats.trialStarted}
-          </div>
-        </div>
-        <div className="bg-white border rounded-lg p-3 shadow-sm">
-          <span className="text-xs text-gray-500">Won</span>
-          <div className="text-xl font-bold text-green-600">
-            {stats.closedWon}
-          </div>
-        </div>
-        <div className="bg-white border rounded-lg p-3 shadow-sm">
-          <span className="text-xs text-gray-500">Lost</span>
-          <div className="text-xl font-bold text-red-600">
-            {stats.closedLost}
-          </div>
-        </div>
-      </div>
-
-      {/* FILTER BAR */}
-      <div className="bg-white border rounded-lg p-3 shadow-sm flex flex-col md:flex-row gap-3 md:items-center md:justify-between">
-        <div className="flex items-center gap-2 border border-gray-200 rounded-lg px-3 py-1.5 bg-gray-50 w-full md:w-1/3">
-          <Search className="w-4 h-4 text-gray-400" />
+        {/* CRM */}
+        <div>
+          <label className="text-xs font-semibold text-gray-600 mb-1 block">CRM Used Now</label>
           <input
             type="text"
-            placeholder="Search by company, owner, email, phone, CRM..."
-            className="w-full border-none bg-transparent text-sm outline-none"
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
+            name="crm_used_now"
+            value={formData.crm_used_now}
+            onChange={handleFormChange}
+            className="border border-gray-300 rounded-xl px-3 py-2 w-full text-sm"
           />
         </div>
 
-        <select
-          value={statusFilter}
-          onChange={(e) => setStatusFilter(e.target.value as StatusFilter)}
-          className="border rounded-lg px-3 py-2 text-sm"
+        {/* STATUS */}
+        <div>
+          <label className="text-xs font-semibold text-gray-600 mb-1 block">Status</label>
+          <select
+            name="status"
+            value={formData.status}
+            onChange={handleFormChange}
+            className="border border-gray-300 rounded-xl px-3 py-2 w-full text-sm"
+          >
+            <option value="new">New</option>
+            <option value="contacted">Contacted</option>
+            <option value="trial_started">Trial Started</option>
+            <option value="closed_won">Closed Won</option>
+            <option value="closed_lost">Closed Lost</option>
+          </select>
+        </div>
+
+        {/* VALUE */}
+        <div>
+          <label className="text-xs font-semibold text-gray-600 mb-1 block">Deal Value</label>
+          <input
+            type="number"
+            name="deal_value"
+            value={formData.deal_value}
+            min={0}
+            onChange={handleFormChange}
+            className="border border-gray-300 rounded-xl px-3 py-2 w-full text-sm"
+          />
+        </div>
+
+        {/* NOTES */}
+        <div className="sm:col-span-2">
+          <label className="text-xs font-semibold text-gray-600 mb-1 block">Notes</label>
+          <textarea
+            name="notes"
+            value={formData.notes}
+            onChange={handleFormChange}
+            className="border border-gray-300 rounded-xl px-3 py-2 w-full h-24 text-sm"
+          />
+        </div>
+      </div>
+
+      <div className="flex justify-end gap-3 mt-6">
+        <button
+          onClick={() => setShowFormModal(false)}
+          className="px-4 py-2 bg-gray-200 rounded-xl text-sm hover:bg-gray-300 transition"
+          disabled={saving}
         >
-          <option value="all">All Statuses</option>
-          <option value="new">New</option>
-          <option value="contacted">Contacted</option>
-          <option value="trial_started">Trial Started</option>
-          <option value="closed_won">Closed Won</option>
-          <option value="closed_lost">Closed Lost</option>
-        </select>
+          Cancel
+        </button>
+        <button
+          onClick={saveLead}
+          className="px-5 py-2 bg-blue-600 text-white rounded-xl text-sm hover:bg-blue-700 transition"
+          disabled={saving}
+        >
+          {saving ? "Saving..." : "Save Lead"}
+        </button>
       </div>
+    </BaseModal>
 
-      {/* TABLE */}
-      <div className="bg-white border rounded-lg shadow-sm overflow-hidden">
-        <div className="overflow-x-auto">
-          <table className="min-w-full text-xs sm:text-sm">
-            <thead className="bg-gray-50 border-b">
-              <tr>
-                <th className="px-3 py-2">
-                  <input
-                    type="checkbox"
-                    checked={
-                      filteredLeads.length > 0 &&
-                      selectedLeads.length === filteredLeads.length
-                    }
-                    onChange={(e) =>
-                      setSelectedLeads(
-                        e.target.checked
-                          ? filteredLeads.map((l) => l.id)
-                          : []
-                      )
-                    }
-                  />
-                </th>
-                <th className="px-3 py-2 text-left font-semibold text-gray-600">
-                  Roofing Company
-                </th>
-                <th className="px-3 py-2 text-left font-semibold text-gray-600">
-                  Contact
-                </th>
-                <th className="px-3 py-2 text-left font-semibold text-gray-600">
-                  CRM Used
-                </th>
-                <th className="px-3 py-2 text-left font-semibold text-gray-600">
-                  Status
-                </th>
-                <th className="px-3 py-2 text-right font-semibold text-gray-600">
-                  Deal Value
-                </th>
-                <th className="px-3 py-2 text-right font-semibold text-gray-600">
-                  Actions
-                </th>
-              </tr>
-            </thead>
+    {/* DETAILS */}
+    <LeadDetailsModal
+      isOpen={showDetailsModal}
+      onClose={() => setShowDetailsModal(false)}
+      lead={detailsLead}
+    />
 
-            <tbody>
-              {filteredLeads.length === 0 ? (
-                <tr>
-                  <td colSpan={7} className="px-4 py-8 text-center text-gray-500">
-                    No leads found.
-                  </td>
-                </tr>
-              ) : (
-                filteredLeads.map((lead) => {
-                  return (
-                    <tr key={lead.id} className="border-b last:border-0 hover:bg-gray-50">
-                      <td className="px-3 py-2">
-                        <input
-                          type="checkbox"
-                          checked={selectedLeads.includes(lead.id)}
-                          onChange={() => toggleSelectLead(lead.id)}
-                        />
-                      </td>
+    {/* CONFIRM DELETE */}
+    <ConfirmationModal
+      isOpen={showDeleteConfirm}
+      title="Delete Lead"
+      message="Are you sure you want to delete this lead?"
+      onConfirm={deleteLead}
+      onCancel={() => setShowDeleteConfirm(false)}
+    />
 
-                      <td className="px-3 py-2">
-                        <div className="font-semibold text-gray-900">
-                          {lead.company_name || "No company name"}
-                        </div>
-                        <div className="text-[11px] text-gray-500">Roofing Company</div>
-                      </td>
-
-                      <td className="px-3 py-2">
-                        <div className="text-xs text-gray-900">
-                          {lead.contact_name || "—"}
-                        </div>
-                        <div className="flex flex-col text-[11px] text-gray-600">
-                          {lead.email && (
-                            <span className="flex items-center gap-1">
-                              <Mail className="w-3 h-3" />
-                              {lead.email}
-                            </span>
-                          )}
-                          {lead.phone && (
-                            <span className="flex items-center gap-1">
-                              <Phone className="w-3 h-3" />
-                              {lead.phone}
-                            </span>
-                          )}
-                        </div>
-                      </td>
-
-                      <td className="px-3 py-2 text-xs text-gray-700">
-                        {lead.crm_used_now || "Unknown"}
-                      </td>
-
-                      <td className="px-3 py-2 text-xs">
-                        <span
-                          className={`px-2 py-1 rounded-full ${
-                            lead.status === "new"
-                              ? "bg-blue-50 text-blue-700"
-                              : lead.status === "contacted"
-                              ? "bg-amber-50 text-amber-700"
-                              : lead.status === "trial_started"
-                              ? "bg-emerald-50 text-emerald-700"
-                              : lead.status === "closed_won"
-                              ? "bg-green-50 text-green-700"
-                              : "bg-red-50 text-red-700"
-                          }`}
-                        >
-                          {String(lead.status)
-                            .replace("_", " ")
-                            .replace("trial", "Trial")
-                            .replace("closed", "Closed")
-                            .replace("won", "Won")
-                            .replace("lost", "Lost")}
-                        </span>
-                      </td>
-
-                      <td className="px-3 py-2 text-right text-xs">
-                        <span className="font-semibold">
-                          ${Number(lead.deal_value ?? 0).toLocaleString()}
-                        </span>
-                      </td>
-
-                      <td className="px-3 py-2 text-right">
-                        <div className="flex justify-end gap-2">
-                          <button
-                            onClick={() => openDetails(lead)}
-                            className="p-1.5 hover:bg-gray-100 rounded"
-                          >
-                            <Eye className="w-4 h-4 text-gray-600" />
-                          </button>
-                          <button
-                            onClick={() => openEditLead(lead)}
-                            className="p-1.5 hover:bg-gray-100 rounded"
-                          >
-                            <Edit3 className="w-4 h-4 text-gray-600" />
-                          </button>
-                          <button
-                            onClick={() => confirmDeleteLead(lead)}
-                            className="p-1.5 hover:bg-red-50 rounded"
-                          >
-                            <Trash2 className="w-4 h-4 text-red-600" />
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  );
-                })
-              )}
-            </tbody>
-          </table>
-        </div>
-      </div>
-      {/* ADD / EDIT FORM MODAL */}
-      <BaseModal
-        isOpen={showFormModal}
-        onClose={() => setShowFormModal(false)}
-        title={editingLead ? "Edit Lead" : "Add Roofing Company Lead"}
-        width="max-w-2xl"
-      >
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          {/* COMPANY NAME */}
-          <div className="flex flex-col">
-            <label className="text-xs font-medium mb-1">Company Name</label>
-            <input
-              type="text"
-              name="company_name"
-              value={formData.company_name}
-              onChange={handleFormChange}
-              className="border rounded-lg px-3 py-2"
-            />
-          </div>
-
-          {/* CONTACT NAME */}
-          <div className="flex flex-col">
-            <label className="text-xs font-medium mb-1">Contact Name</label>
-            <input
-              type="text"
-              name="contact_name"
-              value={formData.contact_name}
-              onChange={handleFormChange}
-              className="border rounded-lg px-3 py-2"
-            />
-          </div>
-
-          {/* EMAIL */}
-          <div className="flex flex-col">
-            <label className="text-xs font-medium mb-1">Email</label>
-            <input
-              type="email"
-              name="email"
-              value={formData.email}
-              onChange={handleFormChange}
-              className="border rounded-lg px-3 py-2"
-            />
-          </div>
-
-          {/* PHONE */}
-          <div className="flex flex-col">
-            <label className="text-xs font-medium mb-1">Phone</label>
-            <input
-              type="text"
-              name="phone"
-              value={formData.phone}
-              onChange={handleFormChange}
-              className="border rounded-lg px-3 py-2"
-            />
-          </div>
-
-          {/* SERVICE AREA */}
-          <div className="flex flex-col">
-            <label className="text-xs font-medium mb-1">Service Area</label>
-            <input
-              type="text"
-              name="service_area"
-              value={formData.service_area}
-              onChange={handleFormChange}
-              className="border rounded-lg px-3 py-2"
-            />
-          </div>
-
-          {/* COMPANY SIZE */}
-          <div className="flex flex-col">
-            <label className="text-xs font-medium mb-1">Company Size</label>
-            <select
-              name="company_size"
-              value={formData.company_size}
-              onChange={handleFormChange}
-              className="border rounded-lg px-3 py-2"
-            >
-              <option value="">Select...</option>
-              <option value="1-3">1–3 Employees</option>
-              <option value="4-10">4–10 Employees</option>
-              <option value="11-30">11–30 Employees</option>
-              <option value="31-100">31–100 Employees</option>
-              <option value="100+">100+ Employees</option>
-            </select>
-          </div>
-
-          {/* CURRENT CRM */}
-          <div className="flex flex-col">
-            <label className="text-xs font-medium mb-1">CRM Used Now</label>
-            <input
-              type="text"
-              name="crm_used_now"
-              value={formData.crm_used_now}
-              onChange={handleFormChange}
-              className="border rounded-lg px-3 py-2"
-            />
-          </div>
-
-          {/* STATUS */}
-          <div className="flex flex-col">
-            <label className="text-xs font-medium mb-1">Status</label>
-            <select
-              name="status"
-              value={formData.status}
-              onChange={handleFormChange}
-              className="border rounded-lg px-3 py-2"
-            >
-              <option value="new">New</option>
-              <option value="contacted">Contacted</option>
-              <option value="trial_started">Trial Started</option>
-              <option value="closed_won">Closed Won</option>
-              <option value="closed_lost">Closed Lost</option>
-            </select>
-          </div>
-
-          {/* DEAL VALUE */}
-          <div className="flex flex-col">
-            <label className="text-xs font-medium mb-1">Deal Value</label>
-            <input
-              type="number"
-              name="deal_value"
-              value={formData.deal_value}
-              onChange={handleFormChange}
-              className="border rounded-lg px-3 py-2"
-              min={0}
-            />
-          </div>
-
-          {/* NOTES */}
-          <div className="col-span-1 sm:col-span-2 flex flex-col">
-            <label className="text-xs font-medium mb-1">Notes</label>
-            <textarea
-              name="notes"
-              value={formData.notes}
-              onChange={handleFormChange}
-              className="border rounded-lg px-3 py-2 h-24"
-            />
-          </div>
-        </div>
-
-        <div className="flex justify-end gap-2 mt-6">
-          <button
-            onClick={() => setShowFormModal(false)}
-            className="px-3 py-2 bg-gray-200 text-sm rounded-lg"
-            disabled={saving}
-          >
-            Cancel
-          </button>
-
-          <button
-            onClick={saveLead}
-            className="px-4 py-2 bg-blue-600 text-white text-sm rounded-lg hover:bg-blue-700"
-            disabled={saving}
-          >
-            {saving ? "Saving..." : "Save Lead"}
-          </button>
-        </div>
-      </BaseModal>
-
-      {/* DETAILS MODAL */}
-      <LeadDetailsModal
-        isOpen={showDetailsModal}
-        onClose={() => setShowDetailsModal(false)}
-        lead={detailsLead}
-      />
-
-      {/* DELETE CONFIRM MODAL */}
-      <ConfirmationModal
-        isOpen={showDeleteConfirm}
-        title="Delete Lead"
-        message="Are you sure you want to delete this lead?"
-        onConfirm={deleteLead}
-        onCancel={() => setShowDeleteConfirm(false)}
-      />
-
-      {/* IMPORT LEADS */}
-      <ImportLeadsModal
-        isOpen={showImportModal}
-        onClose={() => setShowImportModal(false)}
-      />
-    </div>
-  );
-};
-
-export default LeadManagement;
+    {/* IMPORT */}
+    <ImportLeadsModal
+      isOpen={showImportModal}
+      onClose={() => setShowImportModal(false)}
+    />
+  </div>
+);
