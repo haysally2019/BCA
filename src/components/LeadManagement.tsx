@@ -103,8 +103,9 @@ const LeadManagement: React.FC = () => {
 
       try {
         const result = await supabaseService.getLeads(ownerId as string);
-        setLeads(Array.isArray(result) ? result : []);
-      } catch {
+        const safe = Array.isArray(result) ? (result as SaaSLead[]) : [];
+        setLeads(safe);
+      } catch (err) {
         toast.error("Error loading leads");
       } finally {
         setLoading(false);
@@ -145,11 +146,23 @@ const LeadManagement: React.FC = () => {
       const status = lead.status ?? "new";
       const dealValue = lead.deal_value ?? 0;
 
-      if (status === "new") newCount++;
-      if (status === "contacted") contacted++;
-      if (status === "trial_started") trialStarted++;
-      if (status === "closed_won") closedWon++;
-      if (status === "closed_lost") closedLost++;
+      switch (status) {
+        case "new":
+          newCount++;
+          break;
+        case "contacted":
+          contacted++;
+          break;
+        case "trial_started":
+          trialStarted++;
+          break;
+        case "closed_won":
+          closedWon++;
+          break;
+        case "closed_lost":
+          closedLost++;
+          break;
+      }
 
       if (status !== "closed_lost") {
         pipelineTotal += dealValue;
@@ -173,7 +186,7 @@ const LeadManagement: React.FC = () => {
     };
   }, [safeLeads]);
 
-  // SEARCH + FILTER
+  // FILTERED LEADS
   const filteredLeads = useMemo(() => {
     const term = searchTerm.toLowerCase();
 
@@ -218,7 +231,7 @@ const LeadManagement: React.FC = () => {
     setShowFormModal(true);
   };
 
-  // OPEN EDIT
+  // OPEN EDIT LEAD
   const openEditLead = (lead: SaaSLead) => {
     setEditingLead(lead);
     setFormData({
@@ -236,7 +249,7 @@ const LeadManagement: React.FC = () => {
     setShowFormModal(true);
   };
 
-  // FORM CHANGE
+  // HANDLE FORM CHANGES
   const handleFormChange = (e: any) => {
     const { name, value } = e.target;
     setFormData((prev) => ({
@@ -288,7 +301,8 @@ const LeadManagement: React.FC = () => {
 
       setShowFormModal(false);
       setEditingLead(null);
-    } catch {
+    } catch (err) {
+      console.error("[LeadManagement] saveLead error:", err);
       toast.error("Error saving lead.");
     } finally {
       setSaving(false);
@@ -308,7 +322,7 @@ const LeadManagement: React.FC = () => {
       await supabaseService.deleteLead(leadToDelete.id);
       setLeads((prev) => prev.filter((l) => l.id !== leadToDelete.id));
       toast.success("Lead deleted.");
-    } catch {
+    } catch (err) {
       toast.error("Error deleting lead.");
     } finally {
       setShowDeleteConfirm(false);
@@ -322,34 +336,37 @@ const LeadManagement: React.FC = () => {
     setShowDetailsModal(true);
   };
 
-  // LOADING SCREEN
+  // LOADING STATE
   if (loading) {
     return (
       <LoadingSpinner size="lg" text="Loading leads..." className="h-64" />
     );
   }
 
-  // FULL UI (RENDER)
+  // RENDER UI
   return (
-    <div className="space-y-8">
+    <div className="space-y-8 max-w-6xl mx-auto">
 
-      {/* ---------- HEADER ---------- */}
+      {/* HEADER */}
       <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-        <div className="space-y-1">
-          <h1 className="text-3xl font-bold text-gray-900 flex items-center gap-2">
-            <Building2 className="w-8 h-8 text-blue-600" />
+        <div className="space-y-1.5">
+          <div className="inline-flex items-center gap-2 rounded-full bg-blue-50 px-3 py-1 text-xs font-medium text-blue-700">
+            <span className="inline-block h-1.5 w-1.5 rounded-full bg-blue-500" />
+            Leads Workspace
+          </div>
+          <h1 className="text-3xl font-semibold text-slate-900 tracking-tight flex items-center gap-2">
+            <Building2 className="w-7 h-7 text-blue-600" />
             Roofing Company Leads
           </h1>
-          <p className="text-gray-600 text-sm">
-            Manage roofing company prospects your team is actively selling to.
+          <p className="text-slate-500 text-sm">
+            Monitor your roofing CRM pipeline and keep every prospect moving forward.
           </p>
         </div>
 
-        <div className="flex flex-wrap gap-3">
+        <div className="flex flex-wrap gap-2.5">
           <button
             onClick={() => setShowImportModal(true)}
-            className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium 
-            border border-gray-300 rounded-xl bg-white hover:bg-gray-50 shadow-sm transition"
+            className="inline-flex items-center gap-2 rounded-2xl border border-slate-200 bg-white/80 px-4 py-2 text-xs font-medium text-slate-700 shadow-sm hover:bg-slate-50 hover:border-slate-300 transition"
           >
             <Upload className="w-4 h-4" />
             Import CSV
@@ -357,8 +374,7 @@ const LeadManagement: React.FC = () => {
 
           <button
             onClick={openAddLead}
-            className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium 
-            bg-blue-600 text-white rounded-xl shadow-sm hover:bg-blue-700 transition"
+            className="inline-flex items-center gap-2 rounded-2xl bg-slate-900 px-4 py-2 text-xs font-semibold text-white shadow-sm hover:bg-black transition"
           >
             <Plus className="w-4 h-4" />
             Add Company
@@ -366,69 +382,70 @@ const LeadManagement: React.FC = () => {
         </div>
       </div>
 
-      {/* ---------- STATS ---------- */}
-      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
-        {[
-          { label: "Total Leads", value: stats.total, color: "text-gray-800" },
-          { label: "New", value: stats.new, color: "text-blue-600" },
-          { label: "Contacted", value: stats.contacted, color: "text-amber-600" },
-          { label: "Trial Started", value: stats.trialStarted, color: "text-emerald-600" },
-          { label: "Closed Won", value: stats.closedWon, color: "text-green-600" },
-          { label: "Closed Lost", value: stats.closedLost, color: "text-red-600" },
-        ].map((stat) => (
-          <div
-            key={stat.label}
-            className="bg-white rounded-xl border border-gray-200 p-4 shadow-sm hover:shadow-md 
-            transition cursor-default"
-          >
-            <div className="text-[11px] uppercase tracking-wide text-gray-500 font-medium">
-              {stat.label}
+      {/* STATS — side scroll on mobile, grid on desktop */}
+      <div className="relative -mx-2 md:mx-0">
+        <div className="flex md:grid md:grid-cols-3 lg:grid-cols-6 gap-4 overflow-x-auto pb-2 px-2 md:px-0 scrollbar-thin scrollbar-thumb-slate-300 scrollbar-track-transparent">
+          {[
+            { label: "Total Leads", value: stats.total, color: "text-slate-900" },
+            { label: "New", value: stats.new, color: "text-blue-600" },
+            { label: "Contacted", value: stats.contacted, color: "text-amber-600" },
+            { label: "Trial Started", value: stats.trialStarted, color: "text-emerald-600" },
+            { label: "Closed Won", value: stats.closedWon, color: "text-green-600" },
+            { label: "Closed Lost", value: stats.closedLost, color: "text-rose-600" },
+          ].map((stat) => (
+            <div
+              key={stat.label}
+              className="min-w-[160px] md:min-w-0 bg-gradient-to-b from-white/95 to-slate-50/95 rounded-2xl border border-slate-200/80 px-4 py-3 shadow-[0_8px_30px_rgba(15,23,42,0.06)] flex flex-col justify-between"
+            >
+              <div className="text-[11px] uppercase tracking-[0.14em] text-slate-500 font-medium">
+                {stat.label}
+              </div>
+              <div className={`mt-1 text-2xl font-semibold ${stat.color}`}>
+                {stat.value}
+              </div>
             </div>
-            <div className={`mt-1 text-2xl font-bold ${stat.color}`}>
-              {stat.value}
-            </div>
-          </div>
-        ))}
+          ))}
+        </div>
       </div>
 
-      {/* ---------- FILTER BAR ---------- */}
-      <div className="bg-white border rounded-xl p-4 shadow-sm flex flex-col md:flex-row 
-      gap-4 md:items-center md:justify-between">
-
-        {/* SEARCH INPUT */}
-        <div className="flex items-center gap-2 border border-gray-200 rounded-xl px-4 py-2 
-        bg-gray-50 shadow-inner flex-1">
-          <Search className="w-5 h-5 text-gray-400" />
+      {/* FILTER BAR */}
+      <div className="bg-gradient-to-b from-white/95 to-slate-50/95 border border-slate-200/80 rounded-2xl shadow-[0_12px_40px_rgba(15,23,42,0.04)] px-4 py-3 flex flex-col md:flex-row gap-3 md:items-center md:justify-between">
+        <div className="flex items-center gap-2 rounded-full border border-slate-200 bg-slate-50/80 px-3 py-1.5 shadow-inner flex-1">
+          <Search className="w-4 h-4 text-slate-400" />
           <input
             type="text"
-            placeholder="Search: company, owner, email, phone, CRM..."
-            className="w-full bg-transparent text-sm outline-none"
+            placeholder="Search company, owner, email, phone, CRM..."
+            className="w-full bg-transparent text-sm text-slate-800 placeholder:text-slate-400 outline-none"
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
           />
         </div>
 
-        {/* FILTER */}
-        <select
-          value={statusFilter}
-          onChange={(e) => setStatusFilter(e.target.value as StatusFilter)}
-          className="border border-gray-300 rounded-xl px-4 py-2 text-sm bg-white shadow-sm"
-        >
-          <option value="all">All Statuses</option>
-          <option value="new">New</option>
-          <option value="contacted">Contacted</option>
-          <option value="trial_started">Trial Started</option>
-          <option value="closed_won">Closed Won</option>
-          <option value="closed_lost">Closed Lost</option>
-        </select>
+        <div className="flex items-center gap-2">
+          <span className="text-[11px] text-slate-500 font-medium uppercase tracking-[0.16em]">
+            Status
+          </span>
+          <select
+            value={statusFilter}
+            onChange={(e) => setStatusFilter(e.target.value as StatusFilter)}
+            className="border border-slate-200 rounded-full px-3 py-1.5 text-xs bg-white text-slate-800 shadow-sm hover:border-slate-300 focus:outline-none focus:ring-2 focus:ring-slate-900/5"
+          >
+            <option value="all">All</option>
+            <option value="new">New</option>
+            <option value="contacted">Contacted</option>
+            <option value="trial_started">Trial Started</option>
+            <option value="closed_won">Closed Won</option>
+            <option value="closed_lost">Closed Lost</option>
+          </select>
+        </div>
       </div>
 
-      {/* ---------- TABLE ---------- */}
-      <div className="bg-white border rounded-xl shadow-sm overflow-hidden">
+      {/* TABLE */}
+      <div className="bg-gradient-to-b from-white/95 to-slate-50/95 border border-slate-200/80 rounded-2xl shadow-[0_16px_45px_rgba(15,23,42,0.06)] overflow-hidden">
         <div className="overflow-x-auto">
           <table className="min-w-full text-sm">
-            <thead className="bg-gray-50 border-b">
-              <tr className="text-gray-600 text-xs uppercase tracking-wider">
+            <thead className="bg-slate-100/70 backdrop-blur-sm border-b border-slate-200/70">
+              <tr className="text-[11px] uppercase tracking-[0.16em] text-slate-500">
                 <th className="px-4 py-3">
                   <input
                     type="checkbox"
@@ -455,7 +472,10 @@ const LeadManagement: React.FC = () => {
             <tbody>
               {filteredLeads.length === 0 ? (
                 <tr>
-                  <td colSpan={7} className="px-4 py-12 text-center text-gray-500">
+                  <td
+                    colSpan={7}
+                    className="px-4 py-10 text-center text-slate-400 text-sm"
+                  >
                     No leads match your filters.
                   </td>
                 </tr>
@@ -463,9 +483,9 @@ const LeadManagement: React.FC = () => {
                 filteredLeads.map((lead) => (
                   <tr
                     key={lead.id}
-                    className="border-b last:border-0 hover:bg-gray-50 transition"
+                    className="border-b border-slate-100 last:border-0 hover:bg-slate-50/80 transition-colors"
                   >
-                    <td className="px-4 py-3">
+                    <td className="px-4 py-3 align-top">
                       <input
                         type="checkbox"
                         checked={selectedLeads.includes(lead.id)}
@@ -474,44 +494,54 @@ const LeadManagement: React.FC = () => {
                     </td>
 
                     {/* COMPANY */}
-                    <td className="px-4 py-3">
-                      <div className="font-semibold text-gray-900">
+                    <td className="px-4 py-3 align-top">
+                      <div className="font-medium text-slate-900">
                         {lead.company_name || "Unnamed Company"}
                       </div>
-                      <div className="text-[11px] text-gray-500">Roofing Contractor</div>
+                      <div className="mt-0.5 text-[11px] text-slate-500">
+                        Roofing Contractor
+                      </div>
+                      {lead.service_area && (
+                        <div className="mt-0.5 text-[11px] text-slate-400">
+                          {lead.service_area}
+                        </div>
+                      )}
                     </td>
 
                     {/* CONTACT */}
-                    <td className="px-4 py-3 space-y-1">
-                      <div className="font-medium text-gray-800 text-sm">
+                    <td className="px-4 py-3 align-top">
+                      <div className="text-sm font-medium text-slate-900">
                         {lead.contact_name || "—"}
                       </div>
-                      <div className="text-[11px] text-gray-600 space-y-0.5">
+                      <div className="mt-1 space-y-0.5 text-[11px] text-slate-600">
                         {lead.email && (
-                          <div className="flex items-center gap-1">
-                            <Mail className="w-3 h-3" />
-                            {lead.email}
+                          <div className="flex items-center gap-1.5">
+                            <Mail className="w-3 h-3 text-slate-400" />
+                            <span className="truncate max-w-[180px]">
+                              {lead.email}
+                            </span>
                           </div>
                         )}
                         {lead.phone && (
-                          <div className="flex items-center gap-1">
-                            <Phone className="w-3 h-3" />
-                            {lead.phone}
+                          <div className="flex items-center gap-1.5">
+                            <Phone className="w-3 h-3 text-slate-400" />
+                            <span>{lead.phone}</span>
                           </div>
                         )}
                       </div>
                     </td>
 
                     {/* CRM */}
-                    <td className="px-4 py-3 text-gray-700">
-                      {lead.crm_used_now || "Unknown"}
+                    <td className="px-4 py-3 align-top text-slate-800 text-sm">
+                      {lead.crm_used_now || (
+                        <span className="text-slate-400 text-xs">Unknown</span>
+                      )}
                     </td>
 
                     {/* STATUS */}
-                    <td className="px-4 py-3">
+                    <td className="px-4 py-3 align-top">
                       <span
-                        className={`px-3 py-1 rounded-full text-xs font-medium shadow-sm
-                        ${
+                        className={`inline-flex items-center rounded-full px-3 py-1 text-[11px] font-medium tracking-wide shadow-sm ${
                           lead.status === "new"
                             ? "bg-blue-50 text-blue-700"
                             : lead.status === "contacted"
@@ -519,44 +549,43 @@ const LeadManagement: React.FC = () => {
                             : lead.status === "trial_started"
                             ? "bg-emerald-50 text-emerald-700"
                             : lead.status === "closed_won"
-                            ? "bg-green-50 text-green-700"
-                            : "bg-red-50 text-red-700"
+                            ? "bg-emerald-100 text-emerald-800"
+                            : "bg-rose-50 text-rose-700"
                         }`}
                       >
-                        {lead.status?.replace("_", " ").toUpperCase()}
+                        {lead.status
+                          ? lead.status.replace("_", " ").toUpperCase()
+                          : "NEW"}
                       </span>
                     </td>
 
-                    {/* VALUE */}
-                    <td className="px-4 py-3 text-right font-semibold text-gray-800">
-                      ${Number(lead.deal_value ?? 0).toLocaleString()}
+                    {/* DEAL VALUE */}
+                    <td className="px-4 py-3 align-top text-right">
+                      <span className="text-sm font-semibold text-slate-900">
+                        ${Number(lead.deal_value ?? 0).toLocaleString()}
+                      </span>
                     </td>
 
                     {/* ACTIONS */}
-                    <td className="px-4 py-3 text-right">
-                      <div className="flex justify-end gap-2">
-                        {/* DETAILS */}
+                    <td className="px-4 py-3 align-top text-right">
+                      <div className="inline-flex items-center gap-1.5 bg-white/80 border border-slate-200 rounded-full px-1.5 py-0.5 shadow-sm">
                         <button
                           onClick={() => openDetails(lead)}
-                          className="p-2 rounded-lg hover:bg-gray-100 transition"
+                          className="p-1.5 rounded-full hover:bg-slate-100 transition"
                         >
-                          <Eye className="w-4 h-4 text-gray-700" />
+                          <Eye className="w-3.5 h-3.5 text-slate-600" />
                         </button>
-
-                        {/* EDIT */}
                         <button
                           onClick={() => openEditLead(lead)}
-                          className="p-2 rounded-lg hover:bg-gray-100 transition"
+                          className="p-1.5 rounded-full hover:bg-slate-100 transition"
                         >
-                          <Edit3 className="w-4 h-4 text-gray-700" />
+                          <Edit3 className="w-3.5 h-3.5 text-slate-600" />
                         </button>
-
-                        {/* DELETE */}
                         <button
                           onClick={() => confirmDeleteLead(lead)}
-                          className="p-2 rounded-lg hover:bg-red-50 transition"
+                          className="p-1.5 rounded-full hover:bg-rose-50 transition"
                         >
-                          <Trash2 className="w-4 h-4 text-red-600" />
+                          <Trash2 className="w-3.5 h-3.5 text-rose-600" />
                         </button>
                       </div>
                     </td>
@@ -568,144 +597,145 @@ const LeadManagement: React.FC = () => {
         </div>
       </div>
 
-      {/* ---------- MODALS ---------- */}
+      {/* ADD / EDIT FORM MODAL */}
       <BaseModal
         isOpen={showFormModal}
         onClose={() => setShowFormModal(false)}
         title={editingLead ? "Edit Lead" : "Add Roofing Company Lead"}
         width="max-w-2xl"
       >
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          {[
-            ["Company Name", "company_name"],
-            ["Contact Name", "contact_name"],
-            ["Email", "email"],
-            ["Phone", "phone"],
-            ["Service Area", "service_area"],
-          ].map(([label, name]) => (
-            <div key={name}>
-              <label className="text-xs font-semibold text-gray-600 mb-1 block">
-                {label}
+        <div className="space-y-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            {[
+              ["Company Name", "company_name"],
+              ["Contact Name", "contact_name"],
+              ["Email", "email"],
+              ["Phone", "phone"],
+              ["Service Area", "service_area"],
+            ].map(([label, name]) => (
+              <div key={name}>
+                <label className="text-xs font-medium text-slate-600 mb-1 block">
+                  {label}
+                </label>
+                <input
+                  type="text"
+                  name={name}
+                  value={(formData as any)[name]}
+                  onChange={handleFormChange}
+                  className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 shadow-inner focus:outline-none focus:ring-2 focus:ring-slate-900/5"
+                />
+              </div>
+            ))}
+
+            {/* COMPANY SIZE */}
+            <div>
+              <label className="text-xs font-medium text-slate-600 mb-1 block">
+                Company Size
+              </label>
+              <select
+                name="company_size"
+                value={formData.company_size}
+                onChange={handleFormChange}
+                className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 shadow-inner focus:outline-none focus:ring-2 focus:ring-slate-900/5"
+              >
+                <option value="">Select...</option>
+                <option value="1-3">1–3 Employees</option>
+                <option value="4-10">4–10 Employees</option>
+                <option value="11-30">11–30 Employees</option>
+                <option value="31-100">31–100 Employees</option>
+                <option value="100+">100+ Employees</option>
+              </select>
+            </div>
+
+            {/* CURRENT CRM */}
+            <div>
+              <label className="text-xs font-medium text-slate-600 mb-1 block">
+                CRM Used Now
               </label>
               <input
                 type="text"
-                name={name}
-                value={(formData as any)[name]}
+                name="crm_used_now"
+                value={formData.crm_used_now}
                 onChange={handleFormChange}
-                className="border border-gray-300 rounded-xl px-3 py-2 w-full text-sm"
+                className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 shadow-inner focus:outline-none focus:ring-2 focus:ring-slate-900/5"
               />
             </div>
-          ))}
 
-          {/* COMPANY SIZE */}
-          <div>
-            <label className="text-xs font-semibold text-gray-600 mb-1 block">
-              Company Size
-            </label>
-            <select
-              name="company_size"
-              value={formData.company_size}
-              onChange={handleFormChange}
-              className="border border-gray-300 rounded-xl px-3 py-2 w-full text-sm"
+            {/* STATUS */}
+            <div>
+              <label className="text-xs font-medium text-slate-600 mb-1 block">
+                Status
+              </label>
+              <select
+                name="status"
+                value={formData.status}
+                onChange={handleFormChange}
+                className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 shadow-inner focus:outline-none focus:ring-2 focus:ring-slate-900/5"
+              >
+                <option value="new">New</option>
+                <option value="contacted">Contacted</option>
+                <option value="trial_started">Trial Started</option>
+                <option value="closed_won">Closed Won</option>
+                <option value="closed_lost">Closed Lost</option>
+              </select>
+            </div>
+
+            {/* DEAL VALUE */}
+            <div>
+              <label className="text-xs font-medium text-slate-600 mb-1 block">
+                Deal Value
+              </label>
+              <input
+                type="number"
+                name="deal_value"
+                value={formData.deal_value}
+                onChange={handleFormChange}
+                min={0}
+                className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 shadow-inner focus:outline-none focus:ring-2 focus:ring-slate-900/5"
+              />
+            </div>
+
+            {/* NOTES */}
+            <div className="sm:col-span-2">
+              <label className="text-xs font-medium text-slate-600 mb-1 block">
+                Notes
+              </label>
+              <textarea
+                name="notes"
+                value={formData.notes}
+                onChange={handleFormChange}
+                className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 shadow-inner h-24 resize-none focus:outline-none focus:ring-2 focus:ring-slate-900/5"
+              />
+            </div>
+          </div>
+
+          <div className="flex justify-end gap-3 pt-2 border-t border-slate-100 mt-2">
+            <button
+              onClick={() => setShowFormModal(false)}
+              className="rounded-full bg-slate-100 px-4 py-2 text-xs font-medium text-slate-700 hover:bg-slate-200 transition"
+              disabled={saving}
             >
-              <option value="">Select...</option>
-              <option value="1-3">1–3 Employees</option>
-              <option value="4-10">4–10 Employees</option>
-              <option value="11-30">11–30 Employees</option>
-              <option value="31-100">31–100 Employees</option>
-              <option value="100+">100+ Employees</option>
-            </select>
-          </div>
-
-          {/* CRM */}
-          <div>
-            <label className="text-xs font-semibold text-gray-600 mb-1 block">
-              CRM Used Now
-            </label>
-            <input
-              type="text"
-              name="crm_used_now"
-              value={formData.crm_used_now}
-              onChange={handleFormChange}
-              className="border border-gray-300 rounded-xl px-3 py-2 w-full text-sm"
-            />
-          </div>
-
-          {/* STATUS */}
-          <div>
-            <label className="text-xs font-semibold text-gray-600 mb-1 block">
-              Status
-            </label>
-            <select
-              name="status"
-              value={formData.status}
-              onChange={handleFormChange}
-              className="border border-gray-300 rounded-xl px-3 py-2 w-full text-sm"
+              Cancel
+            </button>
+            <button
+              onClick={saveLead}
+              className="rounded-full bg-slate-900 px-5 py-2 text-xs font-semibold text-white shadow-sm hover:bg-black transition"
+              disabled={saving}
             >
-              <option value="new">New</option>
-              <option value="contacted">Contacted</option>
-              <option value="trial_started">Trial Started</option>
-              <option value="closed_won">Closed Won</option>
-              <option value="closed_lost">Closed Lost</option>
-            </select>
+              {saving ? "Saving..." : "Save Lead"}
+            </button>
           </div>
-
-          {/* VALUE */}
-          <div>
-            <label className="text-xs font-semibold text-gray-600 mb-1 block">
-              Deal Value
-            </label>
-            <input
-              type="number"
-              name="deal_value"
-              value={formData.deal_value}
-              onChange={handleFormChange}
-              className="border border-gray-300 rounded-xl px-3 py-2 w-full text-sm"
-              min={0}
-            />
-          </div>
-
-          {/* NOTES */}
-          <div className="sm:col-span-2">
-            <label className="text-xs font-semibold text-gray-600 mb-1 block">
-              Notes
-            </label>
-            <textarea
-              name="notes"
-              value={formData.notes}
-              onChange={handleFormChange}
-              className="border border-gray-300 rounded-xl px-3 py-2 w-full h-24 text-sm"
-            />
-          </div>
-        </div>
-
-        <div className="flex justify-end gap-3 mt-6">
-          <button
-            onClick={() => setShowFormModal(false)}
-            className="px-4 py-2 bg-gray-200 rounded-xl text-sm hover:bg-gray-300 transition"
-            disabled={saving}
-          >
-            Cancel
-          </button>
-
-          <button
-            onClick={saveLead}
-            className="px-5 py-2 bg-blue-600 text-white rounded-xl text-sm hover:bg-blue-700 transition"
-            disabled={saving}
-          >
-            {saving ? "Saving..." : "Save Lead"}
-          </button>
         </div>
       </BaseModal>
 
-      {/* DETAILS */}
+      {/* DETAILS MODAL */}
       <LeadDetailsModal
         isOpen={showDetailsModal}
         onClose={() => setShowDetailsModal(false)}
         lead={detailsLead}
       />
 
-      {/* DELETE CONFIRM */}
+      {/* DELETE CONFIRM MODAL */}
       <ConfirmationModal
         isOpen={showDeleteConfirm}
         title="Delete Lead"
@@ -714,7 +744,7 @@ const LeadManagement: React.FC = () => {
         onCancel={() => setShowDeleteConfirm(false)}
       />
 
-      {/* IMPORT */}
+      {/* IMPORT LEADS */}
       <ImportLeadsModal
         isOpen={showImportModal}
         onClose={() => setShowImportModal(false)}
