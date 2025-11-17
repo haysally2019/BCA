@@ -1,8 +1,25 @@
+// src/lib/supabaseService.ts
+
+import { createClient } from "@supabase/supabase-js";
 import { createAffiliateProfile } from "./affiliateService";
 
+// Load Supabase credentials from Vite env
+const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
+
+// Create the Supabase client
+export const supabase = createClient(supabaseUrl, supabaseAnonKey);
+
+// ---------------------------------------------------
+// SIGNUP FUNCTION (with AffiliateWP integration)
+// ---------------------------------------------------
 export async function signUp(email: string, password: string) {
   const { data, error } = await supabase.auth.signUp({ email, password });
-  if (error || !data.user) return { error };
+
+  if (error || !data.user) {
+    console.error("[Supabase Signup Error]", error);
+    return { error };
+  }
 
   const userId = data.user.id;
 
@@ -22,3 +39,6 @@ export async function signUp(email: string, password: string) {
 
   return { user: data.user };
 }
+
+// Default export (optional but safe)
+export default supabase;
