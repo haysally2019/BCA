@@ -382,9 +382,10 @@ const LeadManagement: React.FC = () => {
 
       if (result.error) throw result.error;
 
+      // Use the updated data from the server to ensure all fields are preserved
       setLeads((prev) =>
         prev.map((l) =>
-          l.id === leadToAssign.id ? { ...l, assigned_to: selectedAssignee || null } : l
+          l.id === leadToAssign.id ? result.data : l
         )
       );
 
