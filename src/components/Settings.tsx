@@ -47,9 +47,9 @@ const Settings: React.FC = () => {
   });
   const [profileData, setProfileData] = useState({
     full_name: '',
-    personal_phone: '',
-    company_email: '',
-    personal_address: '',
+    phone_number: '',
+    email: '',
+    address: '',
     affiliatewp_id: ''
   });
   const [payoutData, setPayoutData] = useState({
@@ -86,9 +86,9 @@ const Settings: React.FC = () => {
     if (profile) {
       setProfileData({
         full_name: profile.full_name || profile.company_name || '',
-        personal_phone: profile.personal_phone || profile.company_phone || '',
-        company_email: profile.company_email || '',
-        personal_address: profile.personal_address || profile.company_address || '',
+        phone_number: profile.phone_number || '',
+        email: profile.email || '',
+        address: profile.address || '',
         affiliatewp_id: profile.affiliatewp_id?.toString() || ''
       });
     }
@@ -101,12 +101,10 @@ const Settings: React.FC = () => {
     try {
       const updates = {
         full_name: profileData.full_name,
-        personal_phone: profileData.personal_phone,
-        company_email: profileData.company_email,
-        personal_address: profileData.personal_address,
+        phone_number: profileData.phone_number,
+        email: profileData.email,
+        address: profileData.address,
         company_name: profileData.full_name,
-        company_phone: profileData.personal_phone,
-        company_address: profileData.personal_address,
         affiliatewp_id: profileData.affiliatewp_id ? parseInt(profileData.affiliatewp_id) : undefined
       };
 
@@ -420,8 +418,8 @@ const Settings: React.FC = () => {
                     <Phone className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
                     <input
                       type="tel"
-                      value={profileData.personal_phone}
-                      onChange={(e) => setProfileData(prev => ({ ...prev, personal_phone: e.target.value }))}
+                      value={profileData.phone_number}
+                      onChange={(e) => setProfileData(prev => ({ ...prev, phone_number: e.target.value }))}
                       className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                       placeholder="(555) 123-4567"
                     />
@@ -436,8 +434,8 @@ const Settings: React.FC = () => {
                     <Mail className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
                     <input
                       type="email"
-                      value={profileData.company_email}
-                      onChange={(e) => setProfileData(prev => ({ ...prev, company_email: e.target.value }))}
+                      value={profileData.email}
+                      onChange={(e) => setProfileData(prev => ({ ...prev, email: e.target.value }))}
                       className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                       placeholder="john.smith@email.com"
                     />
@@ -451,8 +449,8 @@ const Settings: React.FC = () => {
                   <div className="relative">
                     <MapPin className="absolute left-3 top-3 text-gray-400 w-5 h-5" />
                     <textarea
-                      value={profileData.personal_address}
-                      onChange={(e) => setProfileData(prev => ({ ...prev, personal_address: e.target.value }))}
+                      value={profileData.address}
+                      onChange={(e) => setProfileData(prev => ({ ...prev, address: e.target.value }))}
                       rows={3}
                       className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                       placeholder="123 Main St, City, State 12345"

@@ -5,18 +5,24 @@ import type { User } from "@supabase/supabase-js";
 export interface Profile {
   id: string;
   user_id: string;
-  company_id?: string;
-  company_name: string;
+  email?: string;
   full_name?: string;
-  company_phone?: string;
-  personal_phone?: string;
-  company_email?: string;
-  company_address?: string;
-  personal_address?: string;
-  subscription_plan: string;
-  user_role?: "manager" | "sales_rep"; // <- primary role source
+  affiliate_id?: string;
+  affiliate_url?: string;
+  created_at: string;
+  user_role?: "admin" | "manager" | "sales_rep";
+  company_id?: string;
+  company_name?: string;
+  phone_number?: string;
+  address?: string;
   affiliatewp_id?: number;
+  affiliatewp_status?: string;
+  must_change_password?: boolean;
+  unpaid_earnings?: number;
+  paid_lifetime_earnings?: number;
+  referral_url?: string;
   affiliate_referral_url?: string;
+  subscription_plan?: string;
   affiliatewp_earnings?: number;
   affiliatewp_unpaid_earnings?: number;
   affiliatewp_referrals?: number;
@@ -26,8 +32,7 @@ export interface Profile {
   preferred_payout_method?: string;
   payout_setup_completed?: boolean;
   last_payout_sync?: string;
-  created_at: string;
-  updated_at: string;
+  updated_at?: string;
 }
 
 interface AuthState {
