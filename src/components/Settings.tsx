@@ -19,9 +19,7 @@ import {
   CheckCircle,
   AlertCircle,
   Info,
-  Bug,
-  RefreshCw,
-  Activity
+  Bug
 } from 'lucide-react';
 import { useAuthStore } from '../store/authStore';
 import { supabase } from '../lib/supabaseClient';
@@ -69,9 +67,6 @@ const Settings: React.FC = () => {
   const [payoutInfo, setPayoutInfo] = useState<any>(null);
   const [payoutLoading, setPayoutLoading] = useState(false);
   const [validationErrors, setValidationErrors] = useState<Record<string, string>>({});
-  const [syncStatus, setSyncStatus] = useState<any>(null);
-  const [syncing, setSyncing] = useState(false);
-  const [loadingSyncStatus, setLoadingSyncStatus] = useState(false);
 
   const { profile, user, signOut, updateProfile, refreshProfile } = useAuthStore();
 
@@ -324,55 +319,9 @@ const Settings: React.FC = () => {
     }
   };
 
-  const loadSyncStatus = async () => {
-    setLoadingSyncStatus(true);
-    try {
-      const { data, error } = await supabase.rpc('get_metrics_sync_status');
-      if (!error && data) {
-        setSyncStatus(data);
-      }
-    } catch (err) {
-      console.error('[Settings] sync status error', err);
-    } finally {
-      setLoadingSyncStatus(false);
-    }
-  };
-
-  const triggerManualSync = async () => {
-    setSyncing(true);
-    const toastId = toast.loading('Syncing AffiliateWP metrics...');
-
-    try {
-      const { data, error } = await supabase.rpc('sync_affiliatewp_metrics');
-
-      if (error) throw error;
-
-      if (data?.success) {
-        toast.success('Metrics sync initiated! Check Dashboard in a few moments.', { id: toastId });
-        setTimeout(() => {
-          loadSyncStatus();
-        }, 3000);
-      } else {
-        throw new Error(data?.error || 'Sync failed');
-      }
-    } catch (err: any) {
-      console.error('[Settings] manual sync error', err);
-      toast.error(err.message || 'Failed to sync metrics', { id: toastId });
-    } finally {
-      setSyncing(false);
-    }
-  };
-
-  useEffect(() => {
-    if (activeTab === 'metrics') {
-      loadSyncStatus();
-    }
-  }, [activeTab]);
-
   const tabs = [
     { id: 'profile', label: 'Profile', icon: User },
     { id: 'payout', label: 'Payout Info', icon: Wallet },
-    { id: 'metrics', label: 'Metrics Sync', icon: Activity },
     { id: 'notifications', label: 'Notifications', icon: Bell },
     { id: 'security', label: 'Security', icon: Shield },
   ];
@@ -831,127 +780,6 @@ const Settings: React.FC = () => {
                   <span>{payoutLoading ? 'Saving...' : 'Save Payout Information'}</span>
                 </button>
               </form>
-            </div>
-          )}
-
-          {activeTab === 'metrics' && (
-            <div>
-              <h3 className="text-lg font-semibold text-gray-900 mb-6">AffiliateWP Metrics Sync</h3>
-
-              <div className="space-y-6">
-                {/* Sync Status Card */}
-                <div className="bg-white border border-gray-200 rounded-lg p-6">
-                  <div className="flex items-center justify-between mb-4">
-                    <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center">
-                        <Activity className="w-5 h-5 text-blue-600" />
-                      </div>
-                      <div>
-                        <h4 className="font-semibold text-gray-900">Sync Status</h4>
-                        <p className="text-sm text-gray-600">Automatic hourly sync from AffiliateWP</p>
-                      </div>
-                    </div>
-                    <button
-                      onClick={triggerManualSync}
-                      disabled={syncing || loadingSyncStatus}
-                      className="inline-flex items-center gap-2 bg-red-600 text-white px-4 py-2 rounded-lg hover:bg-red-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                    >
-                      <RefreshCw className={`w-4 h-4 ${syncing ? 'animate-spin' : ''}`} />
-                      {syncing ? 'Syncing...' : 'Sync Now'}
-                    </button>
-                  </div>
-
-                  {loadingSyncStatus ? (
-                    <div className="text-center py-4">
-                      <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto"></div>
-                      <p className="text-sm text-gray-600 mt-2">Loading sync status...</p>
-                    </div>
-                  ) : syncStatus ? (
-                    <div className="space-y-4">
-                      {/* Health Indicator */}
-                      <div className="flex items-center gap-2">
-                        <span className="text-sm font-medium text-gray-700">Health:</span>
-                        {syncStatus.sync_health === 'healthy' ? (
-                          <span className="inline-flex items-center gap-1 px-3 py-1 bg-green-100 text-green-800 rounded-full text-sm font-medium">
-                            <CheckCircle className="w-4 h-4" />
-                            Healthy
-                          </span>
-                        ) : syncStatus.sync_health === 'warning' ? (
-                          <span className="inline-flex items-center gap-1 px-3 py-1 bg-yellow-100 text-yellow-800 rounded-full text-sm font-medium">
-                            <AlertCircle className="w-4 h-4" />
-                            Warning
-                          </span>
-                        ) : (
-                          <span className="inline-flex items-center gap-1 px-3 py-1 bg-red-100 text-red-800 rounded-full text-sm font-medium">
-                            <AlertCircle className="w-4 h-4" />
-                            Critical
-                          </span>
-                        )}
-                      </div>
-
-                      {/* Metrics Stats */}
-                      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                        <div className="bg-gray-50 rounded-lg p-3">
-                          <p className="text-xs text-gray-600 mb-1">Last Updated</p>
-                          <p className="text-lg font-bold text-gray-900">{syncStatus.last_metrics_date || 'Never'}</p>
-                        </div>
-                        <div className="bg-gray-50 rounded-lg p-3">
-                          <p className="text-xs text-gray-600 mb-1">Total Affiliates</p>
-                          <p className="text-lg font-bold text-gray-900">{syncStatus.total_affiliates || 0}</p>
-                        </div>
-                        <div className="bg-gray-50 rounded-lg p-3">
-                          <p className="text-xs text-gray-600 mb-1">Recent Metrics</p>
-                          <p className="text-lg font-bold text-gray-900">{syncStatus.affiliates_with_recent_metrics || 0}</p>
-                        </div>
-                        <div className="bg-gray-50 rounded-lg p-3">
-                          <p className="text-xs text-gray-600 mb-1">Total Records</p>
-                          <p className="text-lg font-bold text-gray-900">{syncStatus.total_metrics_records || 0}</p>
-                        </div>
-                      </div>
-
-                      {/* Data Freshness Info */}
-                      <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-                        <div className="flex items-start gap-2">
-                          <Info className="w-5 h-5 text-blue-600 flex-shrink-0 mt-0.5" />
-                          <div className="text-sm">
-                            <p className="text-blue-900 font-medium mb-1">Automatic Sync Schedule</p>
-                            <p className="text-blue-700">
-                              Metrics sync automatically every hour. Your dashboard always shows the most recent data from AffiliateWP.
-                            </p>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  ) : (
-                    <div className="text-center py-4">
-                      <p className="text-sm text-gray-600">Click "Sync Now" to fetch current metrics</p>
-                    </div>
-                  )}
-                </div>
-
-                {/* Information Card */}
-                <div className="bg-gradient-to-br from-gray-50 to-gray-100 rounded-lg p-6">
-                  <h4 className="font-semibold text-gray-900 mb-3">About Metrics Sync</h4>
-                  <ul className="space-y-2 text-sm text-gray-700">
-                    <li className="flex items-start gap-2">
-                      <CheckCircle className="w-4 h-4 text-green-600 flex-shrink-0 mt-0.5" />
-                      <span>Metrics sync automatically every hour from AffiliateWP</span>
-                    </li>
-                    <li className="flex items-start gap-2">
-                      <CheckCircle className="w-4 h-4 text-green-600 flex-shrink-0 mt-0.5" />
-                      <span>Includes visits, referrals, earnings, and unpaid commissions</span>
-                    </li>
-                    <li className="flex items-start gap-2">
-                      <CheckCircle className="w-4 h-4 text-green-600 flex-shrink-0 mt-0.5" />
-                      <span>Data appears in your Dashboard and Commission Tracker</span>
-                    </li>
-                    <li className="flex items-start gap-2">
-                      <CheckCircle className="w-4 h-4 text-green-600 flex-shrink-0 mt-0.5" />
-                      <span>Click "Sync Now" anytime to get the latest data immediately</span>
-                    </li>
-                  </ul>
-                </div>
-              </div>
             </div>
           )}
 
