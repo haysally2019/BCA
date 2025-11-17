@@ -1,6 +1,5 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "npm:@supabase/supabase-js@2";
-import { getCredentials } from "../_shared/get-credentials.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -22,16 +21,26 @@ Deno.serve(async (req: Request) => {
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? ""
     );
 
-    // Get AffiliateWP credentials
-    const credentials = await getCredentials(supabase);
+    const { data: settings, error: settingsError } = await supabase
+      .from('app_settings')
+      .select('key, value')
+      .in('key', ['affiliatewp_site_url', 'affiliatewp_api_username', 'affiliatewp_api_password']);
 
-    // Fetch all affiliates from AffiliateWP
+    if (settingsError || !settings || settings.length !== 3) {
+      throw new Error('Failed to fetch AffiliateWP credentials');
+    }
+
+    const credentials: Record<string, string> = {};
+    settings.forEach((item: any) => {
+      credentials[item.key] = item.value;
+    });
+
     const affiliateResponse = await fetch(
-      `${credentials.wordpress_site_url}/wp-json/affwp/v1/affiliates`,
+      `${credentials.affiliatewp_site_url}/wp-json/affwp/v1/affiliates`,
       {
         method: "GET",
         headers: {
-          "Authorization": `Basic ${btoa(`${credentials.consumer_key}:${credentials.consumer_secret}`)}`,
+          "Authorization": `Basic ${btoa(`${credentials.affiliatewp_api_username}:${credentials.affiliatewp_api_password}`)}`,
           "Content-Type": "application/json",
         },
       }
@@ -43,25 +52,18 @@ Deno.serve(async (req: Request) => {
 
     const affiliates = await affiliateResponse.json();
 
-    // Find haydensalyer4 and return raw data
-    const hayden = affiliates.find((a: any) =>
-      a.username?.toLowerCase().includes('hayden') ||
-      a.user_login?.toLowerCase().includes('hayden')
-    );
-
-    // Also get all profiles to check matching
     const { data: profiles } = await supabase
       .from("profiles")
-      .select("id, full_name, email, affiliatewp_id, commission_rate")
+      .select("user_id, full_name, email, affiliatewp_id")
       .not("affiliatewp_id", "is", null);
 
     return new Response(
       JSON.stringify({
         success: true,
-        hayden_from_api: hayden,
-        sample_affiliates: affiliates.slice(0, 3),
-        profiles_in_db: profiles,
         total_affiliates_from_api: affiliates.length,
+        sample_affiliates: affiliates.slice(0, 5),
+        profiles_in_db_with_affiliate_id: profiles?.length || 0,
+        all_affiliates: affiliates,
       }, null, 2),
       {
         headers: {
