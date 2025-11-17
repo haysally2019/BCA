@@ -1,5 +1,6 @@
+import React from "react"; // REQUIRED in Vite React apps
 import { useEffect, useState } from "react";
-import supabase from "../lib/supabaseService";
+import supabase from "../lib/supabaseService"; // matches your current export
 
 export default function Dashboard() {
   const [loading, setLoading] = useState(true);
