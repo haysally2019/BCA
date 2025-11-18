@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import {
   LineChart,
   Line,
@@ -6,9 +6,9 @@ import {
   YAxis,
   Tooltip,
   CartesianGrid,
-  ResponsiveContainer
-} from 'recharts';
-import { useNavigate } from 'react-router-dom';
+  ResponsiveContainer,
+} from "recharts";
+import { useNavigate } from "react-router-dom";
 import {
   TrendingUp,
   DollarSign,
@@ -23,15 +23,13 @@ import {
   CheckCircle2,
   Clock,
   Plus,
-  RefreshCw
-} from 'lucide-react';
-import { useSupabase } from '../context/SupabaseProvider';
-import { useAuthStore } from '../store/authStore';
-import toast from 'react-hot-toast';
+  RefreshCw,
+} from "lucide-react";
+import { useSupabase } from "../context/SupabaseProvider";
+import { useAuthStore } from "../store/authStore";
+import toast from "react-hot-toast";
 
-// ==============================
-// Types
-// ==============================
+// TYPES & UTILITIES PRESERVED
 type MetricsRow = {
   date: string;
   visits: number | null;
@@ -62,24 +60,20 @@ type Lead = {
   deal_value: number;
 };
 
-const rolesManager = new Set(['owner', 'admin', 'manager']);
-
-// ==============================
-// DARK UI COMPONENTS
-// ==============================
+const rolesManager = new Set(["owner", "admin", "manager"]);
 
 const Section = ({
   title,
   action,
-  children
+  children,
 }: {
   title: string;
   action?: React.ReactNode;
   children: React.ReactNode;
 }) => (
-  <div className="bg-slate-900/80 backdrop-blur-xl border border-slate-800 rounded-2xl p-6 shadow-xl">
+  <div className="bg-white border border-gray-200 rounded-2xl p-6 shadow-sm">
     <div className="flex items-center justify-between mb-6">
-      <h2 className="text-lg font-semibold text-slate-100">{title}</h2>
+      <h2 className="text-lg font-semibold text-gray-900">{title}</h2>
       {action}
     </div>
     {children}
@@ -91,25 +85,23 @@ const Tile = ({
   value,
   sub,
   icon: Icon,
-  color = 'blue'
 }: {
   label: string;
   value: string;
   sub?: string;
   icon?: React.ElementType;
-  color?: string;
 }) => (
-  <div className="bg-slate-950/60 backdrop-blur-xl border border-slate-800 rounded-2xl p-5 shadow-xl hover:bg-slate-900 transition">
+  <div className="bg-white rounded-2xl border border-gray-200 p-5 shadow-sm hover:shadow-md transition">
     <div className="flex items-start justify-between mb-3">
-      <p className="text-[11px] tracking-wide text-slate-400 uppercase font-medium">
+      <p className="text-[11px] tracking-wide text-gray-500 uppercase font-medium">
         {label}
       </p>
-      {Icon && <Icon className="w-5 h-5 text-slate-400" />}
+      {Icon && <Icon className="w-5 h-5 text-gray-400" />}
     </div>
 
-    <p className="text-3xl font-semibold text-slate-100 mb-1">{value}</p>
+    <p className="text-3xl font-semibold text-gray-900 mb-1">{value}</p>
 
-    {sub && <p className="text-xs text-slate-500">{sub}</p>}
+    {sub && <p className="text-xs text-gray-500">{sub}</p>}
   </div>
 );
 
@@ -117,53 +109,39 @@ const QuickAction = ({
   icon: Icon,
   label,
   onClick,
-  color = 'blue'
 }: {
   icon: React.ElementType;
   label: string;
   onClick: () => void;
-  color?: string;
-}) => {
-  const colorMap: Record<string, string> = {
-    blue: 'bg-blue-600 hover:bg-blue-500',
-    green: 'bg-green-600 hover:bg-green-500',
-    amber: 'bg-amber-600 hover:bg-amber-500'
-  };
-
-  return (
-    <button
-      onClick={onClick}
-      className={`${colorMap[color] || colorMap.blue} text-white rounded-xl px-4 py-3 flex items-center gap-2 text-sm font-medium shadow-md hover:shadow-lg transition`}
-    >
-      <Icon className="w-4 h-4" />
-      {label}
-    </button>
-  );
-};
+}) => (
+  <button
+    onClick={onClick}
+    className="px-4 py-3 bg-blue-600 hover:bg-blue-500 text-white rounded-xl font-medium shadow-sm hover:shadow-md flex items-center gap-2 transition"
+  >
+    <Icon className="w-4 h-4" />
+    {label}
+  </button>
+);
 
 const Select = (props: React.SelectHTMLAttributes<HTMLSelectElement>) => (
   <select
     {...props}
-    className="rounded-xl bg-slate-950/60 border border-slate-800 px-4 py-2 text-sm text-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500"
+    className="rounded-xl bg-white border border-gray-300 px-4 py-2 text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
   />
 );
 
-// ==============================
-// Utility
-// ==============================
 const fmtNum = (n: unknown) =>
-  typeof n === 'number' ? n.toLocaleString() : '0';
+  typeof n === "number" ? n.toLocaleString() : "0";
 
 const fmtMoney = (n: unknown) =>
-  typeof n === 'number'
-    ? n.toLocaleString(undefined, { style: 'currency', currency: 'USD' })
-    : '$0';
+  typeof n === "number"
+    ? n.toLocaleString(undefined, { style: "currency", currency: "USD" })
+    : "$0";
 
 const toISODate = (d: Date) => d.toISOString().slice(0, 10);
 
-// ==============================
-// MAIN DASHBOARD
-// ==============================
+// ==================================================================
+
 const Dashboard: React.FC = () => {
   const { supabase } = useSupabase();
   const { profile } = useAuthStore();
@@ -179,34 +157,31 @@ const Dashboard: React.FC = () => {
   const [referrals, setReferrals] = useState<ReferralRow[]>([]);
   const [recentLeads, setRecentLeads] = useState<Lead[]>([]);
 
-  const role = (profile?.user_role || '').toLowerCase();
+  const role = (profile?.user_role || "").toLowerCase();
   const isManager = rolesManager.has(role);
   const affiliateId = profile?.affiliatewp_id ?? null;
 
-  // ---------------------------------------
-  // Load Leads
-  // ---------------------------------------
+  // =====================================
+  // LOADLEADS
+  // =====================================
   const loadLeads = useCallback(async () => {
     try {
       setLeadsLoading(true);
-      const { data, error } = await supabase
-        .from('leads')
-        .select('*')
-        .order('created_at', { ascending: false })
+      const { data } = await supabase
+        .from("leads")
+        .select("*")
+        .order("created_at", { ascending: false })
         .limit(5);
 
-      if (error) throw error;
       setRecentLeads(data || []);
-    } catch (e) {
-      console.error('[Dashboard] error loading leads', e);
     } finally {
       setLeadsLoading(false);
     }
   }, [supabase]);
 
-  // ---------------------------------------
-  // Load Metrics
-  // ---------------------------------------
+  // =====================================
+  // LOAD METRICS
+  // =====================================
   const loadMetrics = useCallback(async () => {
     try {
       setLoading(true);
@@ -215,12 +190,10 @@ const Dashboard: React.FC = () => {
       const since = toISODate(new Date(Date.now() - range * 86400000));
 
       if (isManager) {
-        const { data, error } = await supabase
-          .from('affiliate_metrics_daily')
-          .select('date, visits, referrals, earnings, unpaid_earnings')
-          .gte('date', since);
-
-        if (error) throw error;
+        const { data } = await supabase
+          .from("affiliate_metrics_daily")
+          .select("date, visits, referrals, earnings, unpaid_earnings")
+          .gte("date", since);
 
         const map = new Map<string, MetricsRow>();
 
@@ -230,7 +203,7 @@ const Dashboard: React.FC = () => {
             visits: 0,
             referrals: 0,
             earnings: 0,
-            unpaid_earnings: 0
+            unpaid_earnings: 0,
           };
 
           map.set(r.date, {
@@ -238,7 +211,8 @@ const Dashboard: React.FC = () => {
             visits: (prev.visits || 0) + (r.visits || 0),
             referrals: (prev.referrals || 0) + (r.referrals || 0),
             earnings: (prev.earnings || 0) + (r.earnings || 0),
-            unpaid_earnings: (prev.unpaid_earnings || 0) + (r.unpaid_earnings || 0)
+            unpaid_earnings:
+              (prev.unpaid_earnings || 0) + (r.unpaid_earnings || 0),
           });
         });
 
@@ -247,7 +221,7 @@ const Dashboard: React.FC = () => {
         );
 
         setSeries(rows);
-        setLatest(rows.length ? rows[rows.length - 1] : null);
+        setLatest(rows[rows.length - 1] || null);
       } else {
         if (!affiliateId) {
           setSeries([]);
@@ -255,21 +229,18 @@ const Dashboard: React.FC = () => {
           return;
         }
 
-        const { data, error } = await supabase
-          .from('affiliate_metrics_daily')
-          .select('date, visits, referrals, earnings, unpaid_earnings')
-          .eq('affiliate_id', affiliateId)
-          .gte('date', since)
-          .order('date', { ascending: true });
-
-        if (error) throw error;
+        const { data } = await supabase
+          .from("affiliate_metrics_daily")
+          .select("date, visits, referrals, earnings, unpaid_earnings")
+          .eq("affiliate_id", affiliateId)
+          .gte("date", since)
+          .order("date", { ascending: true });
 
         setSeries(data || []);
-        setLatest(data?.length ? data[data.length - 1] : null);
+        setLatest(data?.[data.length - 1] || null);
       }
     } catch (e: any) {
-      console.error('[Dashboard] metrics error', e);
-      setError(e.message || 'Error loading metrics');
+      setError(e.message);
       setSeries([]);
       setLatest(null);
     } finally {
@@ -277,36 +248,25 @@ const Dashboard: React.FC = () => {
     }
   }, [supabase, range, isManager, affiliateId]);
 
-  // ---------------------------------------
-  // Load Referrals
-  // ---------------------------------------
+  // =====================================
+  // LOAD REFERRALS
+  // =====================================
   const loadReferrals = useCallback(async () => {
-    try {
-      if (!isManager && !affiliateId) {
-        setReferrals([]);
-        return;
-      }
+    if (!isManager && !affiliateId) return setReferrals([]);
 
-      const query = supabase
-        .from('affiliate_referrals')
-        .select('*')
-        .order('created_at', { ascending: false })
-        .limit(5);
+    const query = supabase
+      .from("affiliate_referrals")
+      .select("*")
+      .order("created_at", { ascending: false })
+      .limit(5);
 
-      const { data, error } = isManager
-        ? await query
-        : await query.eq('affiliate_id', affiliateId!);
+    const { data } = isManager
+      ? await query
+      : await query.eq("affiliate_id", affiliateId!);
 
-      if (error) throw error;
-      setReferrals(data || []);
-    } catch (e) {
-      console.error('[Dashboard] referral error', e);
-    }
+    setReferrals(data || []);
   }, [supabase, isManager, affiliateId]);
 
-  // ---------------------------------------
-  // Load All
-  // ---------------------------------------
   const loadAll = useCallback(async () => {
     await Promise.all([loadMetrics(), loadReferrals(), loadLeads()]);
   }, [loadMetrics, loadReferrals, loadLeads]);
@@ -315,14 +275,11 @@ const Dashboard: React.FC = () => {
     loadAll();
   }, [loadAll]);
 
-  // ---------------------------------------
-  // Totals
-  // ---------------------------------------
   const totals = useMemo(() => {
-    let visits = 0;
-    let refs = 0;
-    let earn = 0;
-    let unpaid = 0;
+    let visits = 0,
+      refs = 0,
+      earn = 0,
+      unpaid = 0;
 
     series.forEach((r) => {
       visits += r.visits || 0;
@@ -336,42 +293,37 @@ const Dashboard: React.FC = () => {
       refs,
       earn,
       unpaid,
-      conv: visits ? (refs / visits) * 100 : 0
+      conv: visits ? (refs / visits) * 100 : 0,
     };
   }, [series]);
 
-  // ---------------------------------------
-  // Dark Status Color Map
-  // ---------------------------------------
   const getStatusColor = (s: string) => {
     const map: Record<string, string> = {
-      new: 'bg-blue-900/40 text-blue-300 border-blue-700',
-      contacted: 'bg-amber-900/40 text-amber-300 border-amber-700',
-      qualified: 'bg-purple-900/40 text-purple-300 border-purple-700',
-      proposal: 'bg-green-900/40 text-green-300 border-green-700',
-      negotiation: 'bg-orange-900/40 text-orange-300 border-orange-700',
-      closed: 'bg-emerald-900/40 text-emerald-300 border-emerald-700',
-      paid: 'bg-green-900/40 text-green-300 border-green-700',
-      pending: 'bg-amber-900/40 text-amber-300 border-amber-700',
-      unpaid: 'bg-red-900/40 text-red-300 border-red-700'
+      new: "bg-blue-50 text-blue-700 border-blue-200",
+      contacted: "bg-amber-50 text-amber-700 border-amber-200",
+      qualified: "bg-purple-50 text-purple-700 border-purple-200",
+      proposal: "bg-green-50 text-green-700 border-green-200",
+      negotiation: "bg-orange-50 text-orange-700 border-orange-200",
+      closed: "bg-emerald-50 text-emerald-700 border-emerald-200",
+      paid: "bg-green-50 text-green-700 border-green-200",
+      pending: "bg-amber-50 text-amber-700 border-amber-200",
+      unpaid: "bg-red-50 text-red-700 border-red-200",
     };
-    return map[s] || 'bg-slate-800 text-slate-300 border-slate-700';
+    return map[s] || "bg-gray-50 text-gray-700 border-gray-200";
   };
 
-  // ---------------------------------------
-  // ERROR SCREEN
-  // ---------------------------------------
+  // ERROR SCREEN (light UI)
   if (error) {
     return (
-      <div className="p-8 bg-slate-950 text-slate-100 min-h-screen flex items-center justify-center">
-        <div className="bg-slate-900 border border-red-900 rounded-xl p-8 max-w-md shadow-xl">
-          <h1 className="text-2xl font-semibold text-red-400 mb-3">
-            Error loading dashboard
+      <div className="p-8 bg-gray-50 min-h-screen flex items-center justify-center">
+        <div className="bg-white border border-red-200 rounded-xl p-8 max-w-md shadow-lg">
+          <h1 className="text-2xl font-semibold text-red-600 mb-3">
+            Error Loading Dashboard
           </h1>
-          <p className="text-slate-300 mb-6">{error}</p>
+          <p className="text-gray-700 mb-6">{error}</p>
           <button
             onClick={loadAll}
-            className="w-full rounded-xl bg-red-600 hover:bg-red-500 text-white px-6 py-3 shadow-lg transition"
+            className="w-full rounded-xl bg-red-600 hover:bg-red-500 text-white px-6 py-3 shadow-sm"
           >
             Retry
           </button>
@@ -380,23 +332,23 @@ const Dashboard: React.FC = () => {
     );
   }
 
-  // ---------------------------------------
-  // MAIN RENDER
-  // ---------------------------------------
+  // -----------------------------------
+  // MAIN RENDER (L3 LIGHT UI)
+  // -----------------------------------
   return (
-    <div className="space-y-6 p-4 md:p-6 text-slate-100">
+    <div className="space-y-6 p-4 md:p-6">
 
-      {/* HEADER CARD */}
-      <div className="bg-slate-900/80 backdrop-blur-xl border border-slate-800 rounded-2xl p-6 shadow-xl">
+      {/* HEADER */}
+      <div className="bg-white rounded-2xl border border-gray-200 p-6 shadow-sm">
         <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
           <div>
-            <h1 className="text-3xl font-semibold text-slate-100">
-              {isManager ? 'Team Dashboard' : 'Sales Dashboard'}
+            <h1 className="text-2xl font-semibold text-gray-900">
+              {isManager ? "Team Dashboard" : "Sales Dashboard"}
             </h1>
-            <p className="text-slate-400 mt-1">
+            <p className="text-gray-500">
               {isManager
-                ? 'Team-wide performance insights'
-                : 'Your performance and activity overview'}
+                ? "Team-wide performance insights"
+                : "Your performance and activity overview"}
             </p>
           </div>
 
@@ -412,7 +364,7 @@ const Dashboard: React.FC = () => {
 
             <button
               onClick={loadAll}
-              className="inline-flex items-center gap-2 px-4 py-2 bg-slate-100 text-slate-900 rounded-xl font-semibold hover:bg-white transition shadow"
+              className="inline-flex items-center gap-2 px-4 py-2 bg-gray-900 text-white rounded-xl font-semibold hover:bg-gray-800 transition shadow-sm"
             >
               <RefreshCw className="w-4 h-4" />
               Refresh
@@ -423,8 +375,8 @@ const Dashboard: React.FC = () => {
 
       {/* QUICK ACTIONS */}
       {!isManager && (
-        <div className="bg-slate-900/80 backdrop-blur-xl border border-slate-800 rounded-2xl p-6 shadow-xl">
-          <h3 className="text-lg font-semibold mb-4 text-slate-100">
+        <div className="bg-white border border-gray-200 rounded-2xl p-6 shadow-sm">
+          <h3 className="text-lg font-semibold mb-4 text-gray-900">
             Quick Actions
           </h3>
 
@@ -432,29 +384,22 @@ const Dashboard: React.FC = () => {
             <QuickAction
               icon={Plus}
               label="Add Lead"
-              onClick={() => navigate('/leads')}
-              color="blue"
+              onClick={() => navigate("/leads")}
             />
-
             <QuickAction
               icon={Phone}
               label="Call Schedule"
-              onClick={() => navigate('/leads')}
-              color="green"
+              onClick={() => navigate("/leads")}
             />
-
             <QuickAction
               icon={DollarSign}
               label="Commissions"
-              onClick={() => navigate('/commissions')}
-              color="amber"
+              onClick={() => navigate("/commissions")}
             />
-
             <QuickAction
               icon={Target}
               label="Sales Tools"
-              onClick={() => navigate('/sales-tools')}
-              color="blue"
+              onClick={() => navigate("/sales-tools")}
             />
           </div>
         </div>
@@ -474,41 +419,42 @@ const Dashboard: React.FC = () => {
         <Tile label="Unpaid" value={fmtMoney(totals.unpaid)} icon={Clock} />
       </div>
 
-      {/* CHART + LEADS GRID */}
+      {/* EARNINGS + LEADS GRID */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
 
-        {/* EARNINGS CHART */}
+        {/* CHART */}
         <Section title="Earnings Over Time">
           {loading ? (
             <div className="flex items-center justify-center py-16">
               <div className="animate-spin h-8 w-8 rounded-full border-b-2 border-blue-500"></div>
             </div>
           ) : series.length === 0 ? (
-            <div className="text-center py-16 text-slate-400">
-              <AlertCircle className="w-12 h-12 mx-auto mb-3 text-slate-600" />
+            <div className="text-center py-16 text-gray-500">
+              <AlertCircle className="w-12 h-12 mx-auto mb-3 text-gray-300" />
               No data available.
             </div>
           ) : (
-            <div style={{ width: '100%', height: 300 }}>
+            <div style={{ width: "100%", height: 300 }}>
               <ResponsiveContainer>
                 <LineChart data={series}>
-                  <CartesianGrid stroke="#334155" strokeDasharray="4" />
-                  <XAxis dataKey="date" stroke="#94a3b8" fontSize={11} />
-                  <YAxis stroke="#94a3b8" fontSize={11} />
+                  <CartesianGrid stroke="#e2e8f0" strokeDasharray="4" />
+                  <XAxis dataKey="date" stroke="#475569" fontSize={11} />
+                  <YAxis stroke="#475569" fontSize={11} />
                   <Tooltip
                     contentStyle={{
-                      backgroundColor: '#0f172a',
-                      border: '1px solid #334155',
+                      backgroundColor: "white",
+                      border: "1px solid #e2e8f0",
                       borderRadius: 8,
-                      color: '#e2e8f0'
                     }}
+                    labelStyle={{ color: "#111" }}
+                    itemStyle={{ color: "#111" }}
                   />
                   <Line
                     type="monotone"
                     dataKey="earnings"
-                    stroke="#3b82f6"
+                    stroke="#2563EB"
                     strokeWidth={3}
-                    dot={{ r: 4, fill: '#3b82f6' }}
+                    dot={{ r: 4, fill: "#2563EB" }}
                     activeDot={{ r: 6 }}
                   />
                 </LineChart>
@@ -522,8 +468,8 @@ const Dashboard: React.FC = () => {
           title="Recent Leads"
           action={
             <button
-              onClick={() => navigate('/leads')}
-              className="flex items-center gap-1 text-blue-400 hover:text-blue-300 transition text-sm"
+              onClick={() => navigate("/leads")}
+              className="flex items-center gap-1 text-blue-600 hover:text-blue-500 text-sm"
             >
               View All <ArrowUpRight className="w-4 h-4" />
             </button>
@@ -531,11 +477,11 @@ const Dashboard: React.FC = () => {
         >
           {leadsLoading ? (
             <div className="flex items-center justify-center py-16">
-              <div className="animate-spin h-8 w-8 rounded-full border-b-2 border-blue-400"></div>
+              <div className="animate-spin h-8 w-8 rounded-full border-b-2 border-blue-500"></div>
             </div>
           ) : recentLeads.length === 0 ? (
-            <div className="text-center py-16 text-slate-400">
-              <AlertCircle className="w-12 h-12 mx-auto mb-3 text-slate-600" />
+            <div className="text-center py-16 text-gray-500">
+              <AlertCircle className="w-12 h-12 mx-auto mb-3 text-gray-300" />
               No leads yet.
             </div>
           ) : (
@@ -543,14 +489,14 @@ const Dashboard: React.FC = () => {
               {recentLeads.map((lead) => (
                 <div
                   key={lead.id}
-                  className="p-4 bg-slate-950/40 border border-slate-800 rounded-xl"
+                  className="p-4 bg-gray-50 border border-gray-200 rounded-xl"
                 >
                   <div className="flex items-start justify-between">
                     <div>
-                      <h4 className="text-slate-100 font-medium">
+                      <h4 className="text-gray-900 font-medium">
                         {lead.company_name}
                       </h4>
-                      <p className="text-xs text-slate-400">
+                      <p className="text-xs text-gray-500">
                         {lead.contact_name}
                       </p>
                     </div>
@@ -563,7 +509,7 @@ const Dashboard: React.FC = () => {
                     </span>
                   </div>
 
-                  <div className="flex items-center gap-4 mt-3 text-xs text-slate-400">
+                  <div className="flex items-center gap-4 mt-3 text-xs text-gray-600">
                     <span className="flex items-center gap-1">
                       <Mail className="w-3 h-3" /> {lead.email}
                     </span>
@@ -572,7 +518,7 @@ const Dashboard: React.FC = () => {
                     </span>
 
                     {lead.deal_value > 0 && (
-                      <span className="flex items-center gap-1 text-green-400 font-medium">
+                      <span className="flex items-center gap-1 text-green-700 font-medium">
                         <DollarSign className="w-3 h-3" />
                         {fmtMoney(lead.deal_value)}
                       </span>
@@ -585,27 +531,27 @@ const Dashboard: React.FC = () => {
         </Section>
       </div>
 
-      {/* RECENT REFERRALS */}
+      {/* REFERRALS */}
       <Section
         title="Recent Referrals"
         action={
           <button
-            onClick={() => navigate('/commissions')}
-            className="flex items-center gap-1 text-blue-400 hover:text-blue-300 transition text-sm"
+            onClick={() => navigate("/commissions")}
+            className="flex items-center gap-1 text-blue-600 hover:text-blue-500 text-sm"
           >
             View All <ArrowUpRight className="w-4 h-4" />
           </button>
         }
       >
         {referrals.length === 0 ? (
-          <div className="text-center py-16 text-slate-400">
-            <AlertCircle className="w-12 h-12 mx-auto mb-3 text-slate-600" />
+          <div className="text-center py-16 text-gray-500">
+            <AlertCircle className="w-12 h-12 mx-auto mb-3 text-gray-300" />
             No recent referrals.
           </div>
         ) : (
           <div className="overflow-x-auto">
-            <table className="min-w-full text-sm text-slate-300">
-              <thead className="bg-slate-900 border-b border-slate-800 text-slate-400 text-xs uppercase tracking-wide">
+            <table className="min-w-full text-sm text-gray-700">
+              <thead className="bg-gray-50 border-b border-gray-200 text-xs uppercase text-gray-500 tracking-wide">
                 <tr>
                   <th className="p-3 text-left">Date</th>
                   <th className="p-3 text-left">ID</th>
@@ -618,13 +564,13 @@ const Dashboard: React.FC = () => {
                 {referrals.map((r) => (
                   <tr
                     key={r.referral_id}
-                    className="border-b border-slate-800 hover:bg-slate-900 transition"
+                    className="border-b border-gray-100 hover:bg-gray-50 transition"
                   >
-                    <td className="p-3 text-slate-300">
+                    <td className="p-3 text-gray-700">
                       {new Date(r.created_at).toLocaleDateString()}
                     </td>
                     <td className="p-3">
-                      <code className="px-2 py-1 bg-slate-800 rounded border border-slate-700 text-slate-300 text-xs">
+                      <code className="px-2 py-1 bg-gray-100 rounded border border-gray-200 text-gray-700 text-xs">
                         {r.referral_id}
                       </code>
                     </td>
@@ -637,7 +583,7 @@ const Dashboard: React.FC = () => {
                         {r.status}
                       </span>
                     </td>
-                    <td className="p-3 text-right text-green-400 font-medium">
+                    <td className="p-3 text-right text-green-700 font-medium">
                       {fmtMoney(r.amount)}
                     </td>
                   </tr>
@@ -648,22 +594,23 @@ const Dashboard: React.FC = () => {
         )}
       </Section>
 
+      {/* AFFILIATE LINK */}
       {(profile?.affiliate_referral_url?.length ?? 0) > 0 && (
         <Section title="Your Affiliate Link">
-          <div className="bg-slate-950/40 p-4 border border-slate-800 rounded-xl">
+          <div className="bg-gray-50 p-4 border border-gray-200 rounded-xl">
             <div className="flex items-center gap-3">
-              <code className="flex-1 text-sm bg-slate-900 border border-slate-800 px-4 py-2 rounded-xl overflow-x-auto text-slate-300">
+              <code className="flex-1 text-sm bg-white border border-gray-200 px-4 py-2 rounded-xl overflow-x-auto text-gray-800">
                 {profile?.affiliate_referral_url}
               </code>
 
               <button
                 onClick={() => {
                   navigator.clipboard.writeText(
-                    profile?.affiliate_referral_url || ''
+                    profile?.affiliate_referral_url || ""
                   );
-                  toast.success('Copied to clipboard!');
+                  toast.success("Copied to clipboard!");
                 }}
-                className="px-4 py-2 bg-slate-100 text-slate-900 rounded-xl font-semibold hover:bg-white transition shadow"
+                className="px-4 py-2 bg-gray-900 text-white rounded-xl font-semibold hover:bg-gray-800 transition"
               >
                 Copy
               </button>
@@ -672,7 +619,7 @@ const Dashboard: React.FC = () => {
                 href={profile?.affiliate_referral_url}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="px-4 py-2 bg-white/10 border border-white/20 text-slate-100 hover:bg-white/20 rounded-xl transition shadow"
+                className="px-4 py-2 bg-white border border-gray-200 text-gray-800 hover:bg-gray-50 rounded-xl transition shadow-sm"
               >
                 <ExternalLink className="w-4 h-4" />
               </a>
