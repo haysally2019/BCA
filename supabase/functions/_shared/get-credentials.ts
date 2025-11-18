@@ -37,5 +37,4 @@ export async function getCredentials(supabase: any): Promise<AffiliateWPCredenti
   }
 }
 
-// Alias for backward compatibility
 export const getAffiliateWPCredentials = getCredentials;

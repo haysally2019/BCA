@@ -1,4 +1,5 @@
 import 'jsr:@supabase/functions-js/edge-runtime.d.ts';
+import { createClient } from 'jsr:@supabase/supabase-js@2';
 import { getAffiliateWPCredentials } from '../_shared/get-credentials.ts';
 
 const corsHeaders = {
@@ -15,15 +16,25 @@ Deno.serve(async (req: Request) => {
   try {
     console.log('Testing AffiliateWP connection...');
 
+    const supabaseClient = createClient(
+      Deno.env.get('SUPABASE_URL') ?? '',
+      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
+    );
+
     let wpUrl: string;
     let wpUsername: string;
     let wpAppPassword: string;
 
     try {
-      const credentials = await getAffiliateWPCredentials();
-      wpUrl = credentials.siteUrl;
-      wpUsername = credentials.username;
-      wpAppPassword = credentials.password;
+      const credentials = await getAffiliateWPCredentials(supabaseClient);
+
+      if (!credentials) {
+        throw new Error('Credentials are null - check app_settings table');
+      }
+
+      wpUrl = credentials.wordpress_site_url;
+      wpUsername = credentials.consumer_key;
+      wpAppPassword = credentials.consumer_secret;
 
       console.log('WordPress URL:', wpUrl);
       console.log('Username:', wpUsername);
@@ -43,8 +54,6 @@ Deno.serve(async (req: Request) => {
       );
     }
 
-    // Test 1: Check if WordPress REST API is accessible
-    console.log('Test 1: Checking WordPress REST API...');
     const apiUrl = `${wpUrl}/wp-json/wp/v2`;
     const testResponse = await fetch(apiUrl);
     
@@ -65,8 +74,6 @@ Deno.serve(async (req: Request) => {
     }
     console.log('✓ WordPress REST API is accessible');
 
-    // Test 2: Check authentication
-    console.log('Test 2: Testing authentication...');
     const credentials = btoa(`${wpUsername}:${wpAppPassword}`);
     const authTestUrl = `${wpUrl}/wp-json/wp/v2/users/me`;
     
@@ -97,8 +104,6 @@ Deno.serve(async (req: Request) => {
     console.log('✓ Authentication successful');
     console.log('Logged in as:', userData.name);
 
-    // Test 3: Check AffiliateWP REST API
-    console.log('Test 3: Testing AffiliateWP REST API...');
     const affwpUrl = `${wpUrl}/wp-json/affwp/v1/affiliates`;
     
     const affwpResponse = await fetch(affwpUrl, {
@@ -128,7 +133,6 @@ Deno.serve(async (req: Request) => {
     console.log('✓ AffiliateWP REST API is accessible');
     console.log('Found', affiliates.length, 'existing affiliates');
 
-    // All tests passed!
     return new Response(
       JSON.stringify({
         success: true,
