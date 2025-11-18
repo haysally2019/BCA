@@ -1,7 +1,6 @@
 import React from 'react';
 import { NavLink } from 'react-router-dom';
-import { X } from 'lucide-react';
-import { Home, Users, Settings, Target, DollarSign, Briefcase } from 'lucide-react';
+import { X, Home, Users, Settings, Target, DollarSign, Briefcase } from 'lucide-react';
 import { useAuthStore } from '../store/authStore';
 
 interface MobileNavProps {
@@ -25,62 +24,97 @@ const MobileNav: React.FC<MobileNavProps> = ({ isOpen, onClose }) => {
 
   return (
     <div
-      className={`fixed inset-0 z-40 md:hidden ${isOpen ? 'pointer-events-auto' : 'pointer-events-none'}`}
+      className={`
+        fixed inset-0 z-40 md:hidden
+        ${isOpen ? 'pointer-events-auto' : 'pointer-events-none'}
+      `}
       aria-hidden={!isOpen}
     >
       {/* Backdrop */}
       <div
-        className={`absolute inset-0 bg-black transition-opacity ${
-          isOpen ? 'opacity-40' : 'opacity-0'
-        }`}
+        className={`
+          absolute inset-0 bg-black 
+          transition-opacity duration-200
+          ${isOpen ? 'opacity-50' : 'opacity-0'}
+        `}
         onClick={onClose}
       />
 
-      {/* Panel */}
+      {/* Side drawer */}
       <div
-        className={`absolute inset-y-0 left-0 w-72 bg-white shadow-xl transform transition-transform ${
-          isOpen ? 'translate-x-0' : '-translate-x-full'
-        }`}
+        className={`
+          absolute inset-y-0 left-0 w-72 max-w-[80%]
+          transform transition-transform duration-200
+          ${isOpen ? 'translate-x-0' : '-translate-x-full'}
+        `}
       >
-        <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100">
-          <div>
-            <p className="text-sm font-semibold text-gray-900">Blue Collar Academy</p>
-            <p className="text-xs text-gray-500 truncate">{displayName}</p>
+        <div
+          className="
+            h-full
+            bg-slate-950/95
+            backdrop-blur-2xl
+            border-r border-slate-800
+            shadow-[12px_0_32px_rgba(0,0,0,0.85)]
+            flex flex-col
+          "
+        >
+          {/* Header */}
+          <div className="flex items-center justify-between px-4 py-3 border-b border-slate-800/80">
+            <div className="min-w-0">
+              <p className="text-sm font-semibold text-slate-100 truncate">
+                Blue Collar Academy
+              </p>
+              <p className="text-xs text-slate-400 truncate">
+                {displayName}
+              </p>
+            </div>
+            <button
+              onClick={onClose}
+              className="
+                p-1.5 rounded-full
+                text-slate-400
+                hover:text-slate-100
+                hover:bg-slate-800/80
+                transition
+              "
+            >
+              <X className="w-5 h-5" />
+            </button>
           </div>
-          <button
-            onClick={onClose}
-            className="p-1 rounded-full text-gray-500 hover:text-gray-800 hover:bg-gray-100"
-          >
-            <X className="w-5 h-5" />
-          </button>
-        </div>
 
-        <nav className="px-3 py-3">
-          <ul className="space-y-1">
-            {menuItems.map((item) => {
-              const Icon = item.icon;
-              return (
-                <li key={item.path}>
-                  <NavLink
-                    to={item.path}
-                    onClick={onClose}
-                    className={({ isActive }) =>
-                      [
-                        'flex items-center space-x-3 px-3 py-2.5 rounded-lg text-sm font-medium',
-                        isActive
-                          ? 'bg-academy-blue-50 text-academy-blue-700'
-                          : 'text-gray-700 hover:bg-gray-50 hover:text-gray-900',
-                      ].join(' ')
-                    }
-                  >
-                    <Icon className="w-4 h-4" />
-                    <span>{item.label}</span>
-                  </NavLink>
-                </li>
-              );
-            })}
-          </ul>
-        </nav>
+          {/* Nav items */}
+          <nav className="px-3 py-3 flex-1 overflow-y-auto">
+            <ul className="space-y-1.5">
+              {menuItems.map((item) => {
+                const Icon = item.icon;
+                return (
+                  <li key={item.path}>
+                    <NavLink
+                      to={item.path}
+                      onClick={onClose}
+                      className={({ isActive }) =>
+                        [
+                          'flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-colors',
+                          isActive
+                            ? 'bg-slate-800 text-slate-50 border border-slate-700'
+                            : 'text-slate-300 hover:bg-slate-900 hover:text-slate-50 border border-transparent hover:border-slate-800',
+                        ].join(' ')
+                      }
+                    >
+                      <Icon className="w-4 h-4 flex-shrink-0" />
+                      <span className="truncate">{item.label}</span>
+                    </NavLink>
+                  </li>
+                );
+              })}
+            </ul>
+          </nav>
+
+          {/* Footer hint */}
+          <div className="px-4 py-3 border-t border-slate-800/80 text-[11px] text-slate-500">
+            Optimized for mobile reps. Swipe from the left edge or tap the menu icon to open.
+          </div>
+        </div>
       </div>
     </div>
   );
