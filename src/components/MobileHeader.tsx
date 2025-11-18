@@ -7,21 +7,44 @@ interface MobileHeaderProps {
 
 const MobileHeader: React.FC<MobileHeaderProps> = ({ onMenuToggle }) => {
   return (
-    <div className="md:hidden fixed top-0 left-0 right-0 h-14 bg-white border-b border-gray-200 shadow-sm z-30 flex items-center px-3">
+    <div
+      className="
+        md:hidden fixed top-0 left-0 right-0 h-14 z-30
+        flex items-center px-3
+        bg-slate-950/85 backdrop-blur-xl
+        border-b border-slate-800
+        shadow-[0_4px_20px_rgba(0,0,0,0.7)]
+      "
+    >
       <button
         onClick={onMenuToggle}
-        className="p-2.5 hover:bg-gray-100 rounded-lg transition-colors mr-2 touch-manipulation"
+        className="
+          mr-2 rounded-xl p-2.5
+          text-slate-200
+          hover:bg-slate-800/70
+          active:scale-[0.98]
+          transition
+          touch-manipulation
+        "
         aria-label="Toggle menu"
       >
-        <Menu className="w-5 h-5 text-gray-700" />
+        <Menu className="w-5 h-5" />
       </button>
-      <div className="flex items-center space-x-2">
+
+      <div className="flex items-center space-x-2 min-w-0">
         <img
           src="/bca.png"
           alt="Blue Collar Academy Logo"
-          className="w-8 h-8 object-contain"
+          className="w-8 h-8 object-contain rounded-md border border-slate-800/60 bg-slate-900"
         />
-        <div className="text-sm font-semibold text-gray-900">BCA Sales Portal</div>
+        <div className="flex flex-col">
+          <span className="text-sm font-semibold text-slate-100 leading-tight">
+            BCA Sales Portal
+          </span>
+          <span className="text-[11px] text-slate-400 leading-tight">
+            Roofing CRM & Sales Hub
+          </span>
+        </div>
       </div>
     </div>
   );
