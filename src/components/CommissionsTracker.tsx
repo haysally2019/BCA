@@ -274,7 +274,6 @@ const CommissionsTracker: React.FC = () => {
       <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
         <div>
           <h1 className="text-2xl md:text-3xl font-bold text-gray-900 flex items-center gap-2">
-            <DollarSign className="w-7 h-7 text-green-600" />
             Commissions & Affiliate Performance
           </h1>
           <p className="text-gray-600 mt-1 text-sm md:text-base">
