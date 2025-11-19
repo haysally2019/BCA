@@ -77,7 +77,7 @@ const Sidebar: React.FC = () => {
       "
     >
       {/* Logo / header */}
-      <div className="py-5 px-6 border-b border-slate-800/80 flex-shrink-0">
+      <div className="py-5 px-6 border-b border-slate-800/80 flex-shrink-0 bg-slate-950">
         <div className="flex items-center justify-center">
           <div className="text-center">
             <img
