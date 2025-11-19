@@ -49,8 +49,7 @@ const Settings: React.FC = () => {
     full_name: '',
     phone_number: '',
     email: '',
-    address: '',
-    affiliatewp_id: ''
+    address: ''
   });
   const [payoutData, setPayoutData] = useState({
     payout_method: 'bank_transfer',
@@ -70,17 +69,6 @@ const Settings: React.FC = () => {
 
   const { profile, user, signOut, updateProfile, refreshProfile } = useAuthStore();
 
-  const copyAffiliateUrl = async () => {
-    const url = profile?.affiliate_referral_url || 'https://bluecollaracademy.info/?ref=3';
-    try {
-      await navigator.clipboard.writeText(url);
-      setCopied(true);
-      toast.success('Affiliate URL copied to clipboard!');
-      setTimeout(() => setCopied(false), 2000);
-    } catch (error) {
-      toast.error('Failed to copy URL');
-    }
-  };
 
   useEffect(() => {
     if (profile) {
@@ -88,8 +76,7 @@ const Settings: React.FC = () => {
         full_name: profile.full_name || profile.company_name || '',
         phone_number: profile.phone_number || '',
         email: profile.email || '',
-        address: profile.address || '',
-        affiliatewp_id: profile.affiliatewp_id?.toString() || ''
+        address: profile.address || ''
       });
     }
   }, [profile]);
@@ -105,7 +92,6 @@ const Settings: React.FC = () => {
         email: profileData.email,
         address: profileData.address,
         company_name: profileData.full_name,
-        affiliatewp_id: profileData.affiliatewp_id ? parseInt(profileData.affiliatewp_id) : undefined
       };
 
       console.log('Saving profile updates:', updates);
@@ -337,33 +323,6 @@ const Settings: React.FC = () => {
       </div>
 
       {/* Affiliate URL Card */}
-      <div className="bg-gradient-to-br from-red-50 to-orange-50 rounded-lg p-4 shadow-sm border border-red-100">
-        <div className="flex items-center gap-2 mb-3">
-          <div className="w-8 h-8 bg-red-500 rounded-lg flex items-center justify-center">
-            <LinkIcon className="w-4 h-4 text-white" />
-          </div>
-          <div>
-            <h3 className="text-sm font-semibold text-gray-900">Your Affiliate URL</h3>
-            <p className="text-xs text-gray-600">Share this link to track referrals</p>
-          </div>
-        </div>
-        <div className="flex items-center gap-2 bg-white rounded-lg p-2 border border-gray-200">
-          <code className="flex-1 text-sm text-gray-700 font-mono overflow-x-auto whitespace-nowrap">
-            {profile?.affiliate_referral_url || 'https://bluecollaracademy.info/?ref=3'}
-          </code>
-          <button
-            onClick={copyAffiliateUrl}
-            className="flex-shrink-0 p-2 hover:bg-gray-100 rounded-md transition-colors"
-            title="Copy to clipboard"
-          >
-            {copied ? (
-              <CheckCheck className="w-4 h-4 text-green-600" />
-            ) : (
-              <Copy className="w-4 h-4 text-gray-600" />
-            )}
-          </button>
-        </div>
-      </div>
 
       <div className="bg-white rounded-xl shadow-sm border border-gray-100">
         {/* Tabs */}
@@ -458,46 +417,6 @@ const Settings: React.FC = () => {
                   </div>
                 </div>
 
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    AffiliateWP ID
-                  </label>
-                  <div className="relative">
-                    <CreditCard className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
-                    <input
-                      type="number"
-                      value={profileData.affiliatewp_id}
-                      onChange={(e) => setProfileData(prev => ({ ...prev, affiliatewp_id: e.target.value }))}
-                      className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                      placeholder="12345"
-                    />
-                  </div>
-                  <p className="text-xs text-gray-500 mt-1">
-                    Link your profile to AffiliateWP for commission tracking
-                  </p>
-                </div>
-
-                {/* AffiliateWP Metrics Display */}
-                {profile?.affiliatewp_id && profile.commission_rate > 0 && (
-                  <div className="bg-gradient-to-br from-blue-50 to-cyan-50 rounded-lg p-4 border border-blue-100">
-                    <h4 className="font-medium text-gray-900 mb-3">AffiliateWP Metrics</h4>
-                    <div className="grid grid-cols-2 gap-4 text-sm">
-                      <div>
-                        <span className="text-gray-600">Commission Rate:</span>
-                        <span className="ml-2 font-semibold text-gray-900">{profile.commission_rate}%</span>
-                      </div>
-                      <div>
-                        <span className="text-gray-600">Total Earnings:</span>
-                        <span className="ml-2 font-semibold text-gray-900">${profile.affiliatewp_earnings || 0}</span>
-                      </div>
-                    </div>
-                    {profile.last_metrics_sync && (
-                      <p className="text-xs text-gray-500 mt-3">
-                        Last synced: {new Date(profile.last_metrics_sync).toLocaleString()}
-                      </p>
-                    )}
-                  </div>
-                )}
 
                 <button
                   type="submit"
