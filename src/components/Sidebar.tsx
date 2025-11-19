@@ -77,15 +77,15 @@ const Sidebar: React.FC = () => {
       "
     >
       {/* Logo / header */}
-      <div className="py-5 px-6 border-b border-slate-800/80 flex-shrink-0 bg-white">
+      <div className="py-5 px-6 border-b border-slate-800/80 flex-shrink-0">
         <div className="flex items-center justify-center">
           <div className="text-center">
             <img
               src="/bca.png"
               alt="Blue Collar Academy Logo"
-              className="w-20 h-20 object-contain mx-auto mb-1 rounded-xl border border-gray-200 bg-white"
+              className="w-20 h-20 object-contain mx-auto mb-1 rounded-xl border border-slate-800 bg-slate-900"
             />
-            <div className="text-[11px] text-gray-600 tracking-wide">
+            <div className="text-[11px] text-slate-400 tracking-wide">
               Sales Portal
             </div>
           </div>
