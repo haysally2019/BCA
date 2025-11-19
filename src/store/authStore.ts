@@ -15,23 +15,12 @@ export interface Profile {
   company_name?: string;
   phone_number?: string;
   address?: string;
-  affiliatewp_id?: number;
-  affiliatewp_status?: string;
   must_change_password?: boolean;
-  unpaid_earnings?: number;
-  paid_lifetime_earnings?: number;
-  referral_url?: string;
   affiliate_referral_url?: string;
   subscription_plan?: string;
-  affiliatewp_earnings?: number;
-  affiliatewp_unpaid_earnings?: number;
-  affiliatewp_referrals?: number;
-  affiliatewp_visits?: number;
   commission_rate?: number;
-  last_metrics_sync?: string;
   preferred_payout_method?: string;
   payout_setup_completed?: boolean;
-  last_payout_sync?: string;
   updated_at?: string;
 }
 
@@ -45,8 +34,7 @@ interface AuthState {
     email: string,
     password: string,
     name: string,
-    userType?: "sales_rep",
-    affiliatewpId?: number
+    userType?: "sales_rep"
   ) => Promise<void>;
   signOut: () => Promise<void>;
   initialize: () => Promise<{ unsubscribe: () => void } | null>;
@@ -142,8 +130,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     email: string,
     password: string,
     name: string,
-    userType: "sales_rep" = "sales_rep",
-    affiliatewpId?: number
+    userType: "sales_rep" = "sales_rep"
   ) => {
     try {
       console.log("[AuthStore] Starting signUp for:", email);

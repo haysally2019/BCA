@@ -104,42 +104,20 @@ const CommissionsTracker: React.FC = () => {
     }
   }, [profile?.id, loadCommissionsData]);
 
-  // Sync from AffiliateWP edge function
+  // Refresh commission data from internal CRM
   const syncAffiliateMetrics = async () => {
-    if (!import.meta.env.VITE_SUPABASE_URL || !import.meta.env.VITE_SUPABASE_ANON_KEY) {
-      toast.error("Missing Supabase environment keys for AffiliateWP sync.");
-      return;
-    }
-
     setSyncingMetrics(true);
-    const toastId = toast.loading("Syncing AffiliateWP metrics...");
+    const toastId = toast.loading("Refreshing commission data...");
 
     try {
-      const res = await fetch(
-        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/fetch-affiliatewp-metrics`,
-        {
-          method: "POST",
-          headers: {
-            Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
-            "Content-Type": "application/json",
-          },
-        }
-      );
-
-      const payload = await res.json().catch(() => ({}));
-
-      if (!res.ok) {
-        throw new Error(payload?.error || "Failed to sync metrics");
-      }
-
       if (profile?.id) {
         await loadCommissionsData(profile.id);
       }
 
-      toast.success("AffiliateWP metrics synced", { id: toastId });
+      toast.success("Commission data refreshed", { id: toastId });
     } catch (err) {
-      console.error("[CommissionsTracker] sync error", err);
-      toast.error("Failed to sync AffiliateWP metrics", { id: toastId });
+      console.error("[CommissionsTracker] refresh error", err);
+      toast.error("Failed to refresh commission data", { id: toastId });
     } finally {
       setSyncingMetrics(false);
     }
@@ -277,7 +255,7 @@ const CommissionsTracker: React.FC = () => {
             Commissions & Affiliate Performance
           </h1>
           <p className="text-gray-600 mt-1 text-sm md:text-base">
-            All metrics in this view are driven by AffiliateWP + your CRM commissions.
+            Track and manage all commission data from your internal CRM.
           </p>
         </div>
 
@@ -288,7 +266,7 @@ const CommissionsTracker: React.FC = () => {
             className="inline-flex items-center gap-2 px-3 py-2 text-sm font-medium border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50"
           >
             <TrendingUp className="w-4 h-4" />
-            {syncingMetrics ? "Syncing..." : "Sync AffiliateWP"}
+            {syncingMetrics ? "Refreshing..." : "Refresh Data"}
           </button>
         </div>
       </div>
@@ -365,7 +343,7 @@ const CommissionsTracker: React.FC = () => {
                 Commissions & Deals (Last 6 Months)
               </h2>
               <p className="text-xs text-gray-500">
-                Aggregated from AffiliateWP records + CRM deals.
+                Aggregated from internal CRM commission data.
               </p>
             </div>
             <div className="flex items-center gap-2 text-xs">

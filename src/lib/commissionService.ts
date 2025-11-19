@@ -763,39 +763,6 @@ export const commissionService = {
     }
   },
 
-  // PROFILE INTEGRATION
-  async linkCommissionToProfile(affiliateWpId: number, commissionEntryId: string): Promise<void> {
-    try {
-      // Find the profile with this AffiliateWP ID
-      const { data: profile, error: profileError } = await supabase
-        .from('profiles')
-        .select('id')
-        .eq('affiliatewp_id', affiliateWpId)
-        .maybeSingle();
-
-      if (profileError) {
-        console.error('Error finding profile for affiliate:', profileError);
-        return;
-      }
-
-      if (profile) {
-        // Update the commission entry to link to the profile
-        const { error: updateError } = await supabase
-          .from('commission_entries')
-          .update({ 
-            linked_profile_id: profile.id,
-            updated_at: new Date().toISOString()
-          })
-          .eq('id', commissionEntryId);
-
-        if (updateError) {
-          console.error('Error linking commission to profile:', updateError);
-        }
-      }
-    } catch (error) {
-      console.error('Error in commission-profile linking:', error);
-    }
-  },
 
   // Performance Tracking
   async updateAffiliatePerformance(affiliateId: string): Promise<void> {
@@ -815,41 +782,4 @@ export const commissionService = {
     }
   },
 
-  // AffiliateWP Integration - Referrals
-  async getAffiliateReferrals(affiliateWpId: number, limit = 50): Promise<any[]> {
-    try {
-      const { data, error } = await supabase
-        .from('affiliate_referrals')
-        .select('*')
-        .eq('affiliate_id', affiliateWpId)
-        .order('created_at', { ascending: false })
-        .limit(limit);
-
-      if (error) throw error;
-      return data || [];
-    } catch (error) {
-      console.error('Error fetching affiliate referrals:', error);
-      throw error;
-    }
-  },
-
-  // AffiliateWP Integration - Daily Metrics
-  async getAffiliateMetrics(affiliateWpId: number, days = 30): Promise<any[]> {
-    try {
-      const since = new Date(Date.now() - days * 86400000).toISOString().slice(0, 10);
-
-      const { data, error } = await supabase
-        .from('affiliate_metrics_daily')
-        .select('*')
-        .eq('affiliate_id', affiliateWpId)
-        .gte('date', since)
-        .order('date', { ascending: true });
-
-      if (error) throw error;
-      return data || [];
-    } catch (error) {
-      console.error('Error fetching affiliate metrics:', error);
-      throw error;
-    }
-  }
 };
