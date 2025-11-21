@@ -7,6 +7,8 @@ import {
   Tooltip,
   CartesianGrid,
   ResponsiveContainer,
+  Area,
+  AreaChart,
 } from "recharts";
 import { useNavigate } from "react-router-dom";
 import {
@@ -24,6 +26,8 @@ import {
   Clock,
   Plus,
   RefreshCw,
+  ChevronRight,
+  Copy,
 } from "lucide-react";
 import { useSupabase } from "../context/SupabaseProvider";
 import { useAuthStore } from "../store/authStore";
@@ -71,12 +75,12 @@ const Section = ({
   action?: React.ReactNode;
   children: React.ReactNode;
 }) => (
-  <div className="bg-white border border-gray-200 rounded-2xl p-6 shadow-sm">
-    <div className="flex items-center justify-between mb-6">
-      <h2 className="text-lg font-semibold text-gray-900">{title}</h2>
+  <div className="bg-white border border-slate-200 rounded-xl shadow-sm overflow-hidden flex flex-col h-full">
+    <div className="px-6 py-5 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
+      <h2 className="text-base font-semibold text-slate-800">{title}</h2>
       {action}
     </div>
-    {children}
+    <div className="p-6 flex-1">{children}</div>
   </div>
 );
 
@@ -85,23 +89,33 @@ const Tile = ({
   value,
   sub,
   icon: Icon,
+  trend,
 }: {
   label: string;
   value: string;
   sub?: string;
   icon?: React.ElementType;
+  trend?: string;
 }) => (
-  <div className="bg-white rounded-2xl border border-gray-200 p-5 shadow-sm hover:shadow-md transition">
-    <div className="flex items-start justify-between mb-3">
-      <p className="text-[11px] tracking-wide text-gray-500 uppercase font-medium">
-        {label}
-      </p>
-      {Icon && <Icon className="w-5 h-5 text-gray-400" />}
+  <div className="group bg-white rounded-xl border border-slate-200 p-5 shadow-sm hover:shadow-md hover:border-blue-200 transition-all duration-200">
+    <div className="flex items-center justify-between mb-4">
+      <div className="p-2.5 bg-slate-100 rounded-lg group-hover:bg-blue-50 transition-colors">
+        {Icon && <Icon className="w-5 h-5 text-slate-600 group-hover:text-blue-600" />}
+      </div>
+      {trend && (
+        <span className="text-xs font-medium text-emerald-600 bg-emerald-50 px-2 py-1 rounded-full">
+          {trend}
+        </span>
+      )}
     </div>
 
-    <p className="text-3xl font-semibold text-gray-900 mb-1">{value}</p>
-
-    {sub && <p className="text-xs text-gray-500">{sub}</p>}
+    <div>
+      <p className="text-2xl font-bold text-slate-900 tracking-tight mb-1">{value}</p>
+      <div className="flex items-baseline gap-2">
+        <p className="text-sm font-medium text-slate-500">{label}</p>
+        {sub && <p className="text-xs text-slate-400 border-l border-slate-300 pl-2">{sub}</p>}
+      </div>
+    </div>
   </div>
 );
 
@@ -116,18 +130,25 @@ const QuickAction = ({
 }) => (
   <button
     onClick={onClick}
-    className="px-4 py-3 bg-blue-600 hover:bg-blue-500 text-white rounded-xl font-medium shadow-sm hover:shadow-md flex items-center gap-2 transition"
+    className="flex flex-col items-center justify-center gap-3 p-4 bg-white border border-slate-200 hover:border-blue-300 hover:bg-blue-50/50 rounded-xl text-slate-600 hover:text-blue-700 transition-all duration-200 group h-full"
   >
-    <Icon className="w-4 h-4" />
-    {label}
+    <div className="p-3 bg-slate-100 rounded-full group-hover:bg-white group-hover:shadow-sm transition-all">
+      <Icon className="w-5 h-5" />
+    </div>
+    <span className="text-sm font-medium">{label}</span>
   </button>
 );
 
 const Select = (props: React.SelectHTMLAttributes<HTMLSelectElement>) => (
-  <select
-    {...props}
-    className="rounded-xl bg-white border border-gray-300 px-4 py-2 text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
-  />
+  <div className="relative">
+    <select
+      {...props}
+      className="appearance-none bg-white border border-slate-200 text-slate-700 text-sm rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 block w-full px-4 py-2.5 pr-8 cursor-pointer shadow-sm hover:border-slate-300 transition-colors"
+    />
+    <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-slate-500">
+      <ChevronRight className="w-4 h-4 rotate-90" />
+    </div>
+  </div>
 );
 
 const fmtNum = (n: unknown) =>
@@ -299,31 +320,34 @@ const Dashboard: React.FC = () => {
 
   const getStatusColor = (s: string) => {
     const map: Record<string, string> = {
-      new: "bg-blue-50 text-blue-700 border-blue-200",
-      contacted: "bg-amber-50 text-amber-700 border-amber-200",
-      qualified: "bg-purple-50 text-purple-700 border-purple-200",
-      proposal: "bg-green-50 text-green-700 border-green-200",
-      negotiation: "bg-orange-50 text-orange-700 border-orange-200",
-      closed: "bg-emerald-50 text-emerald-700 border-emerald-200",
-      paid: "bg-green-50 text-green-700 border-green-200",
-      pending: "bg-amber-50 text-amber-700 border-amber-200",
-      unpaid: "bg-red-50 text-red-700 border-red-200",
+      new: "bg-blue-50 text-blue-700 border-blue-200 ring-blue-600/20",
+      contacted: "bg-amber-50 text-amber-700 border-amber-200 ring-amber-600/20",
+      qualified: "bg-purple-50 text-purple-700 border-purple-200 ring-purple-600/20",
+      proposal: "bg-indigo-50 text-indigo-700 border-indigo-200 ring-indigo-600/20",
+      negotiation: "bg-orange-50 text-orange-700 border-orange-200 ring-orange-600/20",
+      closed: "bg-emerald-50 text-emerald-700 border-emerald-200 ring-emerald-600/20",
+      paid: "bg-emerald-50 text-emerald-700 border-emerald-200 ring-emerald-600/20",
+      pending: "bg-amber-50 text-amber-700 border-amber-200 ring-amber-600/20",
+      unpaid: "bg-rose-50 text-rose-700 border-rose-200 ring-rose-600/20",
     };
-    return map[s] || "bg-gray-50 text-gray-700 border-gray-200";
+    return map[s] || "bg-slate-50 text-slate-700 border-slate-200";
   };
 
   // ERROR SCREEN (light UI)
   if (error) {
     return (
-      <div className="p-8 bg-gray-50 min-h-screen flex items-center justify-center">
-        <div className="bg-white border border-red-200 rounded-xl p-8 max-w-md shadow-lg">
-          <h1 className="text-2xl font-semibold text-red-600 mb-3">
+      <div className="p-8 bg-slate-50 min-h-screen flex items-center justify-center">
+        <div className="bg-white border border-rose-200 rounded-xl p-8 max-w-md shadow-lg text-center">
+          <div className="w-12 h-12 bg-rose-100 text-rose-600 rounded-full flex items-center justify-center mx-auto mb-4">
+             <AlertCircle className="w-6 h-6" />
+          </div>
+          <h1 className="text-xl font-bold text-slate-900 mb-2">
             Error Loading Dashboard
           </h1>
-          <p className="text-gray-700 mb-6">{error}</p>
+          <p className="text-slate-600 mb-6">{error}</p>
           <button
             onClick={loadAll}
-            className="w-full rounded-xl bg-red-600 hover:bg-red-500 text-white px-6 py-3 shadow-sm"
+            className="w-full rounded-lg bg-rose-600 hover:bg-rose-500 text-white px-6 py-2.5 shadow-sm transition-colors font-medium"
           >
             Retry
           </button>
@@ -336,128 +360,151 @@ const Dashboard: React.FC = () => {
   // MAIN RENDER (L3 LIGHT UI)
   // -----------------------------------
   return (
-    <div className="space-y-6 p-4 md:p-6">
+    <div className="space-y-6 p-4 md:p-8 max-w-[1600px] mx-auto">
 
       {/* HEADER */}
-      <div className="bg-white rounded-2xl border border-gray-200 p-6 shadow-sm">
-        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-          <div>
-            <h1 className="text-2xl font-semibold text-gray-900">
-              {isManager ? "Team Dashboard" : "Sales Dashboard"}
-            </h1>
-            <p className="text-gray-500">
-              {isManager
-                ? "Team-wide performance insights"
-                : "Your performance and activity overview"}
-            </p>
-          </div>
+      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-6">
+        <div>
+          <h1 className="text-2xl font-bold text-slate-900 tracking-tight">
+            {isManager ? "Team Overview" : "Sales Dashboard"}
+          </h1>
+          <p className="text-slate-500 mt-1">
+            {isManager
+              ? "Monitor team performance and commission payouts."
+              : "Track your sales performance and recent activity."}
+          </p>
+        </div>
 
-          <div className="flex items-center gap-3">
-            <Select
-              value={String(range)}
-              onChange={(e) => setRange(Number(e.target.value) as 7 | 30 | 90)}
-            >
-              <option value="7">Last 7 Days</option>
-              <option value="30">Last 30 Days</option>
-              <option value="90">Last 90 Days</option>
-            </Select>
+        <div className="flex items-center gap-3">
+          <Select
+            value={String(range)}
+            onChange={(e) => setRange(Number(e.target.value) as 7 | 30 | 90)}
+          >
+            <option value="7">Last 7 Days</option>
+            <option value="30">Last 30 Days</option>
+            <option value="90">Last 90 Days</option>
+          </Select>
 
-            <button
-              onClick={loadAll}
-              className="inline-flex items-center gap-2 px-4 py-2 bg-gray-900 text-white rounded-xl font-semibold hover:bg-gray-800 transition shadow-sm"
-            >
-              <RefreshCw className="w-4 h-4" />
-              Refresh
-            </button>
-          </div>
+          <button
+            onClick={loadAll}
+            className="inline-flex items-center gap-2 px-4 py-2.5 bg-white border border-slate-200 text-slate-700 rounded-lg font-medium hover:bg-slate-50 hover:border-slate-300 transition shadow-sm"
+          >
+            <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
+            Refresh
+          </button>
         </div>
       </div>
 
-      {/* QUICK ACTIONS */}
-      {!isManager && (
-        <div className="bg-white border border-gray-200 rounded-2xl p-6 shadow-sm">
-          <h3 className="text-lg font-semibold mb-4 text-gray-900">
+      {/* KPI TILES */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
+        <Tile label="Total Visits" value={fmtNum(totals.visits)} icon={Users} />
+        <Tile label="Referrals" value={fmtNum(totals.refs)} icon={TrendingUp} />
+        <Tile
+          label="Conversion Rate"
+          value={`${totals.conv.toFixed(1)}%`}
+          sub="Visits to Referrals"
+          icon={Target}
+        />
+        <Tile label="Total Earnings" value={fmtMoney(totals.earn)} icon={DollarSign} />
+        <Tile label="Unpaid Balance" value={fmtMoney(totals.unpaid)} icon={Clock} />
+      </div>
+
+       {/* QUICK ACTIONS */}
+       {!isManager && (
+        <div className="bg-white border border-slate-200 rounded-xl p-6 shadow-sm">
+          <h3 className="text-sm font-semibold text-slate-900 uppercase tracking-wider mb-4">
             Quick Actions
           </h3>
 
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
             <QuickAction
               icon={Plus}
-              label="Add Lead"
+              label="Add New Lead"
               onClick={() => navigate("/leads")}
             />
             <QuickAction
               icon={Phone}
-              label="Call Schedule"
+              label="Log Call"
               onClick={() => navigate("/leads")}
+            />
+             <QuickAction
+              icon={Target}
+              label="Sales Scripts"
+              onClick={() => navigate("/sales-tools")}
             />
             <QuickAction
               icon={DollarSign}
-              label="Commissions"
+              label="View Commissions"
               onClick={() => navigate("/commissions")}
-            />
-            <QuickAction
-              icon={Target}
-              label="Sales Tools"
-              onClick={() => navigate("/sales-tools")}
             />
           </div>
         </div>
       )}
 
-      {/* KPI TILES */}
-      <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
-        <Tile label="Visits" value={fmtNum(totals.visits)} icon={Users} />
-        <Tile label="Referrals" value={fmtNum(totals.refs)} icon={TrendingUp} />
-        <Tile
-          label="Conversion"
-          value={`${totals.conv.toFixed(1)}%`}
-          sub="Referrals / Visits"
-          icon={Target}
-        />
-        <Tile label="Earnings" value={fmtMoney(totals.earn)} icon={DollarSign} />
-        <Tile label="Unpaid" value={fmtMoney(totals.unpaid)} icon={Clock} />
-      </div>
-
       {/* EARNINGS + LEADS GRID */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
 
         {/* CHART */}
-        <Section title="Earnings Over Time">
+        <Section title="Earnings Performance">
           {loading ? (
-            <div className="flex items-center justify-center py-16">
-              <div className="animate-spin h-8 w-8 rounded-full border-b-2 border-blue-500"></div>
+            <div className="flex items-center justify-center h-[300px]">
+              <div className="animate-spin h-8 w-8 rounded-full border-2 border-slate-200 border-b-blue-600"></div>
             </div>
           ) : series.length === 0 ? (
-            <div className="text-center py-16 text-gray-500">
-              <AlertCircle className="w-12 h-12 mx-auto mb-3 text-gray-300" />
-              No data available.
+            <div className="flex flex-col items-center justify-center h-[300px] text-slate-400">
+              <AlertCircle className="w-10 h-10 mb-3 opacity-50" />
+              <p>No earnings data for this period.</p>
             </div>
           ) : (
-            <div style={{ width: "100%", height: 300 }}>
-              <ResponsiveContainer>
-                <LineChart data={series}>
-                  <CartesianGrid stroke="#e2e8f0" strokeDasharray="4" />
-                  <XAxis dataKey="date" stroke="#475569" fontSize={11} />
-                  <YAxis stroke="#475569" fontSize={11} />
+            <div className="h-[300px] w-full">
+              <ResponsiveContainer width="100%" height="100%">
+                <AreaChart data={series}>
+                  <defs>
+                    <linearGradient id="colorEarnings" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%" stopColor="#2563EB" stopOpacity={0.1}/>
+                      <stop offset="95%" stopColor="#2563EB" stopOpacity={0}/>
+                    </linearGradient>
+                  </defs>
+                  <CartesianGrid stroke="#e2e8f0" strokeDasharray="3 3" vertical={false} />
+                  <XAxis 
+                    dataKey="date" 
+                    stroke="#64748b" 
+                    fontSize={12} 
+                    tickLine={false} 
+                    axisLine={false} 
+                    tickFormatter={(str) => new Date(str).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}
+                    dy={10}
+                  />
+                  <YAxis 
+                    stroke="#64748b" 
+                    fontSize={12} 
+                    tickLine={false} 
+                    axisLine={false} 
+                    tickFormatter={(val) => `$${val}`}
+                    dx={-10}
+                  />
                   <Tooltip
                     contentStyle={{
                       backgroundColor: "white",
                       border: "1px solid #e2e8f0",
-                      borderRadius: 8,
+                      borderRadius: "12px",
+                      boxShadow: "0 4px 6px -1px rgba(0, 0, 0, 0.1)",
+                      padding: "12px"
                     }}
-                    labelStyle={{ color: "#111" }}
-                    itemStyle={{ color: "#111" }}
+                    cursor={{ stroke: '#94a3b8', strokeWidth: 1, strokeDasharray: '4 4' }}
+                    formatter={(value: number) => [`$${value.toFixed(2)}`, "Earnings"]}
+                    labelFormatter={(label) => new Date(label).toLocaleDateString(undefined, { weekday: 'long', month: 'long', day: 'numeric'})}
                   />
-                  <Line
+                  <Area
                     type="monotone"
                     dataKey="earnings"
                     stroke="#2563EB"
-                    strokeWidth={3}
-                    dot={{ r: 4, fill: "#2563EB" }}
-                    activeDot={{ r: 6 }}
+                    strokeWidth={2}
+                    fillOpacity={1}
+                    fill="url(#colorEarnings)"
+                    activeDot={{ r: 6, strokeWidth: 0 }}
                   />
-                </LineChart>
+                </AreaChart>
               </ResponsiveContainer>
             </div>
           )}
@@ -469,60 +516,61 @@ const Dashboard: React.FC = () => {
           action={
             <button
               onClick={() => navigate("/leads")}
-              className="flex items-center gap-1 text-blue-600 hover:text-blue-500 text-sm"
+              className="text-sm font-medium text-blue-600 hover:text-blue-700 flex items-center gap-1 transition-colors"
             >
               View All <ArrowUpRight className="w-4 h-4" />
             </button>
           }
         >
           {leadsLoading ? (
-            <div className="flex items-center justify-center py-16">
-              <div className="animate-spin h-8 w-8 rounded-full border-b-2 border-blue-500"></div>
-            </div>
+             <div className="flex items-center justify-center h-[300px]">
+             <div className="animate-spin h-8 w-8 rounded-full border-2 border-slate-200 border-b-blue-600"></div>
+           </div>
           ) : recentLeads.length === 0 ? (
-            <div className="text-center py-16 text-gray-500">
-              <AlertCircle className="w-12 h-12 mx-auto mb-3 text-gray-300" />
-              No leads yet.
+            <div className="flex flex-col items-center justify-center h-[300px] text-slate-400">
+              <AlertCircle className="w-10 h-10 mb-3 opacity-50" />
+              <p>No leads generated yet.</p>
             </div>
           ) : (
-            <div className="space-y-3">
+            <div className="space-y-4">
               {recentLeads.map((lead) => (
                 <div
                   key={lead.id}
-                  className="p-4 bg-gray-50 border border-gray-200 rounded-xl"
+                  className="group flex items-start justify-between p-4 rounded-xl border border-slate-100 bg-slate-50 hover:bg-white hover:border-blue-200 hover:shadow-sm transition-all duration-200"
                 >
-                  <div className="flex items-start justify-between">
+                  <div className="flex gap-3">
+                    <div className="w-10 h-10 rounded-full bg-white border border-slate-200 flex items-center justify-center text-slate-400 group-hover:text-blue-600 group-hover:border-blue-200 transition-colors">
+                        <Building2Icon className="w-5 h-5" />
+                    </div>
                     <div>
-                      <h4 className="text-gray-900 font-medium">
+                      <h4 className="text-sm font-semibold text-slate-900">
                         {lead.company_name}
                       </h4>
-                      <p className="text-xs text-gray-500">
+                      <p className="text-xs text-slate-500 mt-0.5">
                         {lead.contact_name}
                       </p>
+                      <div className="flex items-center gap-3 mt-2">
+                         {lead.deal_value > 0 && (
+                            <span className="flex items-center gap-1 text-xs font-medium text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full">
+                                <DollarSign className="w-3 h-3" />
+                                {fmtNum(lead.deal_value)}
+                            </span>
+                        )}
+                      </div>
                     </div>
-                    <span
-                      className={`px-2 py-1 text-xs rounded-full border font-medium ${getStatusColor(
-                        lead.status
-                      )}`}
-                    >
-                      {lead.status}
-                    </span>
                   </div>
 
-                  <div className="flex items-center gap-4 mt-3 text-xs text-gray-600">
-                    <span className="flex items-center gap-1">
-                      <Mail className="w-3 h-3" /> {lead.email}
-                    </span>
-                    <span className="flex items-center gap-1">
-                      <Phone className="w-3 h-3" /> {lead.phone}
-                    </span>
-
-                    {lead.deal_value > 0 && (
-                      <span className="flex items-center gap-1 text-green-700 font-medium">
-                        <DollarSign className="w-3 h-3" />
-                        {fmtMoney(lead.deal_value)}
+                  <div className="text-right">
+                    <span
+                        className={`inline-flex px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wide border ring-1 ring-inset ${getStatusColor(
+                          lead.status
+                        )}`}
+                      >
+                        {lead.status}
                       </span>
-                    )}
+                      <p className="text-[10px] text-slate-400 mt-2">
+                        {new Date(lead.created_at).toLocaleDateString()}
+                      </p>
                   </div>
                 </div>
               ))}
@@ -533,57 +581,61 @@ const Dashboard: React.FC = () => {
 
       {/* REFERRALS */}
       <Section
-        title="Recent Referrals"
+        title="Recent Referral Commissions"
         action={
           <button
             onClick={() => navigate("/commissions")}
-            className="flex items-center gap-1 text-blue-600 hover:text-blue-500 text-sm"
+            className="text-sm font-medium text-blue-600 hover:text-blue-700 flex items-center gap-1 transition-colors"
           >
             View All <ArrowUpRight className="w-4 h-4" />
           </button>
         }
       >
         {referrals.length === 0 ? (
-          <div className="text-center py-16 text-gray-500">
-            <AlertCircle className="w-12 h-12 mx-auto mb-3 text-gray-300" />
-            No recent referrals.
+           <div className="flex flex-col items-center justify-center py-12 text-slate-400">
+             <TrendingUp className="w-10 h-10 mb-3 opacity-50" />
+            <p>No referral activity recorded.</p>
           </div>
         ) : (
           <div className="overflow-x-auto">
-            <table className="min-w-full text-sm text-gray-700">
-              <thead className="bg-gray-50 border-b border-gray-200 text-xs uppercase text-gray-500 tracking-wide">
+            <table className="min-w-full text-left text-sm">
+              <thead className="bg-slate-50 border-b border-slate-200">
                 <tr>
-                  <th className="p-3 text-left">Date</th>
-                  <th className="p-3 text-left">ID</th>
-                  <th className="p-3 text-left">Status</th>
-                  <th className="p-3 text-right">Amount</th>
+                  <th className="px-4 py-3 font-semibold text-slate-500 text-xs uppercase tracking-wider">Date</th>
+                  <th className="px-4 py-3 font-semibold text-slate-500 text-xs uppercase tracking-wider">ID</th>
+                  <th className="px-4 py-3 font-semibold text-slate-500 text-xs uppercase tracking-wider">Description</th>
+                  <th className="px-4 py-3 font-semibold text-slate-500 text-xs uppercase tracking-wider">Status</th>
+                  <th className="px-4 py-3 font-semibold text-slate-500 text-xs uppercase tracking-wider text-right">Amount</th>
                 </tr>
               </thead>
-
-              <tbody>
+              <tbody className="divide-y divide-slate-100">
                 {referrals.map((r) => (
                   <tr
                     key={r.referral_id}
-                    className="border-b border-gray-100 hover:bg-gray-50 transition"
+                    className="hover:bg-slate-50/80 transition-colors"
                   >
-                    <td className="p-3 text-gray-700">
+                    <td className="px-4 py-3 text-slate-600 font-medium">
                       {new Date(r.created_at).toLocaleDateString()}
                     </td>
-                    <td className="p-3">
-                      <code className="px-2 py-1 bg-gray-100 rounded border border-gray-200 text-gray-700 text-xs">
-                        {r.referral_id}
+                    <td className="px-4 py-3">
+                      <code className="px-2 py-1 bg-slate-100 rounded border border-slate-200 text-slate-600 text-xs font-mono">
+                        #{r.referral_id}
                       </code>
                     </td>
-                    <td className="p-3">
+                    <td className="px-4 py-3 text-slate-600">
+                        {r.description || "Standard Commission"}
+                    </td>
+                    <td className="px-4 py-3">
                       <span
-                        className={`px-2 py-1 rounded-full text-xs border font-medium ${getStatusColor(
+                        className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium border ${getStatusColor(
                           r.status
                         )}`}
                       >
+                        {r.status === 'paid' && <CheckCircle2 className="w-3 h-3" />}
                         {r.status}
                       </span>
                     </td>
-                    <td className="p-3 text-right text-green-700 font-medium">
+                    <td className="px-4 py-3 text-right text-emerald-700 font-semibold">
                       {fmtMoney(r.amount)}
                     </td>
                   </tr>
@@ -596,39 +648,70 @@ const Dashboard: React.FC = () => {
 
       {/* AFFILIATE LINK */}
       {(profile?.affiliate_referral_url?.length ?? 0) > 0 && (
-        <Section title="Your Affiliate Link">
-          <div className="bg-gray-50 p-4 border border-gray-200 rounded-xl">
-            <div className="flex items-center gap-3">
-              <code className="flex-1 text-sm bg-white border border-gray-200 px-4 py-2 rounded-xl overflow-x-auto text-gray-800">
-                {profile?.affiliate_referral_url}
-              </code>
-
-              <button
-                onClick={() => {
-                  navigator.clipboard.writeText(
-                    profile?.affiliate_referral_url || ""
-                  );
-                  toast.success("Copied to clipboard!");
-                }}
-                className="px-4 py-2 bg-gray-900 text-white rounded-xl font-semibold hover:bg-gray-800 transition"
-              >
-                Copy
-              </button>
-
-              <a
-                href={profile?.affiliate_referral_url}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="px-4 py-2 bg-white border border-gray-200 text-gray-800 hover:bg-gray-50 rounded-xl transition shadow-sm"
-              >
-                <ExternalLink className="w-4 h-4" />
-              </a>
+        <div className="bg-gradient-to-r from-slate-900 to-slate-800 rounded-xl p-6 text-white shadow-lg">
+            <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+                <div>
+                    <h3 className="text-lg font-semibold mb-1">Your Affiliate Link</h3>
+                    <p className="text-slate-400 text-sm">Share this link to track referrals automatically.</p>
+                </div>
+                <div className="flex items-center gap-2 w-full md:w-auto bg-white/10 p-1.5 rounded-lg border border-white/10">
+                    <code className="flex-1 md:flex-none text-sm px-3 py-1.5 font-mono text-blue-200 truncate max-w-[300px]">
+                        {profile?.affiliate_referral_url}
+                    </code>
+                    <div className="h-6 w-px bg-white/20 mx-1"></div>
+                     <button
+                        onClick={() => {
+                        navigator.clipboard.writeText(
+                            profile?.affiliate_referral_url || ""
+                        );
+                        toast.success("Copied to clipboard!");
+                        }}
+                        className="p-2 hover:bg-white/20 rounded-md transition text-white"
+                        title="Copy Link"
+                    >
+                        <Copy className="w-4 h-4" />
+                    </button>
+                     <a
+                        href={profile?.affiliate_referral_url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="p-2 hover:bg-white/20 rounded-md transition text-white"
+                        title="Open Link"
+                    >
+                        <ExternalLink className="w-4 h-4" />
+                    </a>
+                </div>
             </div>
-          </div>
-        </Section>
+        </div>
       )}
     </div>
   );
 };
+
+// Simple icon component for the leads list
+function Building2Icon(props: React.SVGProps<SVGSVGElement>) {
+  return (
+    <svg
+      {...props}
+      xmlns="http://www.w3.org/2000/svg"
+      width="24"
+      height="24"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <path d="M6 22V4a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v18Z" />
+      <path d="M6 12H4a2 2 0 0 0-2 2v6a2 2 0 0 0 2 2h2" />
+      <path d="M18 9h2a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2h-2" />
+      <path d="M10 6h4" />
+      <path d="M10 10h4" />
+      <path d="M10 14h4" />
+      <path d="M10 18h4" />
+    </svg>
+  );
+}
 
 export default Dashboard;
