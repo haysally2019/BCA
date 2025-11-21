@@ -6,6 +6,14 @@ import {
   UserPlus,
   Settings as SettingsIcon,
   Shield,
+  Users,
+  Briefcase,
+  CheckCircle2,
+  MoreHorizontal,
+  Mail,
+  Smartphone,
+  Calendar,
+  MapPin,
 } from "lucide-react";
 
 interface Profile {
@@ -85,11 +93,7 @@ const TeamManagement: React.FC = () => {
       const term = search.toLowerCase();
       result = result.filter((p) => {
         const name =
-          p.full_name ||
-          p.company_name ||
-          p.email ||
-          p.company_email ||
-          "";
+          p.full_name || p.company_name || p.email || p.company_email || "";
         const email = p.email || p.company_email || "";
         return (
           name.toLowerCase().includes(term) ||
@@ -106,17 +110,13 @@ const TeamManagement: React.FC = () => {
       result.sort((a, b) =>
         (a.full_name || a.company_name || "")
           .toLowerCase()
-          .localeCompare(
-            (b.full_name || b.company_name || "").toLowerCase()
-          )
+          .localeCompare((b.full_name || b.company_name || "").toLowerCase())
       );
     } else if (sortBy === "name_desc") {
       result.sort((a, b) =>
         (b.full_name || b.company_name || "")
           .toLowerCase()
-          .localeCompare(
-            (a.full_name || a.company_name || "").toLowerCase()
-          )
+          .localeCompare((a.full_name || a.company_name || "").toLowerCase())
       );
     } else if (sortBy === "created_asc") {
       result.sort(
@@ -174,6 +174,16 @@ const TeamManagement: React.FC = () => {
     setGeneratedLink(link);
   };
 
+  // Helper to generate initials for avatar
+  const getInitials = (name: string) => {
+    return name
+      .split(" ")
+      .map((n) => n[0])
+      .slice(0, 2)
+      .join("")
+      .toUpperCase();
+  };
+
   // ----------------------------------------------------
   // MODALS
   // ----------------------------------------------------
@@ -181,85 +191,132 @@ const TeamManagement: React.FC = () => {
     if (!selectedUser) return null;
 
     const u = selectedUser;
-
     const name =
       u.full_name || u.company_name || u.email || u.company_email || "—";
     const email = u.email || u.company_email || "—";
     const role = u.user_role || "rep";
     const created = u.created_at
-      ? new Date(u.created_at).toLocaleString()
+      ? new Date(u.created_at).toLocaleDateString("en-US", {
+          year: "numeric",
+          month: "long",
+          day: "numeric",
+        })
       : "—";
 
     return (
-      <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-40">
-        <div className="bg-white w-full max-w-lg rounded-xl shadow-lg p-6 relative">
-          <button
-            className="absolute right-4 top-4 text-gray-500 hover:text-gray-800"
-            onClick={() => setSelectedUser(null)}
-          >
-            <X size={18} />
-          </button>
+      <div className="fixed inset-0 bg-gray-900/50 backdrop-blur-sm flex items-center justify-center z-50 transition-all p-4">
+        <div className="bg-white w-full max-w-lg rounded-2xl shadow-2xl overflow-hidden border border-gray-100">
+          <div className="bg-gray-50 px-6 py-4 border-b border-gray-100 flex items-center justify-between">
+            <h2 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
+              <Shield className="w-5 h-5 text-indigo-600" />
+              User Profile
+            </h2>
+            <button
+              className="text-gray-400 hover:text-gray-600 hover:bg-gray-200 rounded-full p-1 transition-colors"
+              onClick={() => setSelectedUser(null)}
+            >
+              <X size={20} />
+            </button>
+          </div>
 
-          <h2 className="text-lg font-semibold mb-4 flex items-center gap-2">
-            <Shield className="w-5 h-5 text-gray-700" />
-            User Details
-          </h2>
-
-          <div className="space-y-3 text-sm">
-            <div>
-              <p className="text-gray-500 text-xs uppercase mb-1">Name</p>
-              <p className="text-gray-900">{name}</p>
-            </div>
-            <div>
-              <p className="text-gray-500 text-xs uppercase mb-1">Email</p>
-              <p className="text-gray-900">{email}</p>
-            </div>
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <p className="text-gray-500 text-xs uppercase mb-1">Role</p>
-                <p className="capitalize text-gray-900">{role}</p>
+          <div className="p-6 space-y-6">
+            {/* Header Info */}
+            <div className="flex items-center gap-4">
+              <div className="w-16 h-16 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-700 text-2xl font-bold border-4 border-white shadow-sm">
+                {getInitials(name)}
               </div>
               <div>
-                <p className="text-gray-500 text-xs uppercase mb-1">
-                  Territory
+                <h3 className="text-xl font-bold text-gray-900">{name}</h3>
+                <p className="text-gray-500 text-sm flex items-center gap-1.5">
+                  <Mail size={14} /> {email}
                 </p>
-                <p className="text-gray-900">{u.territory || "—"}</p>
               </div>
             </div>
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <p className="text-gray-500 text-xs uppercase mb-1">Phone</p>
-                <p className="text-gray-900">{u.phone || "—"}</p>
+
+            <div className="grid grid-cols-2 gap-6">
+              <div className="space-y-4">
+                <div>
+                  <label className="text-xs font-semibold text-gray-400 uppercase tracking-wider">
+                    Role
+                  </label>
+                  <div className="mt-1 flex items-center gap-2">
+                    <span className="capitalize font-medium text-gray-900 bg-gray-100 px-2.5 py-0.5 rounded-md border border-gray-200 text-sm">
+                      {role}
+                    </span>
+                  </div>
+                </div>
+                <div>
+                  <label className="text-xs font-semibold text-gray-400 uppercase tracking-wider">
+                    Phone
+                  </label>
+                  <div className="mt-1 flex items-center gap-2 text-gray-700">
+                    <Smartphone size={14} className="text-gray-400" />
+                    {u.phone || "—"}
+                  </div>
+                </div>
               </div>
-              <div>
-                <p className="text-gray-500 text-xs uppercase mb-1">Created</p>
-                <p className="text-gray-900">{created}</p>
+
+              <div className="space-y-4">
+                <div>
+                  <label className="text-xs font-semibold text-gray-400 uppercase tracking-wider">
+                    Territory
+                  </label>
+                  <div className="mt-1 flex items-center gap-2 text-gray-700">
+                    <MapPin size={14} className="text-gray-400" />
+                    {u.territory || "Unassigned"}
+                  </div>
+                </div>
+                <div>
+                  <label className="text-xs font-semibold text-gray-400 uppercase tracking-wider">
+                    Joined
+                  </label>
+                  <div className="mt-1 flex items-center gap-2 text-gray-700">
+                    <Calendar size={14} className="text-gray-400" />
+                    {created}
+                  </div>
+                </div>
               </div>
             </div>
-            <div>
-              <p className="text-gray-500 text-xs uppercase mb-1">Status</p>
-              <p className="text-gray-900">
-                {u.is_active === false ? "Inactive" : "Active"}
-              </p>
+
+            <div className="pt-4 border-t border-gray-100">
+              <label className="text-xs font-semibold text-gray-400 uppercase tracking-wider">
+                Account Status
+              </label>
+              <div className="mt-2">
+                <span
+                  className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium border ${
+                    u.is_active !== false
+                      ? "bg-emerald-50 text-emerald-700 border-emerald-200"
+                      : "bg-gray-100 text-gray-600 border-gray-200"
+                  }`}
+                >
+                  <span
+                    className={`w-1.5 h-1.5 rounded-full mr-2 ${
+                      u.is_active !== false ? "bg-emerald-500" : "bg-gray-400"
+                    }`}
+                  ></span>
+                  {u.is_active !== false ? "Active Account" : "Inactive"}
+                </span>
+              </div>
             </div>
           </div>
 
-          <div className="mt-6 flex justify-end gap-3">
+          <div className="bg-gray-50 p-4 flex justify-end gap-3 border-t border-gray-100">
+            <button
+              onClick={() => setSelectedUser(null)}
+              className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 shadow-sm transition-all"
+            >
+              Close
+            </button>
             <button
               onClick={() => {
                 setEditingUser(u);
                 setSelectedUser(null);
               }}
-              className="inline-flex items-center px-3 py-2 text-xs font-medium border rounded-lg hover:bg-gray-50"
+              className="inline-flex items-center px-4 py-2 text-sm font-medium text-white bg-gray-900 rounded-lg hover:bg-gray-800 shadow-sm transition-all"
             >
-              <SettingsIcon className="w-4 h-4 mr-1" />
+              <SettingsIcon className="w-4 h-4 mr-2" />
               Edit Settings
-            </button>
-            <button
-              onClick={() => setSelectedUser(null)}
-              className="px-4 py-2 text-sm font-medium rounded-lg bg-gray-900 text-white hover:bg-black"
-            >
-              Close
             </button>
           </div>
         </div>
@@ -288,41 +345,41 @@ const TeamManagement: React.FC = () => {
     };
 
     return (
-      <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-40">
-        <div className="bg-white w-full max-w-md rounded-xl shadow-lg p-6 relative">
-          <button
-            className="absolute right-4 top-4 text-gray-500 hover:text-gray-800"
-            onClick={() => setEditingUser(null)}
-          >
-            <X size={18} />
-          </button>
+      <div className="fixed inset-0 bg-gray-900/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+        <div className="bg-white w-full max-w-md rounded-2xl shadow-2xl p-0 overflow-hidden relative">
+          <div className="px-6 py-4 border-b border-gray-100 flex justify-between items-center">
+            <h2 className="text-lg font-semibold flex items-center gap-2 text-gray-900">
+              <SettingsIcon className="w-5 h-5 text-indigo-600" />
+              Edit User
+            </h2>
+            <button
+              className="text-gray-400 hover:text-gray-600"
+              onClick={() => setEditingUser(null)}
+            >
+              <X size={20} />
+            </button>
+          </div>
 
-          <h2 className="text-lg font-semibold mb-4 flex items-center gap-2">
-            <SettingsIcon className="w-5 h-5 text-gray-700" />
-            Edit User Settings
-          </h2>
-
-          <div className="space-y-4 text-sm">
+          <div className="p-6 space-y-5">
             <div>
-              <p className="text-gray-500 text-xs uppercase mb-1">User</p>
-              <p className="text-gray-900">
+              <p className="text-sm font-medium text-gray-900">
                 {u.full_name ||
                   u.company_name ||
                   u.email ||
                   u.company_email ||
                   "—"}
               </p>
-              <p className="text-xs text-gray-500">
-                {u.email || u.company_email || "No email on file"}
+              <p className="text-xs text-gray-500 mt-0.5">
+                {u.email || u.company_email}
               </p>
             </div>
 
-            <div>
-              <label className="block text-xs font-medium text-gray-600 mb-1">
-                Role
+            <div className="space-y-1">
+              <label className="block text-xs font-medium text-gray-700">
+                Role Permissions
               </label>
               <select
-                className="w-full border rounded-lg px-3 py-2 text-sm"
+                className="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition-all"
                 value={role}
                 onChange={(e) => setRole(e.target.value)}
               >
@@ -331,51 +388,56 @@ const TeamManagement: React.FC = () => {
               </select>
             </div>
 
-            <div>
-              <label className="block text-xs font-medium text-gray-600 mb-1">
-                Territory
+            <div className="space-y-1">
+              <label className="block text-xs font-medium text-gray-700">
+                Sales Territory
               </label>
               <input
                 type="text"
-                className="w-full border rounded-lg px-3 py-2 text-sm"
+                className="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition-all"
                 value={territory}
                 onChange={(e) => setTerritory(e.target.value)}
-                placeholder="Optional"
+                placeholder="e.g. Northeast"
               />
             </div>
 
-            <div className="flex items-center justify-between">
+            <div className="bg-gray-50 p-4 rounded-xl border border-gray-100 flex items-center justify-between">
               <div>
-                <p className="text-xs font-medium text-gray-600">Status</p>
-                <p className="text-xs text-gray-500">
-                  Inactive users cannot log in or be assigned new work.
+                <p className="text-sm font-medium text-gray-900">
+                  Active Status
+                </p>
+                <p className="text-xs text-gray-500 mt-0.5">
+                  Toggle login access
                 </p>
               </div>
               <button
                 type="button"
                 onClick={() => setIsActive((prev) => !prev)}
-                className={`px-3 py-1 rounded-full text-xs font-medium border ${
-                  isActive
-                    ? "bg-emerald-50 text-emerald-700 border-emerald-200"
-                    : "bg-gray-50 text-gray-600 border-gray-200"
+                className={`relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
+                  isActive ? "bg-indigo-600" : "bg-gray-200"
                 }`}
               >
-                {isActive ? "Active" : "Inactive"}
+                <span
+                  aria-hidden="true"
+                  className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${
+                    isActive ? "translate-x-5" : "translate-x-0"
+                  }`}
+                />
               </button>
             </div>
           </div>
 
-          <div className="mt-6 flex justify-end gap-3">
+          <div className="px-6 py-4 bg-gray-50 border-t border-gray-100 flex justify-end gap-3">
             <button
               onClick={() => setEditingUser(null)}
-              className="px-3 py-2 text-xs font-medium border rounded-lg hover:bg-gray-50"
+              className="px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-200 rounded-lg transition-colors"
             >
               Cancel
             </button>
             <button
               onClick={handleSave}
               disabled={saving}
-              className="px-4 py-2 text-sm font-medium rounded-lg bg-gray-900 text-white hover:bg-black disabled:opacity-60"
+              className="px-4 py-2 text-sm font-medium bg-gray-900 text-white rounded-lg hover:bg-gray-800 shadow-lg shadow-gray-200 disabled:opacity-70 transition-all"
             >
               {saving ? "Saving..." : "Save Changes"}
             </button>
@@ -389,43 +451,50 @@ const TeamManagement: React.FC = () => {
     if (!inviteOpen) return null;
 
     return (
-      <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-40">
-        <div className="bg-white w-full max-w-md rounded-xl shadow-lg p-6 relative">
+      <div className="fixed inset-0 bg-gray-900/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+        <div className="bg-white w-full max-w-md rounded-2xl shadow-2xl p-6 relative">
           <button
-            className="absolute right-4 top-4 text-gray-500 hover:text-gray-800"
+            className="absolute right-4 top-4 text-gray-400 hover:text-gray-600"
             onClick={() => {
               setInviteOpen(false);
               setGeneratedLink(null);
             }}
           >
-            <X size={18} />
+            <X size={20} />
           </button>
 
-          <h2 className="text-lg font-semibold mb-4 flex items-center gap-2">
-            <UserPlus className="w-5 h-5 text-gray-700" />
-            Invite New User
-          </h2>
+          <div className="mb-6">
+            <div className="w-10 h-10 bg-indigo-50 rounded-full flex items-center justify-center mb-3">
+              <UserPlus className="w-5 h-5 text-indigo-600" />
+            </div>
+            <h2 className="text-xl font-semibold text-gray-900">
+              Invite New User
+            </h2>
+            <p className="text-sm text-gray-500 mt-1">
+              Create a new user invitation link to share.
+            </p>
+          </div>
 
-          <div className="space-y-4 text-sm">
-            <div>
-              <label className="block text-xs font-medium text-gray-600 mb-1">
-                Email
+          <div className="space-y-4">
+            <div className="space-y-1">
+              <label className="block text-xs font-medium text-gray-700">
+                Email Address
               </label>
               <input
                 type="email"
-                className="w-full border rounded-lg px-3 py-2 text-sm"
-                placeholder="user@company.com"
+                className="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition-all"
+                placeholder="colleague@company.com"
                 value={inviteEmail}
                 onChange={(e) => setInviteEmail(e.target.value)}
               />
             </div>
 
-            <div>
-              <label className="block text-xs font-medium text-gray-600 mb-1">
-                Role
+            <div className="space-y-1">
+              <label className="block text-xs font-medium text-gray-700">
+                Role Assignment
               </label>
               <select
-                className="w-full border rounded-lg px-3 py-2 text-sm"
+                className="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition-all"
                 value={inviteRole}
                 onChange={(e) =>
                   setInviteRole(e.target.value as "manager" | "rep")
@@ -436,36 +505,33 @@ const TeamManagement: React.FC = () => {
               </select>
             </div>
 
-            <p className="text-xs text-gray-500">
-              This generates a link you can send manually by email, text, or
-              chat. You can later wire this to your Supabase Auth invite flow.
-            </p>
-
             {generatedLink && (
-              <div className="mt-3">
-                <p className="text-xs font-medium text-gray-600 mb-1">
-                  Invite Link
-                </p>
-                <div className="border rounded-lg p-2 bg-gray-50 text-xs break-all">
-                  {generatedLink}
+              <div className="mt-4 animate-in fade-in slide-in-from-top-2">
+                <label className="block text-xs font-medium text-emerald-600 mb-1">
+                  Unique Invite Link Generated
+                </label>
+                <div className="flex items-center gap-2">
+                  <div className="flex-1 border border-emerald-200 bg-emerald-50 rounded-lg p-2.5 text-xs text-emerald-900 font-mono break-all">
+                    {generatedLink}
+                  </div>
                 </div>
               </div>
             )}
           </div>
 
-          <div className="mt-6 flex justify-end gap-3">
+          <div className="mt-8 flex justify-end gap-3">
             <button
               onClick={() => {
                 setInviteOpen(false);
                 setGeneratedLink(null);
               }}
-              className="px-3 py-2 text-xs font-medium border rounded-lg hover:bg-gray-50"
+              className="px-4 py-2 text-sm font-medium text-gray-600 hover:text-gray-900"
             >
               Close
             </button>
             <button
               onClick={handleGenerateInvite}
-              className="px-4 py-2 text-sm font-medium rounded-lg bg-gray-900 text-white hover:bg-black"
+              className="px-5 py-2 text-sm font-medium rounded-lg bg-indigo-600 text-white hover:bg-indigo-700 shadow-md shadow-indigo-100 transition-all"
             >
               Generate Link
             </button>
@@ -479,220 +545,286 @@ const TeamManagement: React.FC = () => {
   // MAIN RENDER
   // ----------------------------------------------------
   return (
-    <div className="p-6 space-y-6">
+    <div className="min-h-screen bg-gray-50/50 p-6 md:p-10 space-y-8">
       {/* Header */}
-      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+      <div className="flex flex-col md:flex-row md:items-end md:justify-between gap-6">
         <div>
-          <h1 className="text-2xl font-semibold text-gray-900">
-            Team Management
+          <h1 className="text-3xl font-bold text-gray-900 tracking-tight">
+            Team
           </h1>
-          <p className="text-gray-600 mt-1 text-sm max-w-xl">
-            Clean view of every profile in your system. Filter by role, view
-            details, adjust user settings, and generate invite links.
+          <p className="text-gray-500 mt-2 text-sm max-w-lg leading-relaxed">
+            Manage your organization's members, assign roles, and track activity
+            across your territories.
           </p>
         </div>
 
         <div className="flex items-center gap-3">
           <button
             onClick={() => void loadProfiles()}
-            className="hidden md:inline-flex items-center px-3 py-2 text-xs font-medium border rounded-lg hover:bg-gray-50"
+            className="hidden md:inline-flex items-center px-4 py-2.5 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors shadow-sm"
           >
-            Refresh
+            Refresh List
           </button>
           <button
             onClick={() => setInviteOpen(true)}
-            className="inline-flex items-center px-4 py-2 text-sm font-medium rounded-lg bg-gray-900 text-white hover:bg-black"
+            className="inline-flex items-center px-5 py-2.5 text-sm font-medium rounded-lg bg-gray-900 text-white hover:bg-black transition-all shadow-lg shadow-gray-200"
           >
             <UserPlus className="w-4 h-4 mr-2" />
-            Invite User
+            Invite Member
           </button>
         </div>
       </div>
 
-      {/* Stats */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <div className="border border-gray-200 rounded-xl p-4 bg-white">
-          <p className="text-xs font-medium text-gray-500 uppercase">
-            Total Users
-          </p>
-          <p className="mt-2 text-2xl font-semibold text-gray-900">
-            {totalUsers}
-          </p>
-          <p className="mt-1 text-xs text-gray-500">
-            All profiles in your database.
-          </p>
-        </div>
-        <div className="border border-gray-200 rounded-xl p-4 bg-white">
-          <p className="text-xs font-medium text-gray-500 uppercase">
-            Managers
-          </p>
-          <p className="mt-2 text-2xl font-semibold text-gray-900">
-            {managersCount}
-          </p>
-          <p className="mt-1 text-xs text-gray-500">
-            Users with manager permissions.
-          </p>
-        </div>
-        <div className="border border-gray-200 rounded-xl p-4 bg-white">
-          <p className="text-xs font-medium text-gray-500 uppercase">
-            Reps
-          </p>
-          <p className="mt-2 text-2xl font-semibold text-gray-900">
-            {repsCount}
-          </p>
-          <p className="mt-1 text-xs text-gray-500">
-            Field and sales reps.
-          </p>
-        </div>
-        <div className="border border-gray-200 rounded-xl p-4 bg-white">
-          <p className="text-xs font-medium text-gray-500 uppercase">
-            Active
-          </p>
-          <p className="mt-2 text-2xl font-semibold text-gray-900">
-            {activeCount}
-          </p>
-          <p className="mt-1 text-xs text-gray-500">
-            Users marked as active.
-          </p>
-        </div>
+      {/* Stats Grid */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5">
+        {[
+          {
+            label: "Total Users",
+            val: totalUsers,
+            sub: "Total database count",
+            icon: Users,
+            color: "text-blue-600",
+            bg: "bg-blue-50",
+          },
+          {
+            label: "Managers",
+            val: managersCount,
+            sub: "Admin access enabled",
+            icon: Shield,
+            color: "text-purple-600",
+            bg: "bg-purple-50",
+          },
+          {
+            label: "Field Reps",
+            val: repsCount,
+            sub: "Standard access",
+            icon: Briefcase,
+            color: "text-orange-600",
+            bg: "bg-orange-50",
+          },
+          {
+            label: "Active Now",
+            val: activeCount,
+            sub: "Able to log in",
+            icon: CheckCircle2,
+            color: "text-emerald-600",
+            bg: "bg-emerald-50",
+          },
+        ].map((stat, i) => (
+          <div
+            key={i}
+            className="border border-gray-100 rounded-2xl p-5 bg-white shadow-sm hover:shadow-md transition-shadow duration-200"
+          >
+            <div className="flex items-start justify-between mb-4">
+              <div className={`p-3 rounded-xl ${stat.bg}`}>
+                <stat.icon className={`w-6 h-6 ${stat.color}`} />
+              </div>
+            </div>
+            <div>
+              <p className="text-3xl font-bold text-gray-900">{stat.val}</p>
+              <p className="text-sm font-medium text-gray-600 mt-1">
+                {stat.label}
+              </p>
+              <p className="text-xs text-gray-400 mt-1">{stat.sub}</p>
+            </div>
+          </div>
+        ))}
       </div>
 
-      {/* Controls */}
-      <div className="flex flex-col md:flex-row items-start md:items-center gap-4">
-        <div className="relative w-full md:w-72">
-          <Search className="w-4 h-4 text-gray-400 absolute left-3 top-2.5 pointer-events-none" />
+      {/* Toolbar */}
+      <div className="flex flex-col md:flex-row justify-between items-center gap-4 bg-white p-2 rounded-xl border border-gray-200 shadow-sm">
+        <div className="relative w-full md:w-80 group">
+          <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+            <Search className="h-4 w-4 text-gray-400 group-focus-within:text-indigo-500 transition-colors" />
+          </div>
           <input
             type="text"
-            placeholder="Search by name or email..."
-            className="w-full pl-9 pr-3 py-2 border border-gray-300 rounded-lg text-sm"
+            placeholder="Search members..."
+            className="block w-full pl-10 pr-3 py-2.5 border-none rounded-lg text-sm bg-transparent focus:ring-2 focus:ring-indigo-500/20 transition-all placeholder-gray-400 text-gray-900"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
           />
         </div>
 
-        <div className="flex flex-wrap gap-3 text-sm">
-          <select
-            className="border rounded-lg px-3 py-2 text-sm"
-            value={roleFilter}
-            onChange={(e) => setRoleFilter(e.target.value as RoleFilter)}
-          >
-            <option value="all">All roles</option>
-            <option value="manager">Managers</option>
-            <option value="rep">Reps</option>
-          </select>
+        <div className="flex items-center gap-3 w-full md:w-auto px-2">
+          <div className="h-6 w-px bg-gray-200 hidden md:block"></div>
+          <div className="flex gap-3 w-full md:w-auto">
+            <select
+              className="flex-1 md:flex-none border-none bg-gray-50 hover:bg-gray-100 rounded-lg px-3 py-2 text-sm font-medium text-gray-600 focus:ring-2 focus:ring-indigo-500/20 cursor-pointer transition-colors"
+              value={roleFilter}
+              onChange={(e) => setRoleFilter(e.target.value as RoleFilter)}
+            >
+              <option value="all">All Roles</option>
+              <option value="manager">Managers Only</option>
+              <option value="rep">Reps Only</option>
+            </select>
 
-          <select
-            className="border rounded-lg px-3 py-2 text-sm"
-            value={sortBy}
-            onChange={(e) => setSortBy(e.target.value as SortOption)}
-          >
-            <option value="created_desc">Newest first</option>
-            <option value="created_asc">Oldest first</option>
-            <option value="name_asc">Name A–Z</option>
-            <option value="name_desc">Name Z–A</option>
-          </select>
+            <select
+              className="flex-1 md:flex-none border-none bg-gray-50 hover:bg-gray-100 rounded-lg px-3 py-2 text-sm font-medium text-gray-600 focus:ring-2 focus:ring-indigo-500/20 cursor-pointer transition-colors"
+              value={sortBy}
+              onChange={(e) => setSortBy(e.target.value as SortOption)}
+            >
+              <option value="created_desc">Newest</option>
+              <option value="created_asc">Oldest</option>
+              <option value="name_asc">Name (A-Z)</option>
+              <option value="name_desc">Name (Z-A)</option>
+            </select>
+          </div>
         </div>
       </div>
 
-      {/* Table / State */}
-      {loading && (
-        <div className="py-10 text-center text-gray-600">
-          Loading users...
-        </div>
-      )}
+      {/* Content Area */}
+      <div className="bg-white border border-gray-200 rounded-2xl shadow-sm overflow-hidden">
+        {loading && (
+          <div className="py-20 text-center">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600 mx-auto mb-4"></div>
+            <p className="text-gray-500 text-sm">Syncing team data...</p>
+          </div>
+        )}
 
-      {!loading && filtered.length === 0 && (
-        <div className="py-10 text-center text-gray-600">
-          No users found for this view.
-        </div>
-      )}
+        {!loading && filtered.length === 0 && (
+          <div className="py-20 text-center">
+            <div className="w-16 h-16 bg-gray-50 rounded-full flex items-center justify-center mx-auto mb-4">
+              <Users className="w-8 h-8 text-gray-300" />
+            </div>
+            <h3 className="text-lg font-medium text-gray-900">
+              No members found
+            </h3>
+            <p className="text-gray-500 text-sm mt-1 max-w-xs mx-auto">
+              We couldn't find anyone matching your search filters. Try adjusting
+              the role or search term.
+            </p>
+            <button
+              onClick={() => {
+                setSearch("");
+                setRoleFilter("all");
+              }}
+              className="mt-4 text-indigo-600 text-sm font-medium hover:underline"
+            >
+              Clear filters
+            </button>
+          </div>
+        )}
 
-      {!loading && filtered.length > 0 && (
-        <div className="border border-gray-200 rounded-xl overflow-hidden bg-white">
-          <table className="min-w-full text-sm">
-            <thead className="bg-gray-50 border-b">
-              <tr>
-                <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">
-                  Name
-                </th>
-                <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">
-                  Email
-                </th>
-                <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">
-                  Role
-                </th>
-                <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">
-                  Created
-                </th>
-                <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">
-                  Status
-                </th>
-                <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">
-                  Actions
-                </th>
-              </tr>
-            </thead>
-            <tbody>
-              {filtered.map((p) => {
-                const name =
-                  p.full_name ||
-                  p.company_name ||
-                  p.email ||
-                  p.company_email ||
-                  "Unnamed";
+        {!loading && filtered.length > 0 && (
+          <div className="overflow-x-auto">
+            <table className="min-w-full divide-y divide-gray-200">
+              <thead className="bg-gray-50/50">
+                <tr>
+                  <th className="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                    Member
+                  </th>
+                  <th className="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                    Role & Territory
+                  </th>
+                  <th className="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                    Joined
+                  </th>
+                  <th className="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                    Status
+                  </th>
+                  <th className="px-6 py-4 text-right text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                    Manage
+                  </th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-200 bg-white">
+                {filtered.map((p) => {
+                  const name =
+                    p.full_name ||
+                    p.company_name ||
+                    p.email ||
+                    p.company_email ||
+                    "Unnamed";
+                  const email = p.email || p.company_email || "—";
+                  const created = p.created_at
+                    ? new Date(p.created_at).toLocaleDateString("en-US", {
+                        month: "short",
+                        day: "numeric",
+                        year: "numeric",
+                      })
+                    : "—";
+                  const role = p.user_role || "rep";
+                  const isActive = p.is_active !== false;
 
-                const email = p.email || p.company_email || "—";
-                const created = p.created_at
-                  ? new Date(p.created_at).toLocaleDateString()
-                  : "—";
-                const role = p.user_role || "rep";
-                const isActive = p.is_active !== false;
-
-                return (
-                  <tr
-                    key={p.id}
-                    className="border-b last:border-b-0 hover:bg-gray-50"
-                  >
-                    <td className="px-4 py-3 text-gray-900">{name}</td>
-                    <td className="px-4 py-3 text-gray-700">{email}</td>
-                    <td className="px-4 py-3 capitalize text-gray-700">
-                      {role}
-                    </td>
-                    <td className="px-4 py-3 text-gray-600">{created}</td>
-                    <td className="px-4 py-3">
-                      <span
-                        className={`inline-flex px-2 py-0.5 rounded-full text-xs font-medium ${
-                          isActive
-                            ? "bg-emerald-50 text-emerald-700 border border-emerald-200"
-                            : "bg-gray-50 text-gray-600 border border-gray-200"
-                        }`}
-                      >
-                        {isActive ? "Active" : "Inactive"}
-                      </span>
-                    </td>
-                    <td className="px-4 py-3">
-                      <div className="flex gap-3 text-xs">
-                        <button
-                          className="text-blue-600 hover:underline"
-                          onClick={() => setSelectedUser(p)}
-                        >
-                          View
-                        </button>
-                        <button
-                          className="text-gray-700 hover:underline"
-                          onClick={() => setEditingUser(p)}
-                        >
-                          Edit
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
-      )}
+                  return (
+                    <tr
+                      key={p.id}
+                      className="hover:bg-gray-50/80 transition-colors group"
+                    >
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <div className="flex items-center">
+                          <div className="flex-shrink-0 h-10 w-10 rounded-full bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center text-white text-xs font-bold shadow-sm">
+                            {getInitials(name)}
+                          </div>
+                          <div className="ml-4">
+                            <div className="text-sm font-medium text-gray-900">
+                              {name}
+                            </div>
+                            <div className="text-xs text-gray-500 flex items-center gap-1">
+                              {email}
+                            </div>
+                          </div>
+                        </div>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <div className="flex flex-col gap-1">
+                          <span
+                            className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium capitalize w-fit ${
+                              role === "manager"
+                                ? "bg-purple-50 text-purple-700 border border-purple-100"
+                                : "bg-blue-50 text-blue-700 border border-blue-100"
+                            }`}
+                          >
+                            {role}
+                          </span>
+                          <span className="text-xs text-gray-500">
+                            {p.territory || "No territory"}
+                          </span>
+                        </div>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                        {created}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        {isActive ? (
+                          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-emerald-50 text-emerald-700 border border-emerald-100">
+                            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+                            Active
+                          </span>
+                        ) : (
+                          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-600 border border-gray-200">
+                            <span className="w-1.5 h-1.5 rounded-full bg-gray-400" />
+                            Inactive
+                          </span>
+                        )}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                        <div className="flex items-center justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                          <button
+                            onClick={() => setSelectedUser(p)}
+                            className="p-1.5 text-gray-500 hover:text-indigo-600 hover:bg-indigo-50 rounded-md transition-colors"
+                            title="View Details"
+                          >
+                            <MoreHorizontal size={18} />
+                          </button>
+                          <button
+                            onClick={() => setEditingUser(p)}
+                            className="p-1.5 text-gray-500 hover:text-indigo-600 hover:bg-indigo-50 rounded-md transition-colors"
+                            title="Edit Settings"
+                          >
+                            <SettingsIcon size={18} />
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
 
       {/* Modals */}
       <UserDetailModal />
