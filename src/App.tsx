@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useEffect, useRef } from "react";
 import { Routes, Route, Navigate } from "react-router-dom";
 
 import Sidebar from "./components/Sidebar";
@@ -41,13 +41,12 @@ const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
 const App: React.FC = () => {
   const { user } = useAuthStore();
   
-  // 1. State to force a re-render of the app tree
-  const [appKey, setAppKey] = useState(0);
-  
-  // 2. Ref to track when the user left the tab
+  // Ref to track when the user left the tab
   const lastBlurTime = useRef<number>(0);
 
-  // 3. Effect to detect tab switching and force refresh instantly
+  // ------------------------------------------------------------
+  // AUTO-REFRESH LOGIC
+  // ------------------------------------------------------------
   useEffect(() => {
     const handleBlur = () => {
       lastBlurTime.current = Date.now();
@@ -55,15 +54,14 @@ const App: React.FC = () => {
 
     const handleFocus = () => {
       const now = Date.now();
-      // CHECK: If user was away for more than 1 second (1000ms)
-      // We assume the connection might be stale and force a refresh.
-      if (lastBlurTime.current > 0 && (now - lastBlurTime.current > 1000)) {
-        console.log("[App] Tab focus regained. Forcing UI refresh...");
-        
-        // This updates the key, causing the entire UI to re-mount
-        // and re-fetch data immediately.
-        setAppKey(prev => prev + 1);
+      
+      // CHECK: If user was away for more than 2 seconds (2000ms)
+      // We force a hard browser reload to restore the database connection.
+      if (lastBlurTime.current > 0 && (now - lastBlurTime.current > 2000)) {
+        console.log("[App] Connection stale. Forcing hard reload...");
+        window.location.reload();
       }
+      
       lastBlurTime.current = 0;
     };
 
@@ -77,8 +75,7 @@ const App: React.FC = () => {
   }, []);
 
   return (
-    // 4. The 'key' prop ensures the App re-mounts fresh on return
-    <div key={appKey} className="flex h-screen bg-gray-50">
+    <div className="flex h-screen bg-gray-50">
 
       {/* ONLY SHOW SIDEBAR IF LOGGED IN */}
       {user && <Sidebar />}
