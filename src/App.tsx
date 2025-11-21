@@ -1,9 +1,8 @@
-import React, { useState } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { Routes, Route, Navigate } from "react-router-dom";
 
 import Sidebar from "./components/Sidebar";
 import MobileNav from "./components/MobileNav";
-import MobileHeader from "./components/MobileHeader";
 
 import Dashboard from "./components/Dashboard";
 import SalesTools from "./components/SalesTools";
@@ -41,10 +40,45 @@ const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
 // ----------------------------
 const App: React.FC = () => {
   const { user } = useAuthStore();
-  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  
+  // 1. State to force a re-render of the app tree
+  const [appKey, setAppKey] = useState(0);
+  
+  // 2. Ref to track when the user left the tab
+  const lastBlurTime = useRef<number>(0);
+
+  // 3. Effect to detect tab switching and force refresh instantly
+  useEffect(() => {
+    const handleBlur = () => {
+      lastBlurTime.current = Date.now();
+    };
+
+    const handleFocus = () => {
+      const now = Date.now();
+      // CHECK: If user was away for more than 1 second (1000ms)
+      // We assume the connection might be stale and force a refresh.
+      if (lastBlurTime.current > 0 && (now - lastBlurTime.current > 1000)) {
+        console.log("[App] Tab focus regained. Forcing UI refresh...");
+        
+        // This updates the key, causing the entire UI to re-mount
+        // and re-fetch data immediately.
+        setAppKey(prev => prev + 1);
+      }
+      lastBlurTime.current = 0;
+    };
+
+    window.addEventListener("blur", handleBlur);
+    window.addEventListener("focus", handleFocus);
+
+    return () => {
+      window.removeEventListener("blur", handleBlur);
+      window.removeEventListener("focus", handleFocus);
+    };
+  }, []);
 
   return (
-    <div className="flex h-screen bg-gray-50">
+    // 4. The 'key' prop ensures the App re-mounts fresh on return
+    <div key={appKey} className="flex h-screen bg-gray-50">
 
       {/* ONLY SHOW SIDEBAR IF LOGGED IN */}
       {user && <Sidebar />}
@@ -52,13 +86,10 @@ const App: React.FC = () => {
       {/* MAIN CONTENT AREA */}
       <div className="flex-1 overflow-y-auto">
 
-        {/* MOBILE HEADER */}
-        {user && <MobileHeader onMenuToggle={() => setMobileMenuOpen(!mobileMenuOpen)} />}
+        {/* ONLY SHOW MOBILE NAV IF LOGGED IN */}
+        {user && <MobileNav />}
 
-        {/* MOBILE NAV */}
-        {user && <MobileNav isOpen={mobileMenuOpen} onClose={() => setMobileMenuOpen(false)} />}
-
-        <div className="p-4 md:p-6 pt-16 md:pt-4">
+        <div className="p-4 md:p-6">
           <Routes>
 
             {/* PUBLIC ROUTE */}
