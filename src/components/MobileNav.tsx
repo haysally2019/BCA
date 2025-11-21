@@ -11,10 +11,21 @@ interface MobileNavProps {
 const MobileNav: React.FC<MobileNavProps> = ({ isOpen, onClose }) => {
   const { profile } = useAuthStore();
 
+  React.useEffect(() => {
+    console.log('MobileNav isOpen:', isOpen);
+  }, [isOpen]);
+
+  const isManager =
+    profile?.user_role?.toLowerCase() === "manager" ||
+    profile?.user_role?.toLowerCase() === "admin" ||
+    profile?.user_role?.toLowerCase() === "owner";
+
   const menuItems = [
     { path: '/dashboard', label: 'Dashboard', icon: Home },
     { path: '/leads', label: 'Leads', icon: Users },
-    { path: '/prospects', label: 'Leads & Prospects', icon: Target },
+    ...(isManager
+      ? [{ path: '/team', label: 'Team Management', icon: Target }]
+      : []),
     { path: '/commissions', label: 'Commissions', icon: DollarSign },
     { path: '/sales-tools', label: 'Sales Tools', icon: Briefcase },
     { path: '/settings', label: 'Settings', icon: Settings },
@@ -25,7 +36,7 @@ const MobileNav: React.FC<MobileNavProps> = ({ isOpen, onClose }) => {
   return (
     <div
       className={`
-        fixed inset-0 z-40 md:hidden
+        fixed inset-0 z-[60] md:hidden
         ${isOpen ? 'pointer-events-auto' : 'pointer-events-none'}
       `}
       aria-hidden={!isOpen}

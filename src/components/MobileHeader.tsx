@@ -6,18 +6,23 @@ interface MobileHeaderProps {
 }
 
 const MobileHeader: React.FC<MobileHeaderProps> = ({ onMenuToggle }) => {
+  const handleToggle = () => {
+    console.log('Mobile menu toggle clicked');
+    onMenuToggle();
+  };
+
   return (
     <div
       className="
-        md:hidden fixed top-0 left-0 right-0 h-14 z-30
+        md:hidden fixed top-0 left-0 right-0 h-14 z-50
         flex items-center px-3
-        bg-slate-950/85 backdrop-blur-xl
+        bg-slate-950/95 backdrop-blur-xl
         border-b border-slate-800
         shadow-[0_4px_20px_rgba(0,0,0,0.7)]
       "
     >
       <button
-        onClick={onMenuToggle}
+        onClick={handleToggle}
         className="
           mr-2 rounded-xl p-2.5
           text-slate-200
