@@ -1,8 +1,9 @@
-import React from "react";
+import React, { useState } from "react";
 import { Routes, Route, Navigate } from "react-router-dom";
 
 import Sidebar from "./components/Sidebar";
 import MobileNav from "./components/MobileNav";
+import MobileHeader from "./components/MobileHeader";
 
 import Dashboard from "./components/Dashboard";
 import SalesTools from "./components/SalesTools";
@@ -40,6 +41,7 @@ const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
 // ----------------------------
 const App: React.FC = () => {
   const { user } = useAuthStore();
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   return (
     <div className="flex h-screen bg-gray-50">
@@ -50,10 +52,13 @@ const App: React.FC = () => {
       {/* MAIN CONTENT AREA */}
       <div className="flex-1 overflow-y-auto">
 
-        {/* ONLY SHOW MOBILE NAV IF LOGGED IN */}
-        {user && <MobileNav />}
+        {/* MOBILE HEADER */}
+        {user && <MobileHeader onMenuToggle={() => setMobileMenuOpen(!mobileMenuOpen)} />}
 
-        <div className="p-4 md:p-6">
+        {/* MOBILE NAV */}
+        {user && <MobileNav isOpen={mobileMenuOpen} onClose={() => setMobileMenuOpen(false)} />}
+
+        <div className="p-4 md:p-6 pt-16 md:pt-4">
           <Routes>
 
             {/* PUBLIC ROUTE */}

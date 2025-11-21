@@ -311,12 +311,12 @@ const Settings: React.FC = () => {
   ];
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <h1 className="text-3xl font-bold text-gray-900">Settings</h1>
+    <div className="space-y-4 md:space-y-6">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+        <h1 className="text-2xl md:text-3xl font-bold text-gray-900">Settings</h1>
         <button
           onClick={handleSignOut}
-          className="bg-red-600 text-white px-4 py-2 rounded-lg hover:bg-red-700 transition-colors"
+          className="bg-red-600 text-white px-4 py-2 rounded-lg hover:bg-red-700 transition-colors text-sm md:text-base w-full sm:w-auto"
         >
           Sign Out
         </button>
@@ -327,20 +327,20 @@ const Settings: React.FC = () => {
       <div className="bg-white rounded-xl shadow-sm border border-gray-100">
         {/* Tabs */}
         <div className="border-b border-gray-100">
-          <nav className="flex space-x-8 px-6">
+          <nav className="flex space-x-4 md:space-x-8 px-4 md:px-6 overflow-x-auto scrollbar-hide">
             {tabs.map((tab) => {
               const Icon = tab.icon;
               return (
                 <button
                   key={tab.id}
                   onClick={() => setActiveTab(tab.id)}
-                  className={`py-4 px-1 border-b-2 font-medium text-sm flex items-center space-x-2 ${
+                  className={`py-3 md:py-4 px-1 border-b-2 font-medium text-xs md:text-sm flex items-center space-x-1.5 md:space-x-2 whitespace-nowrap ${
                     activeTab === tab.id
                       ? 'border-blue-500 text-blue-600'
                       : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
                   }`}
                 >
-                  <Icon className="w-4 h-4" />
+                  <Icon className="w-3.5 h-3.5 md:w-4 md:h-4" />
                   <span>{tab.label}</span>
                 </button>
               );
@@ -348,7 +348,7 @@ const Settings: React.FC = () => {
           </nav>
         </div>
 
-        <div className="p-6">
+        <div className="p-4 md:p-6">
           {activeTab === 'profile' && (
             <div className="max-w-2xl">
               <h3 className="text-lg font-semibold text-gray-900 mb-4">Personal Information</h3>

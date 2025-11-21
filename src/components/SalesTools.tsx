@@ -126,18 +126,18 @@ export default function SalesToolsPage() {
   const [tab, setTab] = useState<typeof tabs[number]>("Scripts");
 
   return (
-    <div className="p-6 space-y-6">
+    <div className="space-y-4 md:space-y-6">
       <div>
-        <h1 className="text-2xl font-bold text-gray-900">Sales Tools</h1>
-        <p className="text-gray-600">Everything your team needs to pitch, price, and close.</p>
+        <h1 className="text-xl md:text-2xl font-bold text-gray-900">Sales Tools</h1>
+        <p className="text-sm md:text-base text-gray-600">Everything your team needs to pitch, price, and close.</p>
       </div>
 
-      <div className="flex gap-2 overflow-x-auto">
+      <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-hide -mx-4 px-4 md:mx-0 md:px-0">
         {tabs.map((t) => (
           <button
             key={t}
             onClick={() => setTab(t)}
-            className={`rounded-full px-3 py-1.5 text-sm font-semibold ${tab === t ? "bg-blue-600 text-white" : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+            className={`rounded-full px-3 py-1.5 text-xs md:text-sm font-semibold whitespace-nowrap ${tab === t ? "bg-blue-600 text-white" : "bg-gray-100 text-gray-700 hover:bg-gray-200"
               }`}
           >
             {t}
@@ -160,6 +160,13 @@ function ScriptsLibrary() {
   const [custom, setCustom] = useState<TemplateRow[]>([]);
   const [active, setActive] = useState(0);
   const [editing, setEditing] = useState<{ title: string; content: string } | null>(null);
+  const [isMobile, setIsMobile] = useState(window.innerWidth < 1024);
+
+  useEffect(() => {
+    const handleResize = () => setIsMobile(window.innerWidth < 1024);
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
 
   async function loadCustom() {
     if (!supabase || !user?.id) return;
@@ -208,13 +215,13 @@ function ScriptsLibrary() {
 
   return (
     <Section title="Script Library">
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 md:gap-6">
         <div className="lg:col-span-1 space-y-2">
           <div className="flex items-center justify-between">
-            <h3 className="text-sm font-semibold text-gray-700">Templates</h3>
-            <Btn tone="ghost" onClick={() => setEditing({ title: "", content: "" })}>+ New</Btn>
+            <h3 className="text-xs md:text-sm font-semibold text-gray-700">Templates</h3>
+            <Btn tone="ghost" onClick={() => setEditing({ title: "", content: "" })} className="text-xs">+ New</Btn>
           </div>
-          <div className="space-y-2">
+          <div className="space-y-2 max-h-[300px] lg:max-h-none overflow-y-auto lg:overflow-visible">
             {scripts.map((item, i) => (
               <button
                 key={i}

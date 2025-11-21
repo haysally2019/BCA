@@ -247,9 +247,9 @@ const CommissionsTracker: React.FC = () => {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 md:space-y-6">
       {/* HEADER */}
-      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
+      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3 md:gap-4">
         <div>
           <h1 className="text-2xl md:text-3xl font-bold text-gray-900 flex items-center gap-2">
             Commissions & Affiliate Performance
@@ -272,70 +272,70 @@ const CommissionsTracker: React.FC = () => {
       </div>
 
       {/* KPI CARDS */}
-      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
-        <div className="bg-white border rounded-lg p-3 shadow-sm">
+      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-2.5 md:gap-3">
+        <div className="bg-white border rounded-lg p-2.5 md:p-3 shadow-sm">
           <div className="flex items-center justify-between">
-            <span className="text-xs text-gray-500">Total Commissions</span>
-            <DollarSign className="w-4 h-4 text-green-500" />
+            <span className="text-[10px] md:text-xs text-gray-500">Total Commissions</span>
+            <DollarSign className="w-3.5 h-3.5 md:w-4 md:h-4 text-green-500" />
           </div>
-          <div className="mt-2 text-xl font-bold">
+          <div className="mt-1.5 md:mt-2 text-lg md:text-xl font-bold">
             ${totals.totalCommissions.toFixed(2)}
           </div>
         </div>
 
-        <div className="bg-white border rounded-lg p-3 shadow-sm">
+        <div className="bg-white border rounded-lg p-2.5 md:p-3 shadow-sm">
           <div className="flex items-center justify-between">
-            <span className="text-xs text-gray-500">Paid Out</span>
-            <CheckCircle className="w-4 h-4 text-emerald-500" />
+            <span className="text-[10px] md:text-xs text-gray-500">Paid Out</span>
+            <CheckCircle className="w-3.5 h-3.5 md:w-4 md:h-4 text-emerald-500" />
           </div>
-          <div className="mt-2 text-xl font-bold text-emerald-700">
+          <div className="mt-1.5 md:mt-2 text-lg md:text-xl font-bold text-emerald-700">
             ${totals.paidCommissions.toFixed(2)}
           </div>
         </div>
 
-        <div className="bg-white border rounded-lg p-3 shadow-sm">
+        <div className="bg-white border rounded-lg p-2.5 md:p-3 shadow-sm">
           <div className="flex items-center justify-between">
-            <span className="text-xs text-gray-500">Pending</span>
-            <Clock className="w-4 h-4 text-amber-500" />
+            <span className="text-[10px] md:text-xs text-gray-500">Pending</span>
+            <Clock className="w-3.5 h-3.5 md:w-4 md:h-4 text-amber-500" />
           </div>
-          <div className="mt-2 text-xl font-bold text-amber-700">
+          <div className="mt-1.5 md:mt-2 text-lg md:text-xl font-bold text-amber-700">
             ${totals.pendingCommissions.toFixed(2)}
           </div>
         </div>
 
-        <div className="bg-white border rounded-lg p-3 shadow-sm">
+        <div className="bg-white border rounded-lg p-2.5 md:p-3 shadow-sm">
           <div className="flex items-center justify-between">
-            <span className="text-xs text-gray-500">Approved</span>
-            <AlertCircle className="w-4 h-4 text-blue-500" />
+            <span className="text-[10px] md:text-xs text-gray-500">Approved</span>
+            <AlertCircle className="w-3.5 h-3.5 md:w-4 md:h-4 text-blue-500" />
           </div>
-          <div className="mt-2 text-xl font-bold text-blue-700">
+          <div className="mt-1.5 md:mt-2 text-lg md:text-xl font-bold text-blue-700">
             ${totals.approvedCommissions.toFixed(2)}
           </div>
         </div>
 
-        <div className="bg-white border rounded-lg p-3 shadow-sm">
+        <div className="bg-white border rounded-lg p-2.5 md:p-3 shadow-sm">
           <div className="flex items-center justify-between">
-            <span className="text-xs text-gray-500">Total Deals</span>
-            <Target className="w-4 h-4 text-purple-500" />
+            <span className="text-[10px] md:text-xs text-gray-500">Total Deals</span>
+            <Target className="w-3.5 h-3.5 md:w-4 md:h-4 text-purple-500" />
           </div>
-          <div className="mt-2 text-xl font-bold text-purple-700">
+          <div className="mt-1.5 md:mt-2 text-lg md:text-xl font-bold text-purple-700">
             {totals.totalDeals}
           </div>
         </div>
 
-        <div className="bg-white border rounded-lg p-3 shadow-sm">
+        <div className="bg-white border rounded-lg p-2.5 md:p-3 shadow-sm">
           <div className="flex items-center justify-between">
-            <span className="text-xs text-gray-500">Avg Commission</span>
-            <Users className="w-4 h-4 text-gray-500" />
+            <span className="text-[10px] md:text-xs text-gray-500">Avg Commission</span>
+            <Users className="w-3.5 h-3.5 md:w-4 md:h-4 text-gray-500" />
           </div>
-          <div className="mt-2 text-xl font-bold text-gray-800">
+          <div className="mt-1.5 md:mt-2 text-lg md:text-xl font-bold text-gray-800">
             ${totals.avgCommission.toFixed(2)}
           </div>
         </div>
       </div>
 
       {/* CHART + FILTERS */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-3 md:gap-4">
         <div className="lg:col-span-2 bg-white border rounded-lg p-4 shadow-sm">
           <div className="flex items-center justify-between mb-3">
             <div>
@@ -358,7 +358,7 @@ const CommissionsTracker: React.FC = () => {
             </div>
           </div>
 
-          <div className="h-64">
+          <div className="h-48 md:h-64">
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={monthlyData}>
                 <CartesianGrid strokeDasharray="3 3" vertical={false} />

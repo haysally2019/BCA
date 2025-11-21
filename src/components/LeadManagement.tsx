@@ -410,7 +410,7 @@ const LeadManagement: React.FC = () => {
 
   // RENDER UI
   return (
-    <div className="space-y-8 max-w-6xl mx-auto">
+    <div className="space-y-4 md:space-y-8 max-w-6xl mx-auto">
 
       {/* HEADER */}
       <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
@@ -448,8 +448,8 @@ const LeadManagement: React.FC = () => {
       </div>
 
       {/* STATS — side scroll on mobile, grid on desktop */}
-      <div className="relative -mx-2 md:mx-0">
-        <div className="flex md:grid md:grid-cols-3 lg:grid-cols-6 gap-4 overflow-x-auto pb-2 px-2 md:px-0 scrollbar-thin scrollbar-thumb-slate-300 scrollbar-track-transparent">
+      <div className="relative -mx-4 md:mx-0">
+        <div className="flex md:grid md:grid-cols-3 lg:grid-cols-6 gap-3 md:gap-4 overflow-x-auto pb-3 px-4 md:px-0 scrollbar-hide snap-x snap-mandatory">
           {[
             { label: "Total Leads", value: stats.total, color: "text-slate-900" },
             { label: "New", value: stats.new, color: "text-blue-600" },
@@ -460,12 +460,12 @@ const LeadManagement: React.FC = () => {
           ].map((stat) => (
             <div
               key={stat.label}
-              className="min-w-[160px] md:min-w-0 bg-gradient-to-b from-white/95 to-slate-50/95 rounded-2xl border border-slate-200/80 px-4 py-3 shadow-[0_8px_30px_rgba(15,23,42,0.06)] flex flex-col justify-between"
+              className="min-w-[140px] md:min-w-0 snap-start bg-gradient-to-b from-white/95 to-slate-50/95 rounded-2xl border border-slate-200/80 px-3 py-2.5 md:px-4 md:py-3 shadow-[0_8px_30px_rgba(15,23,42,0.06)] flex flex-col justify-between"
             >
-              <div className="text-[11px] uppercase tracking-[0.14em] text-slate-500 font-medium">
+              <div className="text-[10px] md:text-[11px] uppercase tracking-[0.14em] text-slate-500 font-medium">
                 {stat.label}
               </div>
-              <div className={`mt-1 text-2xl font-semibold ${stat.color}`}>
+              <div className={`mt-0.5 md:mt-1 text-xl md:text-2xl font-semibold ${stat.color}`}>
                 {stat.value}
               </div>
             </div>
@@ -474,7 +474,7 @@ const LeadManagement: React.FC = () => {
       </div>
 
       {/* FILTER BAR */}
-      <div className="bg-gradient-to-b from-white/95 to-slate-50/95 border border-slate-200/80 rounded-2xl shadow-[0_12px_40px_rgba(15,23,42,0.04)] px-4 py-3 flex flex-col md:flex-row gap-3 md:items-center md:justify-between">
+      <div className="bg-gradient-to-b from-white/95 to-slate-50/95 border border-slate-200/80 rounded-2xl shadow-[0_12px_40px_rgba(15,23,42,0.04)] px-3 md:px-4 py-2.5 md:py-3 flex flex-col md:flex-row gap-2.5 md:gap-3 md:items-center md:justify-between">
         <div className="flex items-center gap-2 rounded-full border border-slate-200 bg-slate-50/80 px-3 py-1.5 shadow-inner flex-1">
           <Search className="w-4 h-4 text-slate-400" />
           <input
@@ -507,7 +507,7 @@ const LeadManagement: React.FC = () => {
 
       {/* TABLE */}
       <div className="bg-gradient-to-b from-white/95 to-slate-50/95 border border-slate-200/80 rounded-2xl shadow-[0_16px_45px_rgba(15,23,42,0.06)] overflow-hidden">
-        <div className="overflow-x-auto">
+        <div className="overflow-x-auto -mx-4 px-4 md:mx-0 md:px-0">
           <table className="min-w-full text-sm">
             <thead className="bg-slate-100/70 backdrop-blur-sm border-b border-slate-200/70">
               <tr className="text-[11px] uppercase tracking-[0.16em] text-slate-500">
@@ -679,10 +679,10 @@ const LeadManagement: React.FC = () => {
         isOpen={showFormModal}
         onClose={() => setShowFormModal(false)}
         title={editingLead ? "Edit Lead" : "Add Roofing Company Lead"}
-        width="max-w-2xl"
+        size="lg"
       >
-        <div className="space-y-4">
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <div className="space-y-3 md:space-y-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 md:gap-4">
             {[
               ["Company Name", "company_name"],
               ["Contact Name", "contact_name"],
@@ -691,7 +691,7 @@ const LeadManagement: React.FC = () => {
               ["Service Area", "service_area"],
             ].map(([label, name]) => (
               <div key={name}>
-                <label className="text-xs font-medium text-slate-600 mb-1 block">
+                <label className="text-xs md:text-sm font-medium text-slate-600 mb-1 block">
                   {label}
                 </label>
                 <input
@@ -699,21 +699,21 @@ const LeadManagement: React.FC = () => {
                   name={name}
                   value={(formData as any)[name]}
                   onChange={handleFormChange}
-                  className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 shadow-inner focus:outline-none focus:ring-2 focus:ring-slate-900/5"
+                  className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm md:text-base text-slate-900 shadow-inner focus:outline-none focus:ring-2 focus:ring-slate-900/5"
                 />
               </div>
             ))}
 
             {/* COMPANY SIZE */}
             <div>
-              <label className="text-xs font-medium text-slate-600 mb-1 block">
+              <label className="text-xs md:text-sm font-medium text-slate-600 mb-1 block">
                 Company Size
               </label>
               <select
                 name="company_size"
                 value={formData.company_size}
                 onChange={handleFormChange}
-                className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 shadow-inner focus:outline-none focus:ring-2 focus:ring-slate-900/5"
+                className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm md:text-base text-slate-900 shadow-inner focus:outline-none focus:ring-2 focus:ring-slate-900/5"
               >
                 <option value="">Select...</option>
                 <option value="1-3">1–3 Employees</option>
@@ -726,7 +726,7 @@ const LeadManagement: React.FC = () => {
 
             {/* CURRENT CRM */}
             <div>
-              <label className="text-xs font-medium text-slate-600 mb-1 block">
+              <label className="text-xs md:text-sm font-medium text-slate-600 mb-1 block">
                 CRM Used Now
               </label>
               <input
@@ -734,20 +734,20 @@ const LeadManagement: React.FC = () => {
                 name="crm_used_now"
                 value={formData.crm_used_now}
                 onChange={handleFormChange}
-                className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 shadow-inner focus:outline-none focus:ring-2 focus:ring-slate-900/5"
+                className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm md:text-base text-slate-900 shadow-inner focus:outline-none focus:ring-2 focus:ring-slate-900/5"
               />
             </div>
 
             {/* STATUS */}
             <div>
-              <label className="text-xs font-medium text-slate-600 mb-1 block">
+              <label className="text-xs md:text-sm font-medium text-slate-600 mb-1 block">
                 Status
               </label>
               <select
                 name="status"
                 value={formData.status}
                 onChange={handleFormChange}
-                className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 shadow-inner focus:outline-none focus:ring-2 focus:ring-slate-900/5"
+                className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm md:text-base text-slate-900 shadow-inner focus:outline-none focus:ring-2 focus:ring-slate-900/5"
               >
                 <option value="new">New</option>
                 <option value="contacted">Contacted</option>
@@ -759,7 +759,7 @@ const LeadManagement: React.FC = () => {
 
             {/* DEAL VALUE */}
             <div>
-              <label className="text-xs font-medium text-slate-600 mb-1 block">
+              <label className="text-xs md:text-sm font-medium text-slate-600 mb-1 block">
                 Deal Value
               </label>
               <input
@@ -768,35 +768,35 @@ const LeadManagement: React.FC = () => {
                 value={formData.deal_value}
                 onChange={handleFormChange}
                 min={0}
-                className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 shadow-inner focus:outline-none focus:ring-2 focus:ring-slate-900/5"
+                className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm md:text-base text-slate-900 shadow-inner focus:outline-none focus:ring-2 focus:ring-slate-900/5"
               />
             </div>
 
             {/* NOTES */}
             <div className="sm:col-span-2">
-              <label className="text-xs font-medium text-slate-600 mb-1 block">
+              <label className="text-xs md:text-sm font-medium text-slate-600 mb-1 block">
                 Notes
               </label>
               <textarea
                 name="notes"
                 value={formData.notes}
                 onChange={handleFormChange}
-                className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 shadow-inner h-24 resize-none focus:outline-none focus:ring-2 focus:ring-slate-900/5"
+                className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm md:text-base text-slate-900 shadow-inner h-24 resize-none focus:outline-none focus:ring-2 focus:ring-slate-900/5"
               />
             </div>
           </div>
 
-          <div className="flex justify-end gap-3 pt-2 border-t border-slate-100 mt-2">
+          <div className="flex flex-col sm:flex-row justify-end gap-2.5 md:gap-3 pt-3 md:pt-2 border-t border-slate-100 mt-3 md:mt-2">
             <button
               onClick={() => setShowFormModal(false)}
-              className="rounded-full bg-slate-100 px-4 py-2 text-xs font-medium text-slate-700 hover:bg-slate-200 transition"
+              className="rounded-full bg-slate-100 px-4 py-2.5 text-sm font-medium text-slate-700 hover:bg-slate-200 transition order-2 sm:order-1"
               disabled={saving}
             >
               Cancel
             </button>
             <button
               onClick={saveLead}
-              className="rounded-full bg-slate-900 px-5 py-2 text-xs font-semibold text-white shadow-sm hover:bg-black transition"
+              className="rounded-full bg-slate-900 px-5 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-black transition order-1 sm:order-2"
               disabled={saving}
             >
               {saving ? "Saving..." : "Save Lead"}

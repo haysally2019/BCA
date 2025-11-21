@@ -360,10 +360,10 @@ const Dashboard: React.FC = () => {
   // MAIN RENDER (L3 LIGHT UI)
   // -----------------------------------
   return (
-    <div className="space-y-6 p-4 md:p-8 max-w-[1600px] mx-auto">
+    <div className="space-y-4 md:space-y-6 max-w-[1600px] mx-auto">
 
       {/* HEADER */}
-      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-6">
+      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold text-slate-900 tracking-tight">
             {isManager ? "Team Overview" : "Sales Dashboard"}
@@ -396,7 +396,7 @@ const Dashboard: React.FC = () => {
       </div>
 
       {/* KPI TILES */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
+      <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-5 gap-3 md:gap-4">
         <Tile label="Total Visits" value={fmtNum(totals.visits)} icon={Users} />
         <Tile label="Referrals" value={fmtNum(totals.refs)} icon={TrendingUp} />
         <Tile
@@ -411,12 +411,12 @@ const Dashboard: React.FC = () => {
 
        {/* QUICK ACTIONS */}
        {!isManager && (
-        <div className="bg-white border border-slate-200 rounded-xl p-6 shadow-sm">
-          <h3 className="text-sm font-semibold text-slate-900 uppercase tracking-wider mb-4">
+        <div className="bg-white border border-slate-200 rounded-xl p-4 md:p-6 shadow-sm">
+          <h3 className="text-xs md:text-sm font-semibold text-slate-900 uppercase tracking-wider mb-3 md:mb-4">
             Quick Actions
           </h3>
 
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          <div className="grid grid-cols-2 gap-3 md:grid-cols-4 md:gap-4">
             <QuickAction
               icon={Plus}
               label="Add New Lead"
@@ -442,7 +442,7 @@ const Dashboard: React.FC = () => {
       )}
 
       {/* EARNINGS + LEADS GRID */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 md:gap-6">
 
         {/* CHART */}
         <Section title="Earnings Performance">
