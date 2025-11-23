@@ -1,10 +1,12 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom'; // Added useNavigate
 import { Mail, Lock, User, ArrowRight, CheckCircle2 } from 'lucide-react';
 import { useAuthStore } from '../store/authStore';
 import { validateEmail, validatePassword, getErrorMessage } from '../lib/errorUtils';
 import toast from 'react-hot-toast';
 
 const Auth: React.FC = () => {
+  const navigate = useNavigate(); // Hook for navigation
   const [isLogin, setIsLogin] = useState(true);
   const [loading, setLoading] = useState(false);
   const [formData, setFormData] = useState({
@@ -18,6 +20,13 @@ const Auth: React.FC = () => {
   useEffect(() => {
     initialize();
   }, [initialize]);
+
+  // NEW: Automatically redirect to dashboard when user is logged in
+  useEffect(() => {
+    if (user) {
+      navigate('/dashboard', { replace: true });
+    }
+  }, [user, navigate]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -47,6 +56,7 @@ const Auth: React.FC = () => {
       if (isLogin) {
         await signIn(formData.email, formData.password);
         toast.success('Welcome back!');
+        // Navigation will be handled by the useEffect above when 'user' state updates
       } else {
         console.log('[Auth] Starting signup with:', { email: formData.email, name: formData.name });
         await signUp(formData.email, formData.password, formData.name, 'sales_rep');
@@ -78,12 +88,12 @@ const Auth: React.FC = () => {
     }));
   };
 
+  // If user is already authenticated, don't render the form (prevents flash)
   if (user) {
-    return null; // User is authenticated, main app will render
+    return null; 
   }
 
   return (
-    // FIX: Use fixed positioning to cover the entire screen and override parent padding
     <div className="fixed inset-0 z-[100] bg-slate-950 overflow-y-auto">
       <div className="min-h-screen flex items-center justify-center p-4 relative">
         
