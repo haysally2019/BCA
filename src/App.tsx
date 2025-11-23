@@ -1,8 +1,9 @@
-import React, { useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { Routes, Route, Navigate } from "react-router-dom";
 
 import Sidebar from "./components/Sidebar";
 import MobileNav from "./components/MobileNav";
+import MobileHeader from "./components/MobileHeader"; 
 
 import Dashboard from "./components/Dashboard";
 import SalesTools from "./components/SalesTools";
@@ -22,8 +23,8 @@ const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
 
   if (loading) {
     return (
-      <div className="w-full h-screen flex items-center justify-center">
-        Loading...
+      <div className="w-full h-screen flex items-center justify-center bg-gray-50">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
       </div>
     );
   }
@@ -40,12 +41,13 @@ const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
 // ----------------------------
 const App: React.FC = () => {
   const { user } = useAuthStore();
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   
-  // Ref to track when the user left the tab
+  // Ref to track when the user left the tab (Auto-refresh logic)
   const lastBlurTime = useRef<number>(0);
 
   // ------------------------------------------------------------
-  // AUTO-REFRESH LOGIC
+  // CRASH FIX: AUTO-REFRESH LOGIC
   // ------------------------------------------------------------
   useEffect(() => {
     const handleBlur = () => {
@@ -75,86 +77,53 @@ const App: React.FC = () => {
   }, []);
 
   return (
-    <div className="flex h-screen bg-gray-50">
+    // LAYOUT FIX: h-screen + overflow-hidden locks the outer body
+    <div className="flex h-screen w-full bg-gray-50 overflow-hidden text-slate-900 font-sans">
 
-      {/* ONLY SHOW SIDEBAR IF LOGGED IN */}
-      {user && <Sidebar />}
-
-      {/* MAIN CONTENT AREA */}
-      <div className="flex-1 overflow-y-auto">
-
-        {/* ONLY SHOW MOBILE NAV IF LOGGED IN */}
-        {user && <MobileNav />}
-
-        <div className="p-4 md:p-6">
-          <Routes>
-
-            {/* PUBLIC ROUTE */}
-            <Route path="/auth" element={<Auth />} />
-
-            {/* PROTECTED ROUTES */}
-            <Route
-              path="/dashboard"
-              element={
-                <ProtectedRoute>
-                  <Dashboard />
-                </ProtectedRoute>
-              }
-            />
-
-            <Route
-              path="/sales-tools"
-              element={
-                <ProtectedRoute>
-                  <SalesTools />
-                </ProtectedRoute>
-              }
-            />
-
-            <Route
-              path="/leads"
-              element={
-                <ProtectedRoute>
-                  <LeadManagement />
-                </ProtectedRoute>
-              }
-            />
-
-            <Route
-              path="/team"
-              element={
-                <ProtectedRoute>
-                  <TeamManagement />
-                </ProtectedRoute>
-              }
-            />
-
-            <Route
-              path="/commissions"
-              element={
-                <ProtectedRoute>
-                  <CommissionsTracker />
-                </ProtectedRoute>
-              }
-            />
-
-            <Route
-              path="/settings"
-              element={
-                <ProtectedRoute>
-                  <Settings />
-                </ProtectedRoute>
-              }
-            />
-
-            {/* DEFAULT REDIRECT */}
-            <Route path="/" element={<Navigate to="/dashboard" replace />} />
-
-            {/* CATCH-ALL */}
-            <Route path="*" element={<Navigate to="/dashboard" replace />} />
-
-          </Routes>
+      {/* DESKTOP SIDEBAR */}
+      {user && (
+        <div className="hidden md:flex h-full shrink-0 z-20 relative">
+          <Sidebar />
         </div>
+      )}
+
+      {/* MAIN LAYOUT COLUMN */}
+      <div className="flex-1 flex flex-col min-w-0 relative h-full">
+
+        {/* MOBILE HEADER - Stays fixed at top of this column */}
+        {user && (
+          <div className="md:hidden flex-shrink-0 z-30 relative">
+            <MobileHeader onMenuToggle={() => setMobileMenuOpen(true)} />
+          </div>
+        )}
+
+        {/* CONTENT SCROLL AREA - This is the ONLY thing that scrolls */}
+        <main className="flex-1 overflow-y-auto overflow-x-hidden relative z-0 scroll-smooth">
+          <div className="p-4 md:p-8 max-w-7xl mx-auto pb-24 md:pb-8">
+            <Routes>
+              <Route path="/auth" element={<Auth />} />
+
+              <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
+              <Route path="/sales-tools" element={<ProtectedRoute><SalesTools /></ProtectedRoute>} />
+              <Route path="/leads" element={<ProtectedRoute><LeadManagement /></ProtectedRoute>} />
+              <Route path="/team" element={<ProtectedRoute><TeamManagement /></ProtectedRoute>} />
+              <Route path="/commissions" element={<ProtectedRoute><CommissionsTracker /></ProtectedRoute>} />
+              <Route path="/settings" element={<ProtectedRoute><Settings /></ProtectedRoute>} />
+
+              <Route path="/" element={<Navigate to="/dashboard" replace />} />
+              <Route path="*" element={<Navigate to="/dashboard" replace />} />
+            </Routes>
+          </div>
+        </main>
+
+        {/* MOBILE DRAWER OVERLAY */}
+        {user && (
+          <MobileNav 
+            isOpen={mobileMenuOpen} 
+            onClose={() => setMobileMenuOpen(false)} 
+          />
+        )}
+
       </div>
     </div>
   );

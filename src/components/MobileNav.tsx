@@ -1,6 +1,6 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { NavLink } from 'react-router-dom';
-import { X, Home, Users, Settings, Target, DollarSign, Briefcase } from 'lucide-react';
+import { X, Home, Users, Settings, Target, DollarSign, Briefcase, LogOut } from 'lucide-react';
 import { useAuthStore } from '../store/authStore';
 
 interface MobileNavProps {
@@ -9,10 +9,16 @@ interface MobileNavProps {
 }
 
 const MobileNav: React.FC<MobileNavProps> = ({ isOpen, onClose }) => {
-  const { profile } = useAuthStore();
+  const { profile, signOut } = useAuthStore();
 
-  React.useEffect(() => {
-    console.log('MobileNav isOpen:', isOpen);
+  // Lock body scroll when menu is open to prevent background scrolling
+  useEffect(() => {
+    if (isOpen) {
+      document.body.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = 'unset';
+    }
+    return () => { document.body.style.overflow = 'unset'; };
   }, [isOpen]);
 
   const isManager =
@@ -23,108 +29,100 @@ const MobileNav: React.FC<MobileNavProps> = ({ isOpen, onClose }) => {
   const menuItems = [
     { path: '/dashboard', label: 'Dashboard', icon: Home },
     { path: '/leads', label: 'Leads', icon: Users },
-    ...(isManager
-      ? [{ path: '/team', label: 'Team Management', icon: Target }]
-      : []),
+    ...(isManager ? [{ path: '/team', label: 'Team Management', icon: Target }] : []),
     { path: '/commissions', label: 'Commissions', icon: DollarSign },
     { path: '/sales-tools', label: 'Sales Tools', icon: Briefcase },
     { path: '/settings', label: 'Settings', icon: Settings },
   ];
 
   const displayName = profile?.full_name || profile?.company_name || 'Sales Rep';
+  const initials = displayName
+    ? displayName.split(' ').map((n: string) => n[0]).slice(0, 2).join('').toUpperCase()
+    : 'SP';
 
   return (
-    <div
-      className={`
-        fixed inset-0 z-[60] md:hidden
-        ${isOpen ? 'pointer-events-auto' : 'pointer-events-none'}
-      `}
-      aria-hidden={!isOpen}
-    >
-      {/* Backdrop */}
+    <div className={`fixed inset-0 z-50 md:hidden ${isOpen ? 'pointer-events-auto' : 'pointer-events-none'}`}>
+      
+      {/* 1. Backdrop (Blur + Fade) */}
       <div
-        className={`
-          absolute inset-0 bg-black 
-          transition-opacity duration-200
-          ${isOpen ? 'opacity-50' : 'opacity-0'}
-        `}
+        className={`absolute inset-0 bg-slate-950/60 backdrop-blur-sm transition-opacity duration-300 ${
+          isOpen ? 'opacity-100' : 'opacity-0'
+        }`}
         onClick={onClose}
       />
 
-      {/* Side drawer */}
+      {/* 2. Drawer Panel */}
       <div
-        className={`
-          absolute inset-y-0 left-0 w-72 max-w-[80%]
-          transform transition-transform duration-200
-          ${isOpen ? 'translate-x-0' : '-translate-x-full'}
-        `}
+        className={`absolute inset-y-0 left-0 w-[85%] max-w-xs bg-slate-950 border-r border-slate-800 shadow-2xl transform transition-transform duration-300 cubic-bezier(0.16, 1, 0.3, 1) ${
+          isOpen ? 'translate-x-0' : '-translate-x-full'
+        }`}
       >
-        <div
-          className="
-            h-full
-            bg-slate-950/95
-            backdrop-blur-2xl
-            border-r border-slate-800
-            shadow-[12px_0_32px_rgba(0,0,0,0.85)]
-            flex flex-col
-          "
-        >
-          {/* Header */}
-          <div className="flex items-center justify-between px-4 py-3 border-b border-slate-800/80">
-            <div className="min-w-0">
-              <p className="text-sm font-semibold text-slate-100 truncate">
-                Blue Collar Academy
-              </p>
-              <p className="text-xs text-slate-400 truncate">
-                {displayName}
-              </p>
-            </div>
+        <div className="flex flex-col h-full">
+          
+          {/* Header Section */}
+          <div className="h-16 flex items-center justify-between px-5 border-b border-slate-800 bg-slate-900/50">
+            <span className="text-sm font-bold text-white tracking-wide">MENU</span>
             <button
               onClick={onClose}
-              className="
-                p-1.5 rounded-full
-                text-slate-400
-                hover:text-slate-100
-                hover:bg-slate-800/80
-                transition
-              "
+              className="p-2 -mr-2 text-slate-400 hover:text-white hover:bg-slate-800 rounded-full transition-colors"
             >
               <X className="w-5 h-5" />
             </button>
           </div>
 
-          {/* Nav items */}
-          <nav className="px-3 py-3 flex-1 overflow-y-auto">
-            <ul className="space-y-1.5">
-              {menuItems.map((item) => {
-                const Icon = item.icon;
-                return (
-                  <li key={item.path}>
-                    <NavLink
-                      to={item.path}
-                      onClick={onClose}
-                      className={({ isActive }) =>
-                        [
-                          'flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-colors',
-                          isActive
-                            ? 'bg-slate-800 text-slate-50 border border-slate-700'
-                            : 'text-slate-300 hover:bg-slate-900 hover:text-slate-50 border border-transparent hover:border-slate-800',
-                        ].join(' ')
-                      }
-                    >
-                      <Icon className="w-4 h-4 flex-shrink-0" />
-                      <span className="truncate">{item.label}</span>
-                    </NavLink>
-                  </li>
-                );
-              })}
-            </ul>
+          {/* User Profile Card (Top) */}
+          <div className="px-5 py-6 border-b border-slate-800">
+            <div className="flex items-center gap-3">
+              <div className="w-12 h-12 rounded-full bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center text-white font-bold text-sm shadow-lg ring-2 ring-slate-800">
+                {initials}
+              </div>
+              <div className="min-w-0">
+                <p className="text-white font-semibold truncate text-base">{displayName}</p>
+                <p className="text-xs text-slate-400 truncate capitalize">
+                  {profile?.user_role?.replace('_', ' ') || 'Team Member'}
+                </p>
+              </div>
+            </div>
+          </div>
+
+          {/* Navigation Links */}
+          <nav className="flex-1 overflow-y-auto py-6 px-3 space-y-1">
+            {menuItems.map((item) => {
+              const Icon = item.icon;
+              return (
+                <NavLink
+                  key={item.path}
+                  to={item.path}
+                  onClick={onClose}
+                  className={({ isActive }) =>
+                    `flex items-center gap-3 px-4 py-3.5 rounded-xl text-sm font-medium transition-all duration-200 ${
+                      isActive
+                        ? 'bg-blue-600 text-white shadow-md shadow-blue-900/20'
+                        : 'text-slate-400 hover:bg-slate-900 hover:text-slate-200'
+                    }`
+                  }
+                >
+                  <Icon className="w-5 h-5 flex-shrink-0" />
+                  <span>{item.label}</span>
+                </NavLink>
+              );
+            })}
           </nav>
 
-          {/* Footer hint */}
-          <div className="px-4 py-3 border-t border-slate-800/80 text-[11px] text-slate-500">
-            Optimized for mobile reps. Swipe from the left edge or tap the menu icon to open.
+          {/* Footer Actions */}
+          <div className="p-4 border-t border-slate-800 bg-slate-900/30">
+            <button
+              onClick={() => {
+                signOut();
+                onClose();
+              }}
+              className="flex items-center gap-3 w-full px-4 py-3 rounded-xl text-sm font-medium text-rose-400 hover:bg-rose-950/30 hover:text-rose-300 transition-colors"
+            >
+              <LogOut className="w-5 h-5" />
+              Sign Out
+            </button>
           </div>
+
         </div>
       </div>
     </div>
