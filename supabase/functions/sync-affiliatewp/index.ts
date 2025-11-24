@@ -95,16 +95,23 @@ Deno.serve(async (req: Request) => {
 
     // Calculate visit estimates for each affiliate
     // Since AffiliateWP doesn't provide daily visit breakdowns, we estimate based on referral patterns
+    const today = new Date().toISOString().split("T")[0];
+
     for (const affiliate of affiliates) {
       const totalVisits = affiliate.visits || 0;
       const totalReferrals = affiliate.referrals || 0;
+
+      // Debug log for affiliate 58
+      if (affiliate.affiliate_id === 58) {
+        console.log(`Affiliate 58 - visits from API: ${affiliate.visits}, referrals: ${affiliate.referrals}`);
+      }
 
       // Calculate average conversion rate for this affiliate
       const conversionRate = totalReferrals > 0 && totalVisits > 0 ? totalReferrals / totalVisits : 0.02; // Default 2% if unknown
 
       // For each date with referrals, estimate visits based on referrals and conversion rate
       for (const [key, metrics] of metricsMap.entries()) {
-        if (key.startsWith(`${affiliate.affiliate_id}_`)) {
+        if (key.startsWith(`${affiliate.affiliate_id}_`) && !key.endsWith(`_${today}`)) {
           if (metrics.referrals > 0 && conversionRate > 0) {
             // Estimate visits: referrals / conversion rate
             const estimatedVisits = Math.round(metrics.referrals / conversionRate);
@@ -116,8 +123,7 @@ Deno.serve(async (req: Request) => {
         }
       }
 
-      // Also ensure today has the current total visits recorded
-      const today = new Date().toISOString().split("T")[0];
+      // Always set today's total visits from AffiliateWP (this is cumulative lifetime visits)
       const todayKey = `${affiliate.affiliate_id}_${today}`;
       if (!metricsMap.has(todayKey)) {
         metricsMap.set(todayKey, {
@@ -127,7 +133,7 @@ Deno.serve(async (req: Request) => {
           unpaid_earnings: parseFloat(affiliate.unpaid_earnings) || 0
         });
       } else {
-        // Update today's entry with actual visit count
+        // Always override with actual total visit count from AffiliateWP
         const todayMetrics = metricsMap.get(todayKey)!;
         todayMetrics.visits = totalVisits;
       }
