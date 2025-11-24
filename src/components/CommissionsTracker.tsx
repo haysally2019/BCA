@@ -1,501 +1,315 @@
-import React, { useEffect, useMemo, useState } from "react";
-import {
-  DollarSign,
-  TrendingUp,
-  CheckCircle,
-  Clock,
-  AlertCircle,
-  Target,
-  Users,
-  Calendar,
-} from "lucide-react";
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
-import { useDataStore } from "../store/dataStore";
-import { useAuthStore } from "../store/authStore";
-import LoadingSpinner from "./LoadingSpinner";
-import toast from "react-hot-toast";
+import React, { useEffect, useState, useCallback, useMemo } from 'react';
+import { 
+  DollarSign, 
+  Clock, 
+  CheckCircle2, 
+  XCircle, 
+  TrendingUp, 
+  Search, 
+  Filter, 
+  Download,
+  RefreshCw,
+  AlertCircle
+} from 'lucide-react';
+import { useSupabase } from '../context/SupabaseProvider';
+import { useAuthStore } from '../store/authStore';
+import toast from 'react-hot-toast';
 
-type Period = "current_quarter" | "last_quarter" | "year";
-type StatusFilter = "all" | "pending" | "approved" | "paid";
-
-interface MonthlyDataPoint {
-  month: string;
-  commissions: number;
-  deals: number;
-}
-
-interface CommissionLike {
-  id: string | number;
-  status?: string;
-  amount?: number;
-  earnings?: number;
-  created_at?: string;
-  date?: string;
-  description?: string;
-  order_id?: string | number;
-  deal_id?: string | number | null;
-  deal?: { title?: string } | null;
-  rep?: { id?: string | number; company_name?: string } | null;
-}
-
-interface CommissionTotals {
-  totalCommissions: number;
-  paidCommissions: number;
-  pendingCommissions: number;
-  approvedCommissions: number;
-  totalDeals: number;
-  avgCommission: number;
-}
-
-const getQuarterRange = (period: Period) => {
-  const now = new Date();
-  const currentQuarter = Math.floor(now.getMonth() / 3) + 1;
-
-  let start: Date;
-  let end: Date;
-
-  if (period === "current_quarter") {
-    start = new Date(now.getFullYear(), (currentQuarter - 1) * 3, 1);
-    end = new Date(now.getFullYear(), currentQuarter * 3, 0);
-  } else if (period === "last_quarter") {
-    const lastQuarter = currentQuarter === 1 ? 4 : currentQuarter - 1;
-    const year = currentQuarter === 1 ? now.getFullYear() - 1 : now.getFullYear();
-    start = new Date(year, (lastQuarter - 1) * 3, 1);
-    end = new Date(year, lastQuarter * 3, 0);
-  } else {
-    start = new Date(now.getFullYear(), 0, 1);
-    end = new Date(now.getFullYear(), 11, 31);
-  }
-
-  return { start, end };
+// Types matching your database structure
+type Referral = {
+  affiliate_id: number;
+  referral_id: string;
+  status: 'paid' | 'unpaid' | 'pending' | 'rejected';
+  amount: number;
+  currency: string;
+  description: string | null;
+  date: string;
+  created_at: string;
 };
 
 const CommissionsTracker: React.FC = () => {
-  const { profile } = useAuthStore();
-  const {
-    commissions,
-    affiliateCommissions,
-    commissionsLoading: loading,
-    loadCommissionsData,
-  } = useDataStore();
+  const { supabase } = useSupabase();
+  const { profile, refreshProfile } = useAuthStore();
+  
+  const [loading, setLoading] = useState(true);
+  const [syncing, setSyncing] = useState(false);
+  const [referrals, setReferrals] = useState<Referral[]>([]);
+  const [filterStatus, setFilterStatus] = useState<string>('all');
+  const [searchQuery, setSearchQuery] = useState('');
 
-  const [filterPeriod, setFilterPeriod] = useState<Period>("current_quarter");
-  const [filterStatus, setFilterStatus] = useState<StatusFilter>("all");
-  const [syncingMetrics, setSyncingMetrics] = useState(false);
-  const [processingPayout, setProcessingPayout] = useState(false);
-  const [selectedPayoutReps, setSelectedPayoutReps] = useState<string[]>([]);
-  const [totalRevenue, setTotalRevenue] = useState(0);
-
-  // 🔒 Always use safe arrays to avoid .filter on undefined
-  const safeAffiliateCommissions: CommissionLike[] = Array.isArray(affiliateCommissions)
-    ? affiliateCommissions
-    : [];
-
-  const safeCommissions: CommissionLike[] = Array.isArray(commissions)
-    ? commissions
-    : [];
-
-  // Initial load
-  useEffect(() => {
-    if (profile?.id) {
-      loadCommissionsData(profile.id).catch((err) => {
-        console.error("[CommissionsTracker] load error", err);
-      });
+  // ---------------------------------------------------------
+  // 1. LOAD DATA
+  // ---------------------------------------------------------
+  const loadCommissions = useCallback(async () => {
+    if (!profile?.affiliatewp_id && !isManager(profile?.user_role)) {
+      setLoading(false);
+      return;
     }
-  }, [profile?.id, loadCommissionsData]);
-
-  // Refresh commission data from internal CRM
-  const syncAffiliateMetrics = async () => {
-    setSyncingMetrics(true);
-    const toastId = toast.loading("Refreshing commission data...");
 
     try {
-      if (profile?.id) {
-        await loadCommissionsData(profile.id);
+      setLoading(true);
+      
+      let query = supabase
+        .from('affiliate_referrals')
+        .select('*')
+        .order('date', { ascending: false });
+
+      // If not a manager, restrict to own data
+      if (!isManager(profile?.user_role)) {
+        query = query.eq('affiliate_id', profile?.affiliatewp_id);
       }
 
-      toast.success("Commission data refreshed", { id: toastId });
-    } catch (err) {
-      console.error("[CommissionsTracker] refresh error", err);
-      toast.error("Failed to refresh commission data", { id: toastId });
+      const { data, error } = await query;
+
+      if (error) throw error;
+      setReferrals(data || []);
+
+    } catch (err: any) {
+      console.error('Error loading commissions:', err);
+      toast.error('Failed to load commission data');
     } finally {
-      setSyncingMetrics(false);
+      setLoading(false);
+    }
+  }, [supabase, profile]);
+
+  // ---------------------------------------------------------
+  // 2. SYNC ACTION (Triggers Edge Function)
+  // ---------------------------------------------------------
+  const handleSync = async () => {
+    try {
+      setSyncing(true);
+      const { error } = await supabase.functions.invoke('sync-affiliatewp');
+      if (error) throw error;
+      
+      await refreshProfile(); // Update header stats if any
+      await loadCommissions(); // Reload table
+      toast.success('Commissions synced successfully');
+    } catch (err) {
+      console.error('Sync failed:', err);
+      toast.error('Sync failed. Please try again.');
+    } finally {
+      setSyncing(false);
     }
   };
 
-  // Filter by time period
-  const filteredByPeriod: CommissionLike[] = useMemo(() => {
-    const { start, end } = getQuarterRange(filterPeriod);
-
-    const base = safeCommissions.length ? safeCommissions : safeAffiliateCommissions;
-    if (!base.length) return [];
-
-    return base.filter((commission) => {
-      const raw = commission.created_at || commission.date;
-      if (!raw) return false;
-      const d = new Date(raw);
-      if (Number.isNaN(d.getTime())) return false;
-      return d >= start && d <= end;
-    });
-  }, [filterPeriod, safeCommissions, safeAffiliateCommissions]);
-
-  // Compute totals safely
-  const totals: CommissionTotals = useMemo(() => {
-    if (!filteredByPeriod.length) {
-      return {
-        totalCommissions: 0,
-        paidCommissions: 0,
-        pendingCommissions: 0,
-        approvedCommissions: 0,
-        totalDeals: 0,
-        avgCommission: 0,
-      };
-    }
-
-    let totalCommissions = 0;
-    let paidCommissions = 0;
-    let pendingCommissions = 0;
-    let approvedCommissions = 0;
-    let totalDeals = 0;
-
-    for (const commission of filteredByPeriod) {
-      const amount = Number(commission.amount ?? commission.earnings ?? 0) || 0;
-      const status = (commission.status || "").toLowerCase();
-
-      totalCommissions += amount;
-      if (status === "paid") paidCommissions += amount;
-      if (status === "pending") pendingCommissions += amount;
-      if (status === "approved") approvedCommissions += amount;
-
-      if (commission.deal_id || commission.deal) {
-        totalDeals += 1;
-      }
-    }
-
-    return {
-      totalCommissions,
-      paidCommissions,
-      pendingCommissions,
-      approvedCommissions,
-      totalDeals,
-      avgCommission: totalDeals ? totalCommissions / totalDeals : 0,
-    };
-  }, [filteredByPeriod]);
-
-  // Monthly chart data (last 6 months)
-  const monthlyData: MonthlyDataPoint[] = useMemo(() => {
-    const map = new Map<string, { commissions: number; deals: number }>();
-
-    filteredByPeriod.forEach((commission) => {
-      const raw = commission.created_at || commission.date;
-      if (!raw) return;
-      const d = new Date(raw);
-      if (Number.isNaN(d.getTime())) return;
-      const monthKey = d.toLocaleDateString("en-US", { month: "short" });
-
-      const amount = Number(commission.amount ?? commission.earnings ?? 0) || 0;
-
-      const current = map.get(monthKey) || { commissions: 0, deals: 0 };
-      current.commissions += amount;
-      if (commission.deal_id || commission.deal) current.deals += 1;
-      map.set(monthKey, current);
-    });
-
-    const result: MonthlyDataPoint[] = [];
-    const now = new Date();
-
-    for (let i = 5; i >= 0; i--) {
-      const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
-      const key = d.toLocaleDateString("en-US", { month: "short" });
-      const data = map.get(key) || { commissions: 0, deals: 0 };
-      result.push({
-        month: key,
-        commissions: Math.round(data.commissions),
-        deals: data.deals,
-      });
-    }
-
-    return result;
-  }, [filteredByPeriod]);
-
-  // Status filter on top of period
-  const filteredCommissions: CommissionLike[] = useMemo(() => {
-    return filteredByPeriod.filter((commission) => {
-      const status = (commission.status || "").toLowerCase();
-      if (filterStatus === "all") return true;
-      return status === filterStatus;
-    });
-  }, [filteredByPeriod, filterStatus]);
-
-  // Revenue from currently filtered list
+  // Initial Load
   useEffect(() => {
-    const total = filteredCommissions.reduce((sum, commission) => {
-      const amount = Number(commission.amount ?? commission.earnings ?? 0) || 0;
-      return sum + amount;
-    }, 0);
-    setTotalRevenue(total);
-  }, [filteredCommissions]);
+    loadCommissions();
+  }, [loadCommissions]);
 
-  if (loading) {
-    return (
-      <LoadingSpinner
-        size="lg"
-        text="Loading commissions..."
-        className="h-64"
-      />
-    );
-  }
+  // ---------------------------------------------------------
+  // 3. CALCULATE METRICS (Live from list)
+  // ---------------------------------------------------------
+  const stats = useMemo(() => {
+    let paid = 0;
+    let pending = 0;
+    let rejected = 0;
+    let totalCount = 0;
+
+    referrals.forEach(r => {
+      if (r.status === 'paid') {
+        paid += r.amount;
+      } else if (r.status === 'unpaid' || r.status === 'pending') {
+        pending += r.amount;
+      } else if (r.status === 'rejected') {
+        rejected += r.amount;
+      }
+      totalCount++;
+    });
+
+    return { paid, pending, rejected, totalCount };
+  }, [referrals]);
+
+  // ---------------------------------------------------------
+  // 4. FILTER LOGIC
+  // ---------------------------------------------------------
+  const filteredReferrals = useMemo(() => {
+    return referrals.filter(r => {
+      const matchesSearch = 
+        (r.description?.toLowerCase().includes(searchQuery.toLowerCase()) || false) ||
+        r.referral_id.toString().includes(searchQuery);
+      
+      const matchesStatus = filterStatus === 'all' || r.status === filterStatus;
+
+      return matchesSearch && matchesStatus;
+    });
+  }, [referrals, searchQuery, filterStatus]);
+
+  // ---------------------------------------------------------
+  // HELPERS
+  // ---------------------------------------------------------
+  const fmtMoney = (val: number) => 
+    val.toLocaleString('en-US', { style: 'currency', currency: 'USD' });
+
+  const getStatusBadge = (status: string) => {
+    switch (status) {
+      case 'paid':
+        return (
+          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-emerald-100 text-emerald-800 border border-emerald-200">
+            <CheckCircle2 className="w-3 h-3 mr-1" /> Paid
+          </span>
+        );
+      case 'pending':
+      case 'unpaid':
+        return (
+          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-amber-100 text-amber-800 border border-amber-200">
+            <Clock className="w-3 h-3 mr-1" /> Pending
+          </span>
+        );
+      case 'rejected':
+        return (
+          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800 border border-red-200">
+            <XCircle className="w-3 h-3 mr-1" /> Rejected
+          </span>
+        );
+      default:
+        return <span className="capitalize text-gray-500">{status}</span>;
+    }
+  };
 
   return (
-    <div className="space-y-4 md:space-y-6">
+    <div className="space-y-6 max-w-[1600px] mx-auto">
+      
       {/* HEADER */}
-      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3 md:gap-4">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl md:text-3xl font-bold text-gray-900 flex items-center gap-2">
-            Commissions & Affiliate Performance
-          </h1>
-          <p className="text-gray-600 mt-1 text-sm md:text-base">
-            Track and manage all commission data from your internal CRM.
-          </p>
+          <h1 className="text-2xl font-bold text-slate-900">Commissions</h1>
+          <p className="text-slate-500 mt-1">Track your earnings, payouts, and referral status.</p>
         </div>
-
-        <div className="flex flex-wrap gap-2">
-          <button
-            onClick={syncAffiliateMetrics}
-            disabled={syncingMetrics}
-            className="inline-flex items-center gap-2 px-3 py-2 text-sm font-medium border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50"
+        <div className="flex items-center gap-3">
+          <button 
+            onClick={handleSync}
+            disabled={syncing}
+            className="inline-flex items-center px-4 py-2 bg-white border border-slate-200 rounded-lg text-sm font-medium text-slate-700 hover:bg-slate-50 hover:border-slate-300 transition shadow-sm disabled:opacity-70"
           >
-            <TrendingUp className="w-4 h-4" />
-            {syncingMetrics ? "Refreshing..." : "Refresh Data"}
+            <RefreshCw className={`w-4 h-4 mr-2 ${syncing ? 'animate-spin' : ''}`} />
+            {syncing ? 'Syncing...' : 'Sync Data'}
+          </button>
+          <button className="inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 shadow-sm shadow-blue-200 transition">
+            <Download className="w-4 h-4 mr-2" /> Export
           </button>
         </div>
       </div>
 
-      {/* KPI CARDS */}
-      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-2.5 md:gap-3">
-        <div className="bg-white border rounded-lg p-2.5 md:p-3 shadow-sm">
-          <div className="flex items-center justify-between">
-            <span className="text-[10px] md:text-xs text-gray-500">Total Commissions</span>
-            <DollarSign className="w-3.5 h-3.5 md:w-4 md:h-4 text-green-500" />
-          </div>
-          <div className="mt-1.5 md:mt-2 text-lg md:text-xl font-bold">
-            ${totals.totalCommissions.toFixed(2)}
-          </div>
-        </div>
-
-        <div className="bg-white border rounded-lg p-2.5 md:p-3 shadow-sm">
-          <div className="flex items-center justify-between">
-            <span className="text-[10px] md:text-xs text-gray-500">Paid Out</span>
-            <CheckCircle className="w-3.5 h-3.5 md:w-4 md:h-4 text-emerald-500" />
-          </div>
-          <div className="mt-1.5 md:mt-2 text-lg md:text-xl font-bold text-emerald-700">
-            ${totals.paidCommissions.toFixed(2)}
-          </div>
-        </div>
-
-        <div className="bg-white border rounded-lg p-2.5 md:p-3 shadow-sm">
-          <div className="flex items-center justify-between">
-            <span className="text-[10px] md:text-xs text-gray-500">Pending</span>
-            <Clock className="w-3.5 h-3.5 md:w-4 md:h-4 text-amber-500" />
-          </div>
-          <div className="mt-1.5 md:mt-2 text-lg md:text-xl font-bold text-amber-700">
-            ${totals.pendingCommissions.toFixed(2)}
-          </div>
-        </div>
-
-        <div className="bg-white border rounded-lg p-2.5 md:p-3 shadow-sm">
-          <div className="flex items-center justify-between">
-            <span className="text-[10px] md:text-xs text-gray-500">Approved</span>
-            <AlertCircle className="w-3.5 h-3.5 md:w-4 md:h-4 text-blue-500" />
-          </div>
-          <div className="mt-1.5 md:mt-2 text-lg md:text-xl font-bold text-blue-700">
-            ${totals.approvedCommissions.toFixed(2)}
-          </div>
-        </div>
-
-        <div className="bg-white border rounded-lg p-2.5 md:p-3 shadow-sm">
-          <div className="flex items-center justify-between">
-            <span className="text-[10px] md:text-xs text-gray-500">Total Deals</span>
-            <Target className="w-3.5 h-3.5 md:w-4 md:h-4 text-purple-500" />
-          </div>
-          <div className="mt-1.5 md:mt-2 text-lg md:text-xl font-bold text-purple-700">
-            {totals.totalDeals}
-          </div>
-        </div>
-
-        <div className="bg-white border rounded-lg p-2.5 md:p-3 shadow-sm">
-          <div className="flex items-center justify-between">
-            <span className="text-[10px] md:text-xs text-gray-500">Avg Commission</span>
-            <Users className="w-3.5 h-3.5 md:w-4 md:h-4 text-gray-500" />
-          </div>
-          <div className="mt-1.5 md:mt-2 text-lg md:text-xl font-bold text-gray-800">
-            ${totals.avgCommission.toFixed(2)}
-          </div>
-        </div>
+      {/* STATS TILES */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <StatsCard 
+          title="Total Earnings" 
+          value={fmtMoney(stats.paid)} 
+          icon={DollarSign} 
+          color="emerald"
+          sub="Paid out to date"
+        />
+        <StatsCard 
+          title="Pending Payout" 
+          value={fmtMoney(stats.pending)} 
+          icon={Clock} 
+          color="amber"
+          sub="Awaiting clearance"
+        />
+        <StatsCard 
+          title="Rejected / Void" 
+          value={fmtMoney(stats.rejected)} 
+          icon={XCircle} 
+          color="red"
+          sub="Cancelled referrals"
+        />
+        <StatsCard 
+          title="Total Sales" 
+          value={stats.totalCount.toString()} 
+          icon={TrendingUp} 
+          color="blue"
+          sub="All time referrals"
+        />
       </div>
 
-      {/* CHART + FILTERS */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-3 md:gap-4">
-        <div className="lg:col-span-2 bg-white border rounded-lg p-4 shadow-sm">
-          <div className="flex items-center justify-between mb-3">
-            <div>
-              <h2 className="text-sm font-semibold text-gray-800">
-                Commissions & Deals (Last 6 Months)
-              </h2>
-              <p className="text-xs text-gray-500">
-                Aggregated from internal CRM commission data.
-              </p>
+      {/* FILTERS & TABLE */}
+      <div className="bg-white border border-slate-200 rounded-xl shadow-sm overflow-hidden">
+        {/* Toolbar */}
+        <div className="p-4 border-b border-slate-200 bg-slate-50/50 flex flex-col sm:flex-row gap-4 justify-between items-center">
+          <div className="relative w-full sm:w-72">
+            <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+              <Search className="h-4 w-4 text-slate-400" />
             </div>
-            <div className="flex items-center gap-2 text-xs">
-              <span className="flex items-center gap-1">
-                <span className="w-2 h-2 rounded-full bg-green-500" />
-                Commissions
-              </span>
-              <span className="flex items-center gap-1">
-                <span className="w-2 h-2 rounded-full bg-blue-500" />
-                Deals
-              </span>
-            </div>
+            <input
+              type="text"
+              placeholder="Search commissions..."
+              className="block w-full pl-10 pr-3 py-2 border border-slate-200 rounded-lg text-sm placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+            />
           </div>
 
-          <div className="h-48 md:h-64">
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={monthlyData}>
-                <CartesianGrid strokeDasharray="3 3" vertical={false} />
-                <XAxis dataKey="month" fontSize={11} />
-                <YAxis
-                  yAxisId="left"
-                  fontSize={11}
-                  tickFormatter={(val) => `$${val}`}
-                />
-                <YAxis
-                  yAxisId="right"
-                  orientation="right"
-                  fontSize={11}
-                  tickFormatter={(val) => `${val}`}
-                />
-                <Tooltip
-                  formatter={(value: any, name: any) =>
-                    name === "commissions"
-                      ? [`$${value}`, "Commissions"]
-                      : [value, "Deals"]
-                  }
-                />
-                <Bar
-                  yAxisId="left"
-                  dataKey="commissions"
-                  name="Commissions"
-                  radius={[4, 4, 0, 0]}
-                />
-                <Bar
-                  yAxisId="right"
-                  dataKey="deals"
-                  name="Deals"
-                  radius={[4, 4, 0, 0]}
-                />
-              </BarChart>
-            </ResponsiveContainer>
-          </div>
-        </div>
-
-        <div className="bg-white border rounded-lg p-4 shadow-sm space-y-3">
-          <div className="flex items-center justify-between">
-            <h2 className="text-sm font-semibold text-gray-800">
-              Filters
-            </h2>
-            <Calendar className="w-4 h-4 text-gray-500" />
-          </div>
-
-          <select
-            value={filterPeriod}
-            onChange={(e) =>
-              setFilterPeriod(e.target.value as Period)
-            }
-            className="w-full border rounded-lg px-3 py-2 text-sm"
-          >
-            <option value="current_quarter">Current Quarter</option>
-            <option value="last_quarter">Last Quarter</option>
-            <option value="year">Year to Date</option>
-          </select>
-
-          <div className="mt-2">
-            <p className="text-xs text-gray-500 mb-2">
-              Filter commissions by status:
-            </p>
+          <div className="flex items-center gap-3 w-full sm:w-auto">
+            <Filter className="w-4 h-4 text-slate-400" />
             <select
               value={filterStatus}
-              onChange={(e) =>
-                setFilterStatus(e.target.value as StatusFilter)
-              }
-              className="w-full border rounded-lg px-3 py-2 text-sm"
+              onChange={(e) => setFilterStatus(e.target.value)}
+              className="block w-full sm:w-48 pl-3 pr-10 py-2 text-sm border border-slate-200 focus:outline-none focus:ring-blue-500 focus:border-blue-500 rounded-lg"
             >
               <option value="all">All Statuses</option>
-              <option value="pending">Pending</option>
-              <option value="approved">Approved</option>
               <option value="paid">Paid</option>
+              <option value="unpaid">Pending/Unpaid</option>
+              <option value="rejected">Rejected</option>
             </select>
           </div>
-
-          <div className="mt-4 p-3 rounded-lg bg-gray-50 border border-dashed border-gray-200 text-xs text-gray-600">
-            <p className="font-semibold mb-1">Total Revenue (Filtered)</p>
-            <p className="text-lg font-bold text-gray-900">
-              ${totalRevenue.toFixed(2)}
-            </p>
-            <p className="text-[11px] mt-1 text-gray-500">
-              Based on the commissions currently in view.
-            </p>
-          </div>
         </div>
-      </div>
 
-      {/* SIMPLE TABLE VIEW (no crashes) */}
-      <div className="bg-white border rounded-lg shadow-sm p-4">
-        <h2 className="text-sm font-semibold text-gray-800 mb-3">
-          Commission Records ({filteredCommissions.length})
-        </h2>
-
-        {filteredCommissions.length === 0 ? (
-          <p className="text-gray-500 text-sm py-4">
-            No commission records match this filter.
-          </p>
+        {/* Table Content */}
+        {loading ? (
+          <div className="py-20 text-center">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-4"></div>
+            <p className="text-slate-500">Loading commission data...</p>
+          </div>
+        ) : filteredReferrals.length === 0 ? (
+          <div className="py-20 text-center text-slate-500">
+            <AlertCircle className="w-12 h-12 mx-auto mb-3 text-slate-300" />
+            <p>No commissions found matching your filters.</p>
+          </div>
         ) : (
           <div className="overflow-x-auto">
-            <table className="min-w-full text-xs sm:text-sm">
-              <thead className="bg-gray-50 border-b">
+            <table className="min-w-full divide-y divide-slate-200">
+              <thead className="bg-slate-50">
                 <tr>
-                  <th className="px-3 py-2 text-left">Date</th>
-                  <th className="px-3 py-2 text-left">Description</th>
-                  <th className="px-3 py-2 text-right">Amount</th>
-                  <th className="px-3 py-2 text-left">Status</th>
+                  <th className="px-6 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">
+                    Referral ID
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">
+                    Date
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">
+                    Description
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">
+                    Status
+                  </th>
+                  <th className="px-6 py-3 text-right text-xs font-semibold text-slate-500 uppercase tracking-wider">
+                    Amount
+                  </th>
                 </tr>
               </thead>
-              <tbody>
-                {filteredCommissions.map((c) => {
-                  const id = String(c.id ?? `${c.description}-${c.order_id}-${c.created_at}`);
-                  const rawDate = c.created_at || c.date;
-                  const d = rawDate ? new Date(rawDate) : null;
-
-                  return (
-                    <tr key={id} className="border-b last:border-0">
-                      <td className="px-3 py-2">
-                        {d && !Number.isNaN(d.getTime())
-                          ? d.toLocaleDateString()
-                          : "-"}
-                      </td>
-                      <td className="px-3 py-2">
-                        {c.description || "Commission"}
-                      </td>
-                      <td className="px-3 py-2 text-right font-semibold">
-                        ${Number(c.amount ?? c.earnings ?? 0).toFixed(2)}
-                      </td>
-                      <td className="px-3 py-2">
-                        <span className="inline-flex px-2 py-1 rounded-full text-[11px] bg-gray-100 text-gray-700">
-                          {(c.status || "pending").toString()}
-                        </span>
-                      </td>
-                    </tr>
-                  );
-                })}
+              <tbody className="bg-white divide-y divide-slate-200">
+                {filteredReferrals.map((item) => (
+                  <tr key={item.referral_id} className="hover:bg-slate-50 transition-colors">
+                    <td className="px-6 py-4 whitespace-nowrap text-sm font-mono text-slate-600">
+                      #{item.referral_id}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-600">
+                      {new Date(item.date).toLocaleDateString()}
+                    </td>
+                    <td className="px-6 py-4 text-sm text-slate-900 font-medium">
+                      {item.description || 'Commission'}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      {getStatusBadge(item.status)}
+                    </td>
+                    <td className={`px-6 py-4 whitespace-nowrap text-sm text-right font-bold ${
+                      item.status === 'rejected' ? 'text-slate-400 line-through decoration-slate-400' : 'text-slate-900'
+                    }`}>
+                      {fmtMoney(item.amount)}
+                    </td>
+                  </tr>
+                ))}
               </tbody>
             </table>
           </div>
@@ -503,6 +317,36 @@ const CommissionsTracker: React.FC = () => {
       </div>
     </div>
   );
+};
+
+// Helper Component for the Top Cards
+const StatsCard = ({ title, value, icon: Icon, color, sub }: any) => {
+  const colorStyles = {
+    blue: "bg-blue-50 text-blue-600",
+    emerald: "bg-emerald-50 text-emerald-600",
+    amber: "bg-amber-50 text-amber-600",
+    red: "bg-red-50 text-red-600",
+  };
+
+  return (
+    <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm">
+      <div className="flex items-center justify-between mb-4">
+        <div className={`p-2.5 rounded-lg ${colorStyles[color as keyof typeof colorStyles]}`}>
+          <Icon className="w-5 h-5" />
+        </div>
+      </div>
+      <div>
+        <h3 className="text-2xl font-bold text-slate-900">{value}</h3>
+        <p className="text-sm font-medium text-slate-500">{title}</p>
+        {sub && <p className="text-xs text-slate-400 mt-1">{sub}</p>}
+      </div>
+    </div>
+  );
+};
+
+// Simple role check helper
+const isManager = (role?: string) => {
+  return ['admin', 'manager', 'owner'].includes(role?.toLowerCase() || '');
 };
 
 export default CommissionsTracker;
