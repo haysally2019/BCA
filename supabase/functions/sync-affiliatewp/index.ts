@@ -82,15 +82,11 @@ Deno.serve(async (req: Request) => {
       const date = referral.date ? new Date(referral.date).toISOString().split("T")[0] : new Date().toISOString().split("T")[0];
       const key = `${referral.affiliate_id}_${date}`;
       const current = metricsMap.get(key) || { visits: 0, referrals: 0, earnings: 0, unpaid_earnings: 0 };
-
-      // Only count referrals that aren't rejected
-      if (referral.status !== "rejected") {
-        current.referrals += 1;
-        const amount = parseFloat(referral.amount) || 0;
-        current.earnings += amount;
-        if (referral.status === "unpaid" || referral.status === "pending") {
-          current.unpaid_earnings += amount;
-        }
+      current.referrals += 1;
+      const amount = parseFloat(referral.amount) || 0;
+      current.earnings += amount;
+      if (referral.status === "unpaid" || referral.status === "pending") {
+        current.unpaid_earnings += amount;
       }
       metricsMap.set(key, current);
     }
