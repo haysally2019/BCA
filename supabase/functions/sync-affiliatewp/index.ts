@@ -93,41 +93,43 @@ Deno.serve(async (req: Request) => {
       metricsMap.set(key, current);
     }
 
-    // Fetch visit statistics for each affiliate
+    // Calculate visit estimates for each affiliate
+    // Since AffiliateWP doesn't provide daily visit breakdowns, we estimate based on referral patterns
     for (const affiliate of affiliates) {
-      try {
-        const stats: any = await fetchFromAffiliateWP(wpUrl, consumerKey, consumerSecret, `affiliates/${affiliate.affiliate_id}/stats`, { range: 30 });
+      const totalVisits = affiliate.visits || 0;
+      const totalReferrals = affiliate.referrals || 0;
 
-        // Process daily visit stats if available
-        if (stats && stats.visits_by_date) {
-          for (const [dateStr, visitCount] of Object.entries(stats.visits_by_date)) {
-            const key = `${affiliate.affiliate_id}_${dateStr}`;
-            const current = metricsMap.get(key) || { visits: 0, referrals: 0, earnings: 0, unpaid_earnings: 0 };
-            current.visits = typeof visitCount === 'number' ? visitCount : parseInt(String(visitCount)) || 0;
-            metricsMap.set(key, current);
+      // Calculate average conversion rate for this affiliate
+      const conversionRate = totalReferrals > 0 && totalVisits > 0 ? totalReferrals / totalVisits : 0.02; // Default 2% if unknown
+
+      // For each date with referrals, estimate visits based on referrals and conversion rate
+      for (const [key, metrics] of metricsMap.entries()) {
+        if (key.startsWith(`${affiliate.affiliate_id}_`)) {
+          if (metrics.referrals > 0 && conversionRate > 0) {
+            // Estimate visits: referrals / conversion rate
+            const estimatedVisits = Math.round(metrics.referrals / conversionRate);
+            metrics.visits = estimatedVisits;
+          } else {
+            // No referrals on this date, estimate minimal traffic
+            metrics.visits = 0;
           }
-        } else {
-          // Fallback: use total visits for today if no detailed stats
-          const today = new Date().toISOString().split("T")[0];
-          const key = `${affiliate.affiliate_id}_${today}`;
-          const current = metricsMap.get(key) || { visits: 0, referrals: 0, earnings: 0, unpaid_earnings: 0 };
-          current.visits = affiliate.visits || 0;
-          if (!metricsMap.has(key)) {
-            current.unpaid_earnings = parseFloat(affiliate.unpaid_earnings) || 0;
-          }
-          metricsMap.set(key, current);
         }
-      } catch (e) {
-        console.error(`Failed to fetch stats for affiliate ${affiliate.affiliate_id}:`, e);
-        // Fallback: use total visits for today
-        const today = new Date().toISOString().split("T")[0];
-        const key = `${affiliate.affiliate_id}_${today}`;
-        const current = metricsMap.get(key) || { visits: 0, referrals: 0, earnings: 0, unpaid_earnings: 0 };
-        current.visits = affiliate.visits || 0;
-        if (!metricsMap.has(key)) {
-          current.unpaid_earnings = parseFloat(affiliate.unpaid_earnings) || 0;
-        }
-        metricsMap.set(key, current);
+      }
+
+      // Also ensure today has the current total visits recorded
+      const today = new Date().toISOString().split("T")[0];
+      const todayKey = `${affiliate.affiliate_id}_${today}`;
+      if (!metricsMap.has(todayKey)) {
+        metricsMap.set(todayKey, {
+          visits: totalVisits,
+          referrals: 0,
+          earnings: 0,
+          unpaid_earnings: parseFloat(affiliate.unpaid_earnings) || 0
+        });
+      } else {
+        // Update today's entry with actual visit count
+        const todayMetrics = metricsMap.get(todayKey)!;
+        todayMetrics.visits = totalVisits;
       }
     }
     for (const [key, metrics] of metricsMap.entries()) {
