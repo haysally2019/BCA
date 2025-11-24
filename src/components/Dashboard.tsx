@@ -212,6 +212,7 @@ const Dashboard: React.FC = () => {
       const since = toISODate(new Date(Date.now() - range * 86400000));
 
       if (isManager) {
+        // MANAGER VIEW: Still aggregates from daily metrics table
         const { data } = await supabase
           .from("affiliate_metrics_daily")
           .select("date, visits, referrals, earnings, unpaid_earnings")
@@ -245,6 +246,7 @@ const Dashboard: React.FC = () => {
         setSeries(rows);
         setLatest(rows[rows.length - 1] || null);
       } else {
+        // REP VIEW: Load chart data
         if (!affiliateId) {
           setSeries([]);
           setLatest(null);
@@ -295,18 +297,36 @@ const Dashboard: React.FC = () => {
     loadAll();
   }, [loadAll]);
 
+  // ---------------------------------------------------------
+  // FIXED: CALCULATE TOTALS
+  // Use Profile Data for Tiles (Accurate Lifetime Totals)
+  // Use Series Data for Graph (Trend)
+  // ---------------------------------------------------------
   const totals = useMemo(() => {
-    let visits = 0,
-      refs = 0,
-      earn = 0,
-      unpaid = 0;
+    if (isManager) {
+      // For managers, we still have to sum up the series because we don't have a single "Manager Profile" with all stats
+      // But for visits, we might rely on the series sum
+      let visits = 0, refs = 0, earn = 0, unpaid = 0;
+      series.forEach((r) => {
+        visits += r.visits || 0;
+        refs += r.referrals || 0;
+        earn += r.earnings || 0;
+        unpaid += r.unpaid_earnings || 0;
+      });
+      return { 
+        visits, 
+        refs, 
+        earn, 
+        unpaid, 
+        conv: visits ? (refs / visits) * 100 : 0 
+      };
+    }
 
-    series.forEach((r) => {
-      visits += r.visits || 0;
-      refs += r.referrals || 0;
-      earn += r.earnings || 0;
-      unpaid += r.unpaid_earnings || 0;
-    });
+    // FOR REPS: Use the accurate profile stats from the sync
+    const visits = profile?.affiliatewp_visits || 0;
+    const refs = profile?.affiliatewp_referrals || 0;
+    const earn = profile?.affiliatewp_earnings || 0;
+    const unpaid = profile?.affiliatewp_unpaid_earnings || 0;
 
     return {
       visits,
@@ -315,7 +335,7 @@ const Dashboard: React.FC = () => {
       unpaid,
       conv: visits ? (refs / visits) * 100 : 0,
     };
-  }, [series]);
+  }, [series, profile, isManager]);
 
   const getStatusColor = (s: string) => {
     const map: Record<string, string> = {
@@ -376,7 +396,11 @@ const Dashboard: React.FC = () => {
           </Select>
 
           <button
-            onClick={loadAll}
+            onClick={() => {
+              loadAll();
+              refreshProfile();
+              toast.success("Dashboard updated");
+            }}
             className="inline-flex items-center gap-2 px-4 py-2.5 bg-white border border-slate-200 text-slate-700 rounded-lg font-medium hover:bg-slate-50 hover:border-slate-300 transition shadow-sm"
           >
             <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
@@ -396,15 +420,15 @@ const Dashboard: React.FC = () => {
                   <p className="text-academy-blue-100 text-sm">Share this link to track referrals automatically.</p>
               </div>
               
-              {profile?.affiliate_url ? (
+              {profile?.affiliate_referral_url ? (
                 <div className="flex items-center gap-2 w-full md:w-auto bg-white/10 p-1.5 rounded-lg border border-white/10">
                     <code className="flex-1 md:flex-none text-sm px-3 py-1.5 font-mono text-academy-blue-100 truncate max-w-[300px] select-all">
-                        {profile.affiliate_url}
+                        {profile.affiliate_referral_url}
                     </code>
                     <div className="h-6 w-px bg-white/20 mx-1"></div>
                      <button
                         onClick={() => {
-                        navigator.clipboard.writeText(profile.affiliate_url || "");
+                        navigator.clipboard.writeText(profile.affiliate_referral_url || "");
                         toast.success("Copied to clipboard!");
                         }}
                         className="p-2 hover:bg-white/20 rounded-md transition text-white"
@@ -413,7 +437,7 @@ const Dashboard: React.FC = () => {
                         <Copy className="w-4 h-4" />
                     </button>
                      <a
-                        href={profile.affiliate_url}
+                        href={profile.affiliate_referral_url}
                         target="_blank"
                         rel="noopener noreferrer"
                         className="p-2 hover:bg-white/20 rounded-md transition text-white"
