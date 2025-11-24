@@ -8,34 +8,58 @@ const corsHeaders = {
 };
 
 async function fetchFromAffiliateWP(wpUrl: string, consumerKey: string, consumerSecret: string, endpoint: string, params: Record<string, unknown> = {}) {
-  const url = new URL(\`\${wpUrl}/wp-json/affwp/v2/\${endpoint}\`);
+  const url = new URL(`${wpUrl}/wp-json/affwp/v1/${endpoint}`);
   Object.entries(params).forEach(([key, value]) => {
     if (value !== undefined && value !== null) url.searchParams.append(key, String(value));
   });
   const response = await fetch(url.toString(), {
     method: "GET",
-    headers: { "Authorization": "Basic " + btoa(\`\${consumerKey}:\${consumerSecret}\`), "Content-Type": "application/json" },
+    headers: { "Authorization": "Basic " + btoa(`${consumerKey}:${consumerSecret}`), "Content-Type": "application/json" },
   });
-  if (!response.ok) throw new Error(\`AffiliateWP API Error: \${response.status}\`);
-  return response.json();
+  if (!response.ok) {
+    const text = await response.text();
+    throw new Error(`AffiliateWP API Error: ${response.status} - ${text}`);
+  }
+  const text = await response.text();
+  try {
+    return JSON.parse(text);
+  } catch (e) {
+    throw new Error(`Failed to parse AffiliateWP response: ${text.substring(0, 200)}`);
+  }
 }
 
 Deno.serve(async (req: Request) => {
   if (req.method === "OPTIONS") return new Response(null, { status: 200, headers: corsHeaders });
   try {
     const supabaseClient = createClient(Deno.env.get("SUPABASE_URL") ?? "", Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "");
-    const { data: settings, error: settingsError } = await supabaseClient.from("app_settings").select("setting_key, setting_value").in("setting_key", ["affiliatewp_url", "affiliatewp_consumer_key", "affiliatewp_consumer_secret"]);
-    if (settingsError) throw new Error(\`Failed to load settings: \${settingsError.message}\`);
-    const settingsMap = Object.fromEntries((settings || []).map((s: { setting_key: string; setting_value: string }) => [s.setting_key, s.setting_value]));
-    const wpUrl = settingsMap.affiliatewp_url;
-    const consumerKey = settingsMap.affiliatewp_consumer_key;
-    const consumerSecret = settingsMap.affiliatewp_consumer_secret;
+    const { data: settings, error: settingsError } = await supabaseClient.from("app_settings").select("key, value").in("key", ["affiliatewp_site_url", "affiliatewp_api_username", "affiliatewp_api_password"]);
+    if (settingsError) throw new Error(`Failed to load settings: ${settingsError.message}`);
+    const settingsMap = Object.fromEntries((settings || []).map((s: { key: string; value: string }) => [s.key, s.value]));
+    const wpUrl = settingsMap.affiliatewp_site_url?.replace(/\/$/, '');
+    const consumerKey = settingsMap.affiliatewp_api_username;
+    const consumerSecret = settingsMap.affiliatewp_api_password;
     if (!wpUrl || !consumerKey || !consumerSecret) throw new Error("AffiliateWP configuration is incomplete");
     const affiliates: any[] = await fetchFromAffiliateWP(wpUrl, consumerKey, consumerSecret, "affiliates", { number: 1000 });
     let updatedCount = 0;
     for (const affiliate of affiliates) {
+      let userEmail = affiliate.payment_email;
+      if (!userEmail && affiliate.user_id) {
+        try {
+          const wpUserUrl = new URL(`${wpUrl}/wp-json/wp/v2/users/${affiliate.user_id}`);
+          const userResponse = await fetch(wpUserUrl.toString(), {
+            headers: { "Authorization": "Basic " + btoa(`${consumerKey}:${consumerSecret}`) }
+          });
+          if (userResponse.ok) {
+            const userData = await userResponse.json();
+            userEmail = userData.email;
+          }
+        } catch (e) {
+          console.error(`Failed to fetch user ${affiliate.user_id}:`, e);
+        }
+      }
+      if (!userEmail) continue;
       const referralUrl = `${wpUrl}/?ref=${affiliate.affiliate_id}`;
-      const { error } = await supabaseClient.from("profiles").update({ affiliatewp_id: affiliate.affiliate_id, affiliate_url: referralUrl, unpaid_earnings: parseFloat(affiliate.unpaid_earnings) || 0, paid_lifetime_earnings: parseFloat(affiliate.paid_earnings) || 0, referral_count: affiliate.referrals || 0, last_affiliatewp_sync: new Date().toISOString() }).eq("email", affiliate.user_email);
+      const { error } = await supabaseClient.from("profiles").update({ affiliatewp_id: affiliate.affiliate_id, affiliate_url: referralUrl, unpaid_earnings: parseFloat(affiliate.unpaid_earnings) || 0, paid_lifetime_earnings: parseFloat(affiliate.paid_earnings) || 0, referral_count: affiliate.referrals || 0, last_affiliatewp_sync: new Date().toISOString() }).eq("email", userEmail);
       if (!error) updatedCount++;
     }
     const thirtyDaysAgo = new Date();
@@ -45,7 +69,11 @@ Deno.serve(async (req: Request) => {
     let referralsInserted = 0;
     for (const referral of referrals) {
       const { data: profileData } = await supabaseClient.from("profiles").select("user_id").eq("affiliatewp_id", referral.affiliate_id).maybeSingle();
-      const { error } = await supabaseClient.from("affiliate_referrals").upsert({ affiliatewp_referral_id: referral.referral_id, affiliate_id: referral.affiliate_id, profile_id: profileData?.user_id || null, amount: parseFloat(referral.amount) || 0, description: referral.description, reference: referral.reference, context: referral.context, status: referral.status, custom: referral.custom ? JSON.parse(referral.custom) : {}, date: referral.date, updated_at: new Date().toISOString() }, { onConflict: "affiliatewp_referral_id" });
+      let customData = {};
+      if (referral.custom) {
+        customData = typeof referral.custom === 'string' ? JSON.parse(referral.custom) : referral.custom;
+      }
+      const { error } = await supabaseClient.from("affiliate_referrals").upsert({ affiliatewp_referral_id: referral.referral_id, affiliate_id: referral.affiliate_id, profile_id: profileData?.user_id || null, amount: parseFloat(referral.amount) || 0, description: referral.description, reference: referral.reference, context: referral.context, status: referral.status, custom: customData, date: referral.date, updated_at: new Date().toISOString() }, { onConflict: "affiliatewp_referral_id" });
       if (!error) referralsInserted++;
     }
     await supabaseClient.from("affiliatewp_sync_log").insert({ sync_type: "full_sync", status: "completed", records_processed: affiliates.length + referrals.length, completed_at: new Date().toISOString(), metadata: { affiliates: affiliates.length, profiles_updated: updatedCount, referrals: referrals.length, referrals_inserted: referralsInserted } });
