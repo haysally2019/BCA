@@ -288,8 +288,9 @@ const Dashboard: React.FC = () => {
   }, [supabase, isManager, affiliateId]);
 
   const loadAll = useCallback(async () => {
+    await refreshProfile();
     await Promise.all([loadMetrics(), loadReferrals(), loadLeads()]);
-  }, [loadMetrics, loadReferrals, loadLeads]);
+  }, [loadMetrics, loadReferrals, loadLeads, refreshProfile]);
 
   useEffect(() => {
     loadAll();
@@ -504,7 +505,19 @@ const Dashboard: React.FC = () => {
           ) : series.length === 0 ? (
             <div className="flex flex-col items-center justify-center h-[300px] text-slate-400">
               <AlertCircle className="w-10 h-10 mb-3 opacity-50" />
-              <p>No earnings data for this period.</p>
+              {!isManager && !affiliateId ? (
+                <>
+                  <p className="mb-2">Your AffiliateWP account is being set up.</p>
+                  <button
+                    onClick={loadAll}
+                    className="text-sm text-academy-blue-600 hover:text-academy-blue-700 underline"
+                  >
+                    Click here to refresh
+                  </button>
+                </>
+              ) : (
+                <p>No earnings data for this period.</p>
+              )}
             </div>
           ) : (
             <div className="h-[300px] w-full">
