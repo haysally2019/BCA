@@ -15,17 +15,16 @@ import {
   Users,
   Target,
   Phone,
-  Mail,
-  ExternalLink,
-  ArrowUpRight,
-  AlertCircle,
-  CheckCircle2,
-  Clock,
   Plus,
   RefreshCw,
   ChevronRight,
   Copy,
   Link as LinkIcon,
+  ExternalLink,
+  ArrowUpRight,
+  AlertCircle,
+  CheckCircle2,
+  Clock,
 } from "lucide-react";
 import { useSupabase } from "../context/SupabaseProvider";
 import { useAuthStore } from "../store/authStore";
@@ -156,7 +155,7 @@ const fmtNum = (n: unknown) =>
 const fmtMoney = (n: unknown) =>
   typeof n === "number"
     ? n.toLocaleString(undefined, { style: "currency", currency: "USD" })
-    : "$0";
+    : "$0.00";
 
 const toISODate = (d: Date) => d.toISOString().slice(0, 10);
 
@@ -171,11 +170,11 @@ const Dashboard: React.FC = () => {
 
   const [range, setRange] = useState<7 | 30 | 90>(30);
   const [loading, setLoading] = useState(true);
+  const [syncing, setSyncing] = useState(false);
   const [leadsLoading, setLeadsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   const [series, setSeries] = useState<MetricsRow[]>([]);
-  const [latest, setLatest] = useState<MetricsRow | null>(null);
   const [referrals, setReferrals] = useState<ReferralRow[]>([]);
   const [recentLeads, setRecentLeads] = useState<Lead[]>([]);
 
@@ -183,8 +182,43 @@ const Dashboard: React.FC = () => {
   const isManager = rolesManager.has(role);
   const affiliateId = profile?.affiliatewp_id ?? null;
 
+  // ------------------------------------------------
+  // SYNC LOGIC: Fetch fresh data from WordPress
+  // ------------------------------------------------
+  const syncData = useCallback(async () => {
+    if (isManager || !affiliateId) return; // Managers see aggregate data, syncs are global
+    
+    try {
+      setSyncing(true);
+      console.log('Syncing AffiliateWP data...');
+      
+      // 1. Call the Edge Function to pull data from WordPress
+      const { error: syncError } = await supabase.functions.invoke('sync-affiliatewp');
+      
+      if (syncError) throw syncError;
+
+      // 2. Refresh the local profile to get the new totals (earnings, visits, etc.)
+      await refreshProfile();
+      
+      // 3. Reload the charts/lists
+      await loadAll();
+      
+      console.log('Sync complete.');
+    } catch (err) {
+      console.error('Sync failed:', err);
+      // Don't block UI on sync fail, just log it
+    } finally {
+      setSyncing(false);
+    }
+  }, [affiliateId, refreshProfile, supabase]);
+
+  // Initial Load
   useEffect(() => {
-    refreshProfile();
+    loadAll();
+    // Auto-sync on mount if we have an ID (ensures "0 visits" updates to "1" quickly)
+    if (profile?.affiliatewp_id) {
+      void syncData();
+    }
   }, []);
 
   // LOAD LEADS
@@ -203,7 +237,7 @@ const Dashboard: React.FC = () => {
     }
   }, [supabase]);
 
-  // LOAD METRICS
+  // LOAD METRICS (Graph Data)
   const loadMetrics = useCallback(async () => {
     try {
       setLoading(true);
@@ -212,7 +246,6 @@ const Dashboard: React.FC = () => {
       const since = toISODate(new Date(Date.now() - range * 86400000));
 
       if (isManager) {
-        // MANAGER VIEW: Still aggregates from daily metrics table
         const { data } = await supabase
           .from("affiliate_metrics_daily")
           .select("date, visits, referrals, earnings, unpaid_earnings")
@@ -244,12 +277,9 @@ const Dashboard: React.FC = () => {
         );
 
         setSeries(rows);
-        setLatest(rows[rows.length - 1] || null);
       } else {
-        // REP VIEW: Load chart data
         if (!affiliateId) {
           setSeries([]);
-          setLatest(null);
           return;
         }
 
@@ -261,12 +291,10 @@ const Dashboard: React.FC = () => {
           .order("date", { ascending: true });
 
         setSeries(data || []);
-        setLatest(data?.[data.length - 1] || null);
       }
     } catch (e: any) {
       setError(e.message);
       setSeries([]);
-      setLatest(null);
     } finally {
       setLoading(false);
     }
@@ -293,19 +321,9 @@ const Dashboard: React.FC = () => {
     await Promise.all([loadMetrics(), loadReferrals(), loadLeads()]);
   }, [loadMetrics, loadReferrals, loadLeads]);
 
-  useEffect(() => {
-    loadAll();
-  }, [loadAll]);
-
-  // ---------------------------------------------------------
-  // FIXED: CALCULATE TOTALS
-  // Use Profile Data for Tiles (Accurate Lifetime Totals)
-  // Use Series Data for Graph (Trend)
-  // ---------------------------------------------------------
+  // CALCULATE TOTALS (Prefer Profile Snapshot for Accuracy)
   const totals = useMemo(() => {
     if (isManager) {
-      // For managers, we still have to sum up the series because we don't have a single "Manager Profile" with all stats
-      // But for visits, we might rely on the series sum
       let visits = 0, refs = 0, earn = 0, unpaid = 0;
       series.forEach((r) => {
         visits += r.visits || 0;
@@ -322,32 +340,25 @@ const Dashboard: React.FC = () => {
       };
     }
 
-    // FOR REPS: Use the accurate profile stats from the sync
-    const visits = profile?.affiliatewp_visits || 0;
-    const refs = profile?.affiliatewp_referrals || 0;
-    const earn = profile?.affiliatewp_earnings || 0;
-    const unpaid = profile?.affiliatewp_unpaid_earnings || 0;
-
+    // Rep View: Read directly from profile snapshot to ensure "0" bug is fixed
+    // These fields are updated by the sync-affiliatewp function
     return {
-      visits,
-      refs,
-      earn,
-      unpaid,
-      conv: visits ? (refs / visits) * 100 : 0,
+      visits: profile?.affiliatewp_visits || 0,
+      refs: profile?.affiliatewp_referrals || 0,
+      earn: profile?.affiliatewp_earnings || 0,
+      unpaid: profile?.affiliatewp_unpaid_earnings || 0,
+      conv: (profile?.affiliatewp_visits || 0) > 0 
+        ? ((profile?.affiliatewp_referrals || 0) / (profile?.affiliatewp_visits || 1)) * 100 
+        : 0,
     };
   }, [series, profile, isManager]);
 
   const getStatusColor = (s: string) => {
     const map: Record<string, string> = {
-      new: "bg-academy-blue-50 text-academy-blue-700 border-academy-blue-200 ring-academy-blue-600/20",
-      contacted: "bg-amber-50 text-amber-700 border-amber-200 ring-amber-600/20",
-      qualified: "bg-purple-50 text-purple-700 border-purple-200 ring-purple-600/20",
-      proposal: "bg-indigo-50 text-indigo-700 border-indigo-200 ring-indigo-600/20",
-      negotiation: "bg-orange-50 text-orange-700 border-orange-200 ring-orange-600/20",
-      closed: "bg-emerald-50 text-emerald-700 border-emerald-200 ring-emerald-600/20",
-      paid: "bg-emerald-50 text-emerald-700 border-emerald-200 ring-emerald-600/20",
-      pending: "bg-amber-50 text-amber-700 border-amber-200 ring-amber-600/20",
-      unpaid: "bg-rose-50 text-rose-700 border-rose-200 ring-rose-600/20",
+      paid: "bg-emerald-50 text-emerald-700 border-emerald-200",
+      unpaid: "bg-rose-50 text-rose-700 border-rose-200",
+      pending: "bg-amber-50 text-amber-700 border-amber-200",
+      rejected: "bg-slate-100 text-slate-600 border-slate-200",
     };
     return map[s] || "bg-slate-50 text-slate-700 border-slate-200";
   };
@@ -356,12 +367,10 @@ const Dashboard: React.FC = () => {
     return (
       <div className="p-8 bg-slate-50 min-h-screen flex items-center justify-center">
         <div className="bg-white border border-rose-200 rounded-xl p-8 max-w-md shadow-lg text-center">
-          <div className="w-12 h-12 bg-rose-100 text-rose-600 rounded-full flex items-center justify-center mx-auto mb-4">
-             <AlertCircle className="w-6 h-6" />
-          </div>
+          <AlertCircle className="w-12 h-12 text-rose-500 mx-auto mb-4" />
           <h1 className="text-xl font-bold text-slate-900 mb-2">Error Loading Dashboard</h1>
           <p className="text-slate-600 mb-6">{error}</p>
-          <button onClick={loadAll} className="w-full rounded-lg bg-rose-600 hover:bg-rose-500 text-white px-6 py-2.5 shadow-sm transition-colors font-medium">
+          <button onClick={() => window.location.reload()} className="w-full rounded-lg bg-rose-600 hover:bg-rose-500 text-white px-6 py-2.5 shadow-sm transition-colors font-medium">
             Retry
           </button>
         </div>
@@ -397,19 +406,19 @@ const Dashboard: React.FC = () => {
 
           <button
             onClick={() => {
-              loadAll();
-              refreshProfile();
-              toast.success("Dashboard updated");
+              syncData(); // Trigger manual sync on click
+              toast.success("Syncing latest data...");
             }}
-            className="inline-flex items-center gap-2 px-4 py-2.5 bg-white border border-slate-200 text-slate-700 rounded-lg font-medium hover:bg-slate-50 hover:border-slate-300 transition shadow-sm"
+            disabled={syncing || loading}
+            className="inline-flex items-center gap-2 px-4 py-2.5 bg-white border border-slate-200 text-slate-700 rounded-lg font-medium hover:bg-slate-50 hover:border-slate-300 transition shadow-sm disabled:opacity-70"
           >
-            <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
-            Refresh
+            <RefreshCw className={`w-4 h-4 ${syncing || loading ? 'animate-spin' : ''}`} />
+            {syncing ? "Syncing..." : "Refresh"}
           </button>
         </div>
       </div>
 
-      {/* AFFILIATE LINK */}
+      {/* AFFILIATE LINK BANNER */}
       <div className="bg-gradient-to-r from-academy-blue-900 to-academy-blue-800 rounded-xl p-6 text-white shadow-lg">
           <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
               <div>
@@ -428,8 +437,8 @@ const Dashboard: React.FC = () => {
                     <div className="h-6 w-px bg-white/20 mx-1"></div>
                      <button
                         onClick={() => {
-                        navigator.clipboard.writeText(profile.affiliate_referral_url || "");
-                        toast.success("Copied to clipboard!");
+                          navigator.clipboard.writeText(profile.affiliate_referral_url || "");
+                          toast.success("Copied to clipboard!");
                         }}
                         className="p-2 hover:bg-white/20 rounded-md transition text-white"
                         title="Copy Link"
@@ -456,12 +465,11 @@ const Dashboard: React.FC = () => {
                       <span className="text-academy-blue-100">Generating your tracking link...</span>
                       <button 
                         onClick={async () => {
-                          await refreshProfile();
-                          toast.success("Refreshed profile data");
+                          await syncData();
                         }}
                         className="ml-2 text-xs underline text-white hover:text-academy-blue-200"
                       >
-                        Refresh
+                        Force Sync
                       </button>
                     </>
                   )}
@@ -516,145 +524,141 @@ const Dashboard: React.FC = () => {
         </div>
       )}
 
-      {/* EARNINGS + LEADS GRID */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 md:gap-6">
+      {/* EARNINGS CHART */}
+      <Section title="Earnings Performance">
+        {loading ? (
+          <div className="flex items-center justify-center h-[300px]">
+            <div className="animate-spin h-8 w-8 rounded-full border-2 border-slate-200 border-b-academy-blue-600"></div>
+          </div>
+        ) : series.length === 0 ? (
+          <div className="flex flex-col items-center justify-center h-[300px] text-slate-400">
+            <AlertCircle className="w-10 h-10 mb-3 opacity-50" />
+            <p>No earnings data for this period.</p>
+          </div>
+        ) : (
+          <div className="h-[300px] w-full">
+            <ResponsiveContainer width="100%" height="100%">
+              <AreaChart data={series}>
+                <defs>
+                  <linearGradient id="colorEarnings" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor="#2563EB" stopOpacity={0.1}/>
+                    <stop offset="95%" stopColor="#2563EB" stopOpacity={0}/>
+                  </linearGradient>
+                </defs>
+                <CartesianGrid stroke="#e2e8f0" strokeDasharray="3 3" vertical={false} />
+                <XAxis 
+                  dataKey="date" 
+                  stroke="#64748b" 
+                  fontSize={12} 
+                  tickLine={false} 
+                  axisLine={false} 
+                  tickFormatter={(str) => new Date(str).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}
+                  dy={10}
+                />
+                <YAxis 
+                  stroke="#64748b" 
+                  fontSize={12} 
+                  tickLine={false} 
+                  axisLine={false} 
+                  tickFormatter={(val) => `$${val}`}
+                  dx={-10}
+                />
+                <Tooltip
+                  contentStyle={{
+                    backgroundColor: "white",
+                    border: "1px solid #e2e8f0",
+                    borderRadius: "12px",
+                    boxShadow: "0 4px 6px -1px rgba(0, 0, 0, 0.1)",
+                    padding: "12px"
+                  }}
+                  cursor={{ stroke: '#94a3b8', strokeWidth: 1, strokeDasharray: '4 4' }}
+                  formatter={(value: number) => [`$${value.toFixed(2)}`, "Earnings"]}
+                  labelFormatter={(label) => new Date(label).toLocaleDateString(undefined, { weekday: 'long', month: 'long', day: 'numeric'})}
+                />
+                <Area
+                  type="monotone"
+                  dataKey="earnings"
+                  stroke="#2563EB"
+                  strokeWidth={2}
+                  fillOpacity={1}
+                  fill="url(#colorEarnings)"
+                  activeDot={{ r: 6, strokeWidth: 0 }}
+                />
+              </AreaChart>
+            </ResponsiveContainer>
+          </div>
+        )}
+      </Section>
 
-        {/* CHART */}
-        <Section title="Earnings Performance">
-          {loading ? (
-            <div className="flex items-center justify-center h-[300px]">
-              <div className="animate-spin h-8 w-8 rounded-full border-2 border-slate-200 border-b-academy-blue-600"></div>
-            </div>
-          ) : series.length === 0 ? (
-            <div className="flex flex-col items-center justify-center h-[300px] text-slate-400">
-              <AlertCircle className="w-10 h-10 mb-3 opacity-50" />
-              <p>No earnings data for this period.</p>
-            </div>
-          ) : (
-            <div className="h-[300px] w-full">
-              <ResponsiveContainer width="100%" height="100%">
-                <AreaChart data={series}>
-                  <defs>
-                    <linearGradient id="colorEarnings" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor="#2563EB" stopOpacity={0.1}/>
-                      <stop offset="95%" stopColor="#2563EB" stopOpacity={0}/>
-                    </linearGradient>
-                  </defs>
-                  <CartesianGrid stroke="#e2e8f0" strokeDasharray="3 3" vertical={false} />
-                  <XAxis 
-                    dataKey="date" 
-                    stroke="#64748b" 
-                    fontSize={12} 
-                    tickLine={false} 
-                    axisLine={false} 
-                    tickFormatter={(str) => new Date(str).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}
-                    dy={10}
-                  />
-                  <YAxis 
-                    stroke="#64748b" 
-                    fontSize={12} 
-                    tickLine={false} 
-                    axisLine={false} 
-                    tickFormatter={(val) => `$${val}`}
-                    dx={-10}
-                  />
-                  <Tooltip
-                    contentStyle={{
-                      backgroundColor: "white",
-                      border: "1px solid #e2e8f0",
-                      borderRadius: "12px",
-                      boxShadow: "0 4px 6px -1px rgba(0, 0, 0, 0.1)",
-                      padding: "12px"
-                    }}
-                    cursor={{ stroke: '#94a3b8', strokeWidth: 1, strokeDasharray: '4 4' }}
-                    formatter={(value: number) => [`$${value.toFixed(2)}`, "Earnings"]}
-                    labelFormatter={(label) => new Date(label).toLocaleDateString(undefined, { weekday: 'long', month: 'long', day: 'numeric'})}
-                  />
-                  <Area
-                    type="monotone"
-                    dataKey="earnings"
-                    stroke="#2563EB"
-                    strokeWidth={2}
-                    fillOpacity={1}
-                    fill="url(#colorEarnings)"
-                    activeDot={{ r: 6, strokeWidth: 0 }}
-                  />
-                </AreaChart>
-              </ResponsiveContainer>
-            </div>
-          )}
-        </Section>
-
-        {/* RECENT LEADS */}
-        <Section
-          title="Recent Leads"
-          action={
-            <button
-              onClick={() => navigate("/leads")}
-              className="text-sm font-medium text-academy-blue-600 hover:text-academy-blue-700 flex items-center gap-1 transition-colors"
-            >
-              View All <ArrowUpRight className="w-4 h-4" />
-            </button>
-          }
-        >
-          {leadsLoading ? (
-             <div className="flex items-center justify-center h-[300px]">
-             <div className="animate-spin h-8 w-8 rounded-full border-2 border-slate-200 border-b-academy-blue-600"></div>
-           </div>
-          ) : recentLeads.length === 0 ? (
-            <div className="flex flex-col items-center justify-center h-[300px] text-slate-400">
-              <AlertCircle className="w-10 h-10 mb-3 opacity-50" />
-              <p>No leads generated yet.</p>
-            </div>
-          ) : (
-            <div className="space-y-4">
-              {recentLeads.map((lead) => (
-                <div
-                  key={lead.id}
-                  className="group flex items-start justify-between p-4 rounded-xl border border-slate-100 bg-slate-50 hover:bg-white hover:border-academy-blue-200 hover:shadow-sm transition-all duration-200"
-                >
-                  <div className="flex gap-3">
-                    <div className="w-10 h-10 rounded-full bg-white border border-slate-200 flex items-center justify-center text-slate-400 group-hover:text-academy-blue-600 group-hover:border-academy-blue-200 transition-colors">
-                        <Building2Icon className="w-5 h-5" />
-                    </div>
-                    <div>
-                      <h4 className="text-sm font-semibold text-slate-900">
-                        {lead.company_name}
-                      </h4>
-                      <p className="text-xs text-slate-500 mt-0.5">
-                        {lead.contact_name}
-                      </p>
-                      <div className="flex items-center gap-3 mt-2">
-                         {lead.deal_value > 0 && (
-                            <span className="flex items-center gap-1 text-xs font-medium text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full">
-                                <DollarSign className="w-3 h-3" />
-                                {fmtNum(lead.deal_value)}
-                            </span>
-                        )}
-                      </div>
-                    </div>
+      {/* RECENT LEADS */}
+      <Section
+        title="Recent Leads"
+        action={
+          <button
+            onClick={() => navigate("/leads")}
+            className="text-sm font-medium text-academy-blue-600 hover:text-academy-blue-700 flex items-center gap-1 transition-colors"
+          >
+            View All <ArrowUpRight className="w-4 h-4" />
+          </button>
+        }
+      >
+        {leadsLoading ? (
+           <div className="flex items-center justify-center h-[300px]">
+           <div className="animate-spin h-8 w-8 rounded-full border-2 border-slate-200 border-b-academy-blue-600"></div>
+         </div>
+        ) : recentLeads.length === 0 ? (
+          <div className="flex flex-col items-center justify-center h-[300px] text-slate-400">
+            <AlertCircle className="w-10 h-10 mb-3 opacity-50" />
+            <p>No leads generated yet.</p>
+          </div>
+        ) : (
+          <div className="space-y-4">
+            {recentLeads.map((lead) => (
+              <div
+                key={lead.id}
+                className="group flex items-start justify-between p-4 rounded-xl border border-slate-100 bg-slate-50 hover:bg-white hover:border-academy-blue-200 hover:shadow-sm transition-all duration-200"
+              >
+                <div className="flex gap-3">
+                  <div className="w-10 h-10 rounded-full bg-white border border-slate-200 flex items-center justify-center text-slate-400 group-hover:text-academy-blue-600 group-hover:border-academy-blue-200 transition-colors">
+                      <Building2Icon className="w-5 h-5" />
                   </div>
-
-                  <div className="text-right">
-                    <span
-                        className={`inline-flex px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wide border ring-1 ring-inset ${getStatusColor(
-                          lead.status
-                        )}`}
-                      >
-                        {lead.status}
-                      </span>
-                      <p className="text-[10px] text-slate-400 mt-2">
-                        {new Date(lead.created_at).toLocaleDateString()}
-                      </p>
+                  <div>
+                    <h4 className="text-sm font-semibold text-slate-900">
+                      {lead.company_name}
+                    </h4>
+                    <p className="text-xs text-slate-500 mt-0.5">
+                      {lead.contact_name}
+                    </p>
+                    <div className="flex items-center gap-3 mt-2">
+                       {lead.deal_value > 0 && (
+                          <span className="flex items-center gap-1 text-xs font-medium text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full">
+                              <DollarSign className="w-3 h-3" />
+                              {fmtNum(lead.deal_value)}
+                          </span>
+                      )}
+                    </div>
                   </div>
                 </div>
-              ))}
-            </div>
-          )}
-        </Section>
-      </div>
 
-      {/* REFERRALS */}
+                <div className="text-right">
+                  <span
+                      className={`inline-flex px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wide border ring-1 ring-inset ${getStatusColor(
+                        lead.status
+                      )}`}
+                    >
+                      {lead.status}
+                    </span>
+                    <p className="text-[10px] text-slate-400 mt-2">
+                      {new Date(lead.created_at).toLocaleDateString()}
+                    </p>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </Section>
+
+      {/* REFERRALS TABLE */}
       <Section
         title="Recent Referral Commissions"
         action={
