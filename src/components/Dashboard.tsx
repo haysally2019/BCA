@@ -156,7 +156,7 @@ const fmtNum = (n: unknown) =>
 const fmtMoney = (n: unknown) =>
   typeof n === "number"
     ? n.toLocaleString(undefined, { style: "currency", currency: "USD" })
-    : "$0.00";
+    : "$0";
 
 const toISODate = (d: Date) => d.toISOString().slice(0, 10);
 
@@ -175,16 +175,9 @@ const Dashboard: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
 
   const [series, setSeries] = useState<MetricsRow[]>([]);
+  const [latest, setLatest] = useState<MetricsRow | null>(null);
   const [referrals, setReferrals] = useState<ReferralRow[]>([]);
   const [recentLeads, setRecentLeads] = useState<Lead[]>([]);
-  
-  // New State for Clean Metrics (Excluding Rejected)
-  const [cleanStats, setCleanStats] = useState({
-    earnings: 0,
-    unpaid: 0,
-    referrals: 0,
-    visits: 0
-  });
 
   const role = (profile?.user_role || "").toLowerCase();
   const isManager = rolesManager.has(role);
@@ -194,9 +187,7 @@ const Dashboard: React.FC = () => {
     refreshProfile();
   }, []);
 
-  // =====================================
   // LOAD LEADS
-  // =====================================
   const loadLeads = useCallback(async () => {
     try {
       setLeadsLoading(true);
@@ -212,9 +203,7 @@ const Dashboard: React.FC = () => {
     }
   }, [supabase]);
 
-  // =====================================
-  // LOAD METRICS (Graph)
-  // =====================================
+  // LOAD METRICS
   const loadMetrics = useCallback(async () => {
     try {
       setLoading(true);
@@ -254,9 +243,11 @@ const Dashboard: React.FC = () => {
         );
 
         setSeries(rows);
+        setLatest(rows[rows.length - 1] || null);
       } else {
         if (!affiliateId) {
           setSeries([]);
+          setLatest(null);
           return;
         }
 
@@ -268,18 +259,18 @@ const Dashboard: React.FC = () => {
           .order("date", { ascending: true });
 
         setSeries(data || []);
+        setLatest(data?.[data.length - 1] || null);
       }
     } catch (e: any) {
       setError(e.message);
       setSeries([]);
+      setLatest(null);
     } finally {
       setLoading(false);
     }
   }, [supabase, range, isManager, affiliateId]);
 
-  // =====================================
-  // LOAD REFERRALS (Table - Shows All)
-  // =====================================
+  // LOAD REFERRALS
   const loadReferrals = useCallback(async () => {
     if (!isManager && !affiliateId) return setReferrals([]);
 
@@ -296,79 +287,36 @@ const Dashboard: React.FC = () => {
     setReferrals(data || []);
   }, [supabase, isManager, affiliateId]);
 
-  // =====================================
-  // LOAD CLEAN STATS (Tiles - Excludes Rejected)
-  // =====================================
-  const loadCleanStats = useCallback(async () => {
-    try {
-      // Only run for Reps to fix their specific view, or Managers if needed
-      // We fetch the raw referral data to calculate accurate totals
-      let query = supabase
-        .from("affiliate_referrals")
-        .select("amount, status");
-
-      if (!isManager && affiliateId) {
-        query = query.eq("affiliate_id", affiliateId);
-      }
-
-      const { data, error } = await query;
-      if (error) throw error;
-
-      let earn = 0;
-      let refs = 0;
-      let unpaid = 0;
-
-      (data || []).forEach(r => {
-        // EXCLUDE REJECTED PAYMENTS FROM METRICS
-        if (r.status !== 'rejected') {
-          refs++;
-          if (r.status === 'paid') {
-             earn += r.amount;
-          }
-          if (r.status === 'unpaid' || r.status === 'pending') {
-             unpaid += r.amount;
-          }
-        }
-      });
-
-      // Visits come from profile since they aren't in referrals table
-      const visits = profile?.affiliatewp_visits || 0;
-
-      setCleanStats({ earnings: earn, referrals: refs, unpaid, visits });
-
-    } catch (err) {
-      console.error("Error loading clean stats:", err);
-    }
-  }, [supabase, isManager, affiliateId, profile]);
-
   const loadAll = useCallback(async () => {
-    await Promise.all([loadMetrics(), loadReferrals(), loadLeads(), loadCleanStats()]);
-  }, [loadMetrics, loadReferrals, loadLeads, loadCleanStats]);
+    await refreshProfile();
+    await Promise.all([loadMetrics(), loadReferrals(), loadLeads()]);
+  }, [loadMetrics, loadReferrals, loadLeads, refreshProfile]);
 
   useEffect(() => {
     loadAll();
   }, [loadAll]);
 
-  // ---------------------------------------------------------
-  // TOTALS CALCULATION
-  // Use 'cleanStats' for tiles to ensure rejected items are ignored
-  // ---------------------------------------------------------
   const totals = useMemo(() => {
-    // Use the calculated clean stats
-    // If clean stats are 0 but we have profile data, fallback (edge case), 
-    // but cleanStats should be accurate now.
-    
+    let visits = 0,
+      refs = 0,
+      earn = 0,
+      unpaid = 0;
+
+    series.forEach((r) => {
+      visits += r.visits || 0;
+      refs += r.referrals || 0;
+      earn += r.earnings || 0;
+      unpaid += r.unpaid_earnings || 0;
+    });
+
     return {
-      visits: cleanStats.visits,
-      refs: cleanStats.referrals,
-      earn: cleanStats.earnings,
-      unpaid: cleanStats.unpaid,
-      // Conversion: Valid Referrals / Visits
-      conv: cleanStats.visits > 0 
-        ? (cleanStats.referrals / cleanStats.visits) * 100 
-        : 0,
+      visits,
+      refs,
+      earn,
+      unpaid,
+      conv: visits ? (refs / visits) * 100 : 0,
     };
-  }, [cleanStats]);
+  }, [series]);
 
   const getStatusColor = (s: string) => {
     const map: Record<string, string> = {
@@ -381,7 +329,6 @@ const Dashboard: React.FC = () => {
       paid: "bg-emerald-50 text-emerald-700 border-emerald-200 ring-emerald-600/20",
       pending: "bg-amber-50 text-amber-700 border-amber-200 ring-amber-600/20",
       unpaid: "bg-rose-50 text-rose-700 border-rose-200 ring-rose-600/20",
-      rejected: "bg-slate-100 text-slate-500 border-slate-200 decoration-slate-400 line-through",
     };
     return map[s] || "bg-slate-50 text-slate-700 border-slate-200";
   };
@@ -430,11 +377,7 @@ const Dashboard: React.FC = () => {
           </Select>
 
           <button
-            onClick={() => {
-              loadAll();
-              refreshProfile();
-              toast.success("Refreshing...");
-            }}
+            onClick={loadAll}
             className="inline-flex items-center gap-2 px-4 py-2.5 bg-white border border-slate-200 text-slate-700 rounded-lg font-medium hover:bg-slate-50 hover:border-slate-300 transition shadow-sm"
           >
             <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
@@ -443,25 +386,26 @@ const Dashboard: React.FC = () => {
         </div>
       </div>
 
-      {/* AFFILIATE LINK - Restored Dark Gradient UI */}
-      {(profile?.affiliate_referral_url?.length ?? 0) > 0 && (
-        <div className="bg-gradient-to-r from-slate-900 to-slate-800 rounded-xl p-6 text-white shadow-lg">
-            <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
-                <div>
-                    <h3 className="text-lg font-semibold mb-1 flex items-center gap-2">
-                      <LinkIcon className="w-5 h-5 text-blue-300" />
-                      Your Affiliate Link
-                    </h3>
-                    <p className="text-slate-400 text-sm">Share this link to track referrals automatically.</p>
-                </div>
+      {/* AFFILIATE LINK */}
+      <div className="bg-gradient-to-r from-academy-blue-900 to-academy-blue-800 rounded-xl p-6 text-white shadow-lg">
+          <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+              <div>
+                  <h3 className="text-lg font-semibold mb-1 flex items-center gap-2">
+                    <LinkIcon className="w-5 h-5 text-academy-blue-300" />
+                    Your Affiliate Link
+                  </h3>
+                  <p className="text-academy-blue-100 text-sm">Share this link to track referrals automatically.</p>
+              </div>
+              
+              {profile?.affiliate_url ? (
                 <div className="flex items-center gap-2 w-full md:w-auto bg-white/10 p-1.5 rounded-lg border border-white/10">
-                    <code className="flex-1 md:flex-none text-sm px-3 py-1.5 font-mono text-blue-200 truncate max-w-[300px] select-all">
-                        {profile?.affiliate_referral_url}
+                    <code className="flex-1 md:flex-none text-sm px-3 py-1.5 font-mono text-academy-blue-100 truncate max-w-[300px] select-all">
+                        {profile.affiliate_url}
                     </code>
                     <div className="h-6 w-px bg-white/20 mx-1"></div>
                      <button
                         onClick={() => {
-                        navigator.clipboard.writeText(profile?.affiliate_referral_url || "");
+                        navigator.clipboard.writeText(profile.affiliate_url || "");
                         toast.success("Copied to clipboard!");
                         }}
                         className="p-2 hover:bg-white/20 rounded-md transition text-white"
@@ -470,7 +414,7 @@ const Dashboard: React.FC = () => {
                         <Copy className="w-4 h-4" />
                     </button>
                      <a
-                        href={profile?.affiliate_referral_url}
+                        href={profile.affiliate_url}
                         target="_blank"
                         rel="noopener noreferrer"
                         className="p-2 hover:bg-white/20 rounded-md transition text-white"
@@ -479,9 +423,29 @@ const Dashboard: React.FC = () => {
                         <ExternalLink className="w-4 h-4" />
                     </a>
                 </div>
-            </div>
-        </div>
-      )}
+              ) : (
+                <div className="flex items-center gap-3 bg-white/10 px-4 py-3 rounded-lg border border-white/10 text-sm">
+                  {profile?.affiliatewp_id ? (
+                    <span className="text-academy-blue-200">Link unavailable. Contact support.</span>
+                  ) : (
+                    <>
+                      <div className="w-2 h-2 bg-academy-blue-400 rounded-full animate-pulse" />
+                      <span className="text-academy-blue-100">Generating your tracking link...</span>
+                      <button 
+                        onClick={async () => {
+                          await refreshProfile();
+                          toast.success("Refreshed profile data");
+                        }}
+                        className="ml-2 text-xs underline text-white hover:text-academy-blue-200"
+                      >
+                        Refresh
+                      </button>
+                    </>
+                  )}
+                </div>
+              )}
+          </div>
+      </div>
 
       {/* KPI TILES */}
       <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-5 gap-3 md:gap-4">
@@ -536,12 +500,24 @@ const Dashboard: React.FC = () => {
         <Section title="Earnings Performance">
           {loading ? (
             <div className="flex items-center justify-center h-[300px]">
-              <div className="animate-spin h-8 w-8 rounded-full border-2 border-slate-200 border-b-blue-600"></div>
+              <div className="animate-spin h-8 w-8 rounded-full border-2 border-slate-200 border-b-academy-blue-600"></div>
             </div>
           ) : series.length === 0 ? (
             <div className="flex flex-col items-center justify-center h-[300px] text-slate-400">
               <AlertCircle className="w-10 h-10 mb-3 opacity-50" />
-              <p>No earnings data for this period.</p>
+              {!isManager && !affiliateId ? (
+                <>
+                  <p className="mb-2">Your AffiliateWP account is being set up.</p>
+                  <button
+                    onClick={loadAll}
+                    className="text-sm text-academy-blue-600 hover:text-academy-blue-700 underline"
+                  >
+                    Click here to refresh
+                  </button>
+                </>
+              ) : (
+                <p>No earnings data for this period.</p>
+              )}
             </div>
           ) : (
             <div className="h-[300px] w-full">
@@ -604,7 +580,7 @@ const Dashboard: React.FC = () => {
           action={
             <button
               onClick={() => navigate("/leads")}
-              className="text-sm font-medium text-blue-600 hover:text-blue-700 flex items-center gap-1 transition-colors"
+              className="text-sm font-medium text-academy-blue-600 hover:text-academy-blue-700 flex items-center gap-1 transition-colors"
             >
               View All <ArrowUpRight className="w-4 h-4" />
             </button>
@@ -612,7 +588,7 @@ const Dashboard: React.FC = () => {
         >
           {leadsLoading ? (
              <div className="flex items-center justify-center h-[300px]">
-             <div className="animate-spin h-8 w-8 rounded-full border-2 border-slate-200 border-b-blue-600"></div>
+             <div className="animate-spin h-8 w-8 rounded-full border-2 border-slate-200 border-b-academy-blue-600"></div>
            </div>
           ) : recentLeads.length === 0 ? (
             <div className="flex flex-col items-center justify-center h-[300px] text-slate-400">
@@ -624,10 +600,10 @@ const Dashboard: React.FC = () => {
               {recentLeads.map((lead) => (
                 <div
                   key={lead.id}
-                  className="group flex items-start justify-between p-4 rounded-xl border border-slate-100 bg-slate-50 hover:bg-white hover:border-blue-200 hover:shadow-sm transition-all duration-200"
+                  className="group flex items-start justify-between p-4 rounded-xl border border-slate-100 bg-slate-50 hover:bg-white hover:border-academy-blue-200 hover:shadow-sm transition-all duration-200"
                 >
                   <div className="flex gap-3">
-                    <div className="w-10 h-10 rounded-full bg-white border border-slate-200 flex items-center justify-center text-slate-400 group-hover:text-blue-600 group-hover:border-blue-200 transition-colors">
+                    <div className="w-10 h-10 rounded-full bg-white border border-slate-200 flex items-center justify-center text-slate-400 group-hover:text-academy-blue-600 group-hover:border-academy-blue-200 transition-colors">
                         <Building2Icon className="w-5 h-5" />
                     </div>
                     <div>
@@ -667,13 +643,13 @@ const Dashboard: React.FC = () => {
         </Section>
       </div>
 
-      {/* REFERRALS TABLE (Shows Rejected Items) */}
+      {/* REFERRALS */}
       <Section
         title="Recent Referral Commissions"
         action={
           <button
             onClick={() => navigate("/commissions")}
-            className="text-sm font-medium text-blue-600 hover:text-blue-700 flex items-center gap-1 transition-colors"
+            className="text-sm font-medium text-academy-blue-600 hover:text-academy-blue-700 flex items-center gap-1 transition-colors"
           >
             View All <ArrowUpRight className="w-4 h-4" />
           </button>
@@ -737,7 +713,7 @@ const Dashboard: React.FC = () => {
   );
 };
 
-// Simple icon component for the leads list
+// Custom Icon Component
 function Building2Icon(props: React.SVGProps<SVGSVGElement>) {
   return (
     <svg

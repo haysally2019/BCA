@@ -421,7 +421,7 @@ const LeadManagement: React.FC = () => {
           </div>
           <h1 className="text-3xl font-semibold text-slate-900 tracking-tight flex items-center gap-2">
             <Building2 className="w-7 h-7 text-blue-600" />
-            Prospects
+            Roofing Company Leads
           </h1>
           <p className="text-slate-500 text-sm">
             Monitor your roofing CRM pipeline and keep every prospect moving forward.
