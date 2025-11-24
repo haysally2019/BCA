@@ -104,7 +104,7 @@ Deno.serve(async (req) => {
       .from("profiles")
       .update({
         affiliatewp_id: newAffiliateId,
-        affiliate_referral_url: referralUrl,
+        affiliate_url: referralUrl,
         affiliatewp_status: "active",
         last_metrics_sync: new Date().toISOString(),
       })

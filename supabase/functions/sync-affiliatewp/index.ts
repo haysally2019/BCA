@@ -34,7 +34,8 @@ Deno.serve(async (req: Request) => {
     const affiliates: any[] = await fetchFromAffiliateWP(wpUrl, consumerKey, consumerSecret, "affiliates", { number: 1000 });
     let updatedCount = 0;
     for (const affiliate of affiliates) {
-      const { error } = await supabaseClient.from("profiles").update({ affiliatewp_id: affiliate.affiliate_id, unpaid_earnings: parseFloat(affiliate.unpaid_earnings) || 0, paid_lifetime_earnings: parseFloat(affiliate.paid_earnings) || 0, referral_count: affiliate.referrals || 0, last_affiliatewp_sync: new Date().toISOString() }).eq("email", affiliate.user_email);
+      const referralUrl = `${wpUrl}/?ref=${affiliate.affiliate_id}`;
+      const { error } = await supabaseClient.from("profiles").update({ affiliatewp_id: affiliate.affiliate_id, affiliate_url: referralUrl, unpaid_earnings: parseFloat(affiliate.unpaid_earnings) || 0, paid_lifetime_earnings: parseFloat(affiliate.paid_earnings) || 0, referral_count: affiliate.referrals || 0, last_affiliatewp_sync: new Date().toISOString() }).eq("email", affiliate.user_email);
       if (!error) updatedCount++;
     }
     const thirtyDaysAgo = new Date();

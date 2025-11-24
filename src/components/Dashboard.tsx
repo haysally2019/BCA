@@ -396,15 +396,15 @@ const Dashboard: React.FC = () => {
                   <p className="text-academy-blue-100 text-sm">Share this link to track referrals automatically.</p>
               </div>
               
-              {profile?.affiliate_referral_url ? (
+              {profile?.affiliate_url ? (
                 <div className="flex items-center gap-2 w-full md:w-auto bg-white/10 p-1.5 rounded-lg border border-white/10">
                     <code className="flex-1 md:flex-none text-sm px-3 py-1.5 font-mono text-academy-blue-100 truncate max-w-[300px] select-all">
-                        {profile.affiliate_referral_url}
+                        {profile.affiliate_url}
                     </code>
                     <div className="h-6 w-px bg-white/20 mx-1"></div>
                      <button
                         onClick={() => {
-                        navigator.clipboard.writeText(profile.affiliate_referral_url || "");
+                        navigator.clipboard.writeText(profile.affiliate_url || "");
                         toast.success("Copied to clipboard!");
                         }}
                         className="p-2 hover:bg-white/20 rounded-md transition text-white"
@@ -413,7 +413,7 @@ const Dashboard: React.FC = () => {
                         <Copy className="w-4 h-4" />
                     </button>
                      <a
-                        href={profile.affiliate_referral_url}
+                        href={profile.affiliate_url}
                         target="_blank"
                         rel="noopener noreferrer"
                         className="p-2 hover:bg-white/20 rounded-md transition text-white"
