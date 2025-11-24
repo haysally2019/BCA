@@ -1,7 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import {
-  LineChart,
-  Line,
   XAxis,
   YAxis,
   Tooltip,
@@ -16,7 +14,6 @@ import {
   DollarSign,
   Users,
   Target,
-  Calendar,
   Phone,
   Mail,
   ExternalLink,
@@ -28,13 +25,13 @@ import {
   RefreshCw,
   ChevronRight,
   Copy,
-  Link as LinkIcon, // Added LinkIcon
+  Link as LinkIcon,
 } from "lucide-react";
 import { useSupabase } from "../context/SupabaseProvider";
 import { useAuthStore } from "../store/authStore";
 import toast from "react-hot-toast";
 
-// ... (Keep existing types: MetricsRow, ReferralRow, Lead, rolesManager) ...
+// TYPES
 type MetricsRow = {
   date: string;
   visits: number | null;
@@ -67,6 +64,7 @@ type Lead = {
 
 const rolesManager = new Set(["owner", "admin", "manager"]);
 
+// HELPER COMPONENTS
 const Section = ({
   title,
   action,
@@ -85,7 +83,6 @@ const Section = ({
   </div>
 );
 
-// ... (Keep existing Tile, QuickAction, Select, fmtNum, fmtMoney, toISODate components/utils) ...
 const Tile = ({
   label,
   value,
@@ -163,36 +160,13 @@ const fmtMoney = (n: unknown) =>
 
 const toISODate = (d: Date) => d.toISOString().slice(0, 10);
 
-// Simple icon component for the leads list
-function Building2Icon(props: React.SVGProps<SVGSVGElement>) {
-  return (
-    <svg
-      {...props}
-      xmlns="http://www.w3.org/2000/svg"
-      width="24"
-      height="24"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    >
-      <path d="M6 22V4a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v18Z" />
-      <path d="M6 12H4a2 2 0 0 0-2 2v6a2 2 0 0 0 2 2h2" />
-      <path d="M18 9h2a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2h-2" />
-      <path d="M10 6h4" />
-      <path d="M10 10h4" />
-      <path d="M10 14h4" />
-      <path d="M10 18h4" />
-    </svg>
-  );
-}
-
+// ==================================================================
+// MAIN DASHBOARD COMPONENT
+// ==================================================================
 
 const Dashboard: React.FC = () => {
   const { supabase } = useSupabase();
-  const { profile, refreshProfile } = useAuthStore(); // Added refreshProfile
+  const { profile, refreshProfile } = useAuthStore();
   const navigate = useNavigate();
 
   const [range, setRange] = useState<7 | 30 | 90>(30);
@@ -209,14 +183,11 @@ const Dashboard: React.FC = () => {
   const isManager = rolesManager.has(role);
   const affiliateId = profile?.affiliatewp_id ?? null;
 
-  // Force profile refresh on mount to get latest URL
   useEffect(() => {
     refreshProfile();
   }, []);
 
-  // =====================================
-  // LOADLEADS
-  // =====================================
+  // LOAD LEADS
   const loadLeads = useCallback(async () => {
     try {
       setLeadsLoading(true);
@@ -232,9 +203,7 @@ const Dashboard: React.FC = () => {
     }
   }, [supabase]);
 
-  // =====================================
   // LOAD METRICS
-  // =====================================
   const loadMetrics = useCallback(async () => {
     try {
       setLoading(true);
@@ -301,9 +270,7 @@ const Dashboard: React.FC = () => {
     }
   }, [supabase, range, isManager, affiliateId]);
 
-  // =====================================
   // LOAD REFERRALS
-  // =====================================
   const loadReferrals = useCallback(async () => {
     if (!isManager && !affiliateId) return setReferrals([]);
 
@@ -365,7 +332,6 @@ const Dashboard: React.FC = () => {
     return map[s] || "bg-slate-50 text-slate-700 border-slate-200";
   };
 
-  // ERROR SCREEN (light UI)
   if (error) {
     return (
       <div className="p-8 bg-slate-50 min-h-screen flex items-center justify-center">
@@ -373,14 +339,9 @@ const Dashboard: React.FC = () => {
           <div className="w-12 h-12 bg-rose-100 text-rose-600 rounded-full flex items-center justify-center mx-auto mb-4">
              <AlertCircle className="w-6 h-6" />
           </div>
-          <h1 className="text-xl font-bold text-slate-900 mb-2">
-            Error Loading Dashboard
-          </h1>
+          <h1 className="text-xl font-bold text-slate-900 mb-2">Error Loading Dashboard</h1>
           <p className="text-slate-600 mb-6">{error}</p>
-          <button
-            onClick={loadAll}
-            className="w-full rounded-lg bg-rose-600 hover:bg-rose-500 text-white px-6 py-2.5 shadow-sm transition-colors font-medium"
-          >
+          <button onClick={loadAll} className="w-full rounded-lg bg-rose-600 hover:bg-rose-500 text-white px-6 py-2.5 shadow-sm transition-colors font-medium">
             Retry
           </button>
         </div>
@@ -388,9 +349,6 @@ const Dashboard: React.FC = () => {
     );
   }
 
-  // -----------------------------------
-  // MAIN RENDER (L3 LIGHT UI)
-  // -----------------------------------
   return (
     <div className="space-y-4 md:space-y-6 max-w-[1600px] mx-auto">
 
@@ -427,8 +385,7 @@ const Dashboard: React.FC = () => {
         </div>
       </div>
 
-      {/* AFFILIATE LINK - UPDATED UI & LOGIC */}
-      {/* Force display to debug missing URLs */}
+      {/* AFFILIATE LINK */}
       <div className="bg-gradient-to-r from-academy-blue-900 to-academy-blue-800 rounded-xl p-6 text-white shadow-lg">
           <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
               <div>
@@ -447,9 +404,7 @@ const Dashboard: React.FC = () => {
                     <div className="h-6 w-px bg-white/20 mx-1"></div>
                      <button
                         onClick={() => {
-                        navigator.clipboard.writeText(
-                            profile.affiliate_referral_url || ""
-                        );
+                        navigator.clipboard.writeText(profile.affiliate_referral_url || "");
                         toast.success("Copied to clipboard!");
                         }}
                         className="p-2 hover:bg-white/20 rounded-md transition text-white"
@@ -470,10 +425,8 @@ const Dashboard: React.FC = () => {
               ) : (
                 <div className="flex items-center gap-3 bg-white/10 px-4 py-3 rounded-lg border border-white/10 text-sm">
                   {profile?.affiliatewp_id ? (
-                    // ID exists but URL missing (rare edge case) - Show manual construction or error
                     <span className="text-academy-blue-200">Link unavailable. Contact support.</span>
                   ) : (
-                    // Account creation in progress
                     <>
                       <div className="w-2 h-2 bg-academy-blue-400 rounded-full animate-pulse" />
                       <span className="text-academy-blue-100">Generating your tracking link...</span>
@@ -747,7 +700,7 @@ const Dashboard: React.FC = () => {
   );
 };
 
-// Simple icon component for the leads list
+// Custom Icon Component
 function Building2Icon(props: React.SVGProps<SVGSVGElement>) {
   return (
     <svg
