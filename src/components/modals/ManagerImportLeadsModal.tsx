@@ -47,7 +47,7 @@ const FIELD_OPTIONS = [
 ];
 
 const VALID_STATUSES = ['new', 'contacted', 'qualified', 'won', 'lost'];
-const MAX_IMPORT_LEADS = 2000;
+const MAX_IMPORT_LEADS = 1000;
 
 export const ManagerImportLeadsModal: React.FC<ManagerImportLeadsModalProps> = ({
   isOpen,
