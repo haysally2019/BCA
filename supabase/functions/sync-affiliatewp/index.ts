@@ -78,8 +78,10 @@ Deno.serve(async (req: Request) => {
     }
     let metricsInserted = 0;
     const metricsMap = new Map<string, { visits: number; referrals: number; earnings: number; unpaid_earnings: number }>();
+
+    // First, collect all referrals data by date
     for (const referral of referrals) {
-      const date = referral.date ? new Date(referral.date).toISOString().split(".T")[0] : new Date().toISOString().split("T")[0];
+      const date = referral.date ? new Date(referral.date).toISOString().split("T")[0] : new Date().toISOString().split("T")[0];
       const key = `${referral.affiliate_id}_${date}`;
       const current = metricsMap.get(key) || { visits: 0, referrals: 0, earnings: 0, unpaid_earnings: 0 };
       current.referrals += 1;
@@ -90,15 +92,43 @@ Deno.serve(async (req: Request) => {
       }
       metricsMap.set(key, current);
     }
+
+    // Fetch visit statistics for each affiliate
     for (const affiliate of affiliates) {
-      const today = new Date().toISOString().split("T")[0];
-      const key = `${affiliate.affiliate_id}_${today}`;
-      const current = metricsMap.get(key) || { visits: 0, referrals: 0, earnings: 0, unpaid_earnings: 0 };
-      current.visits = affiliate.visits || 0;
-      if (!metricsMap.has(key)) {
-        current.unpaid_earnings = parseFloat(affiliate.unpaid_earnings) || 0;
+      try {
+        const stats: any = await fetchFromAffiliateWP(wpUrl, consumerKey, consumerSecret, `affiliates/${affiliate.affiliate_id}/stats`, { range: 30 });
+
+        // Process daily visit stats if available
+        if (stats && stats.visits_by_date) {
+          for (const [dateStr, visitCount] of Object.entries(stats.visits_by_date)) {
+            const key = `${affiliate.affiliate_id}_${dateStr}`;
+            const current = metricsMap.get(key) || { visits: 0, referrals: 0, earnings: 0, unpaid_earnings: 0 };
+            current.visits = typeof visitCount === 'number' ? visitCount : parseInt(String(visitCount)) || 0;
+            metricsMap.set(key, current);
+          }
+        } else {
+          // Fallback: use total visits for today if no detailed stats
+          const today = new Date().toISOString().split("T")[0];
+          const key = `${affiliate.affiliate_id}_${today}`;
+          const current = metricsMap.get(key) || { visits: 0, referrals: 0, earnings: 0, unpaid_earnings: 0 };
+          current.visits = affiliate.visits || 0;
+          if (!metricsMap.has(key)) {
+            current.unpaid_earnings = parseFloat(affiliate.unpaid_earnings) || 0;
+          }
+          metricsMap.set(key, current);
+        }
+      } catch (e) {
+        console.error(`Failed to fetch stats for affiliate ${affiliate.affiliate_id}:`, e);
+        // Fallback: use total visits for today
+        const today = new Date().toISOString().split("T")[0];
+        const key = `${affiliate.affiliate_id}_${today}`;
+        const current = metricsMap.get(key) || { visits: 0, referrals: 0, earnings: 0, unpaid_earnings: 0 };
+        current.visits = affiliate.visits || 0;
+        if (!metricsMap.has(key)) {
+          current.unpaid_earnings = parseFloat(affiliate.unpaid_earnings) || 0;
+        }
+        metricsMap.set(key, current);
       }
-      metricsMap.set(key, current);
     }
     for (const [key, metrics] of metricsMap.entries()) {
       const [affiliateId, date] = key.split("_");
