@@ -15,16 +15,16 @@ import {
   Users,
   Target,
   Phone,
-  Plus,
-  RefreshCw,
-  ChevronRight,
-  Copy,
-  Link as LinkIcon,
+  Mail,
   ExternalLink,
   ArrowUpRight,
   AlertCircle,
   CheckCircle2,
   Clock,
+  Plus,
+  RefreshCw,
+  ChevronRight,
+  Copy,
 } from "lucide-react";
 import { useSupabase } from "../context/SupabaseProvider";
 import { useAuthStore } from "../store/authStore";
@@ -63,7 +63,6 @@ type Lead = {
 
 const rolesManager = new Set(["owner", "admin", "manager"]);
 
-// HELPER COMPONENTS
 const Section = ({
   title,
   action,
@@ -95,10 +94,10 @@ const Tile = ({
   icon?: React.ElementType;
   trend?: string;
 }) => (
-  <div className="group bg-white rounded-xl border border-slate-200 p-5 shadow-sm hover:shadow-md hover:border-academy-blue-200 transition-all duration-200">
+  <div className="group bg-white rounded-xl border border-slate-200 p-5 shadow-sm hover:shadow-md hover:border-blue-200 transition-all duration-200">
     <div className="flex items-center justify-between mb-4">
-      <div className="p-2.5 bg-slate-100 rounded-lg group-hover:bg-academy-blue-50 transition-colors">
-        {Icon && <Icon className="w-5 h-5 text-slate-600 group-hover:text-academy-blue-600" />}
+      <div className="p-2.5 bg-slate-100 rounded-lg group-hover:bg-blue-50 transition-colors">
+        {Icon && <Icon className="w-5 h-5 text-slate-600 group-hover:text-blue-600" />}
       </div>
       {trend && (
         <span className="text-xs font-medium text-emerald-600 bg-emerald-50 px-2 py-1 rounded-full">
@@ -128,7 +127,7 @@ const QuickAction = ({
 }) => (
   <button
     onClick={onClick}
-    className="flex flex-col items-center justify-center gap-3 p-4 bg-white border border-slate-200 hover:border-academy-blue-300 hover:bg-academy-blue-50/50 rounded-xl text-slate-600 hover:text-academy-blue-700 transition-all duration-200 group h-full"
+    className="flex flex-col items-center justify-center gap-3 p-4 bg-white border border-slate-200 hover:border-blue-300 hover:bg-blue-50/50 rounded-xl text-slate-600 hover:text-blue-700 transition-all duration-200 group h-full"
   >
     <div className="p-3 bg-slate-100 rounded-full group-hover:bg-white group-hover:shadow-sm transition-all">
       <Icon className="w-5 h-5" />
@@ -141,7 +140,7 @@ const Select = (props: React.SelectHTMLAttributes<HTMLSelectElement>) => (
   <div className="relative">
     <select
       {...props}
-      className="appearance-none bg-white border border-slate-200 text-slate-700 text-sm rounded-lg focus:ring-2 focus:ring-academy-blue-500 focus:border-academy-blue-500 block w-full px-4 py-2.5 pr-8 cursor-pointer shadow-sm hover:border-slate-300 transition-colors"
+      className="appearance-none bg-white border border-slate-200 text-slate-700 text-sm rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 block w-full px-4 py-2.5 pr-8 cursor-pointer shadow-sm hover:border-slate-300 transition-colors"
     />
     <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-slate-500">
       <ChevronRight className="w-4 h-4 rotate-90" />
@@ -160,8 +159,6 @@ const fmtMoney = (n: unknown) =>
 const toISODate = (d: Date) => d.toISOString().slice(0, 10);
 
 // ==================================================================
-// MAIN DASHBOARD COMPONENT
-// ==================================================================
 
 const Dashboard: React.FC = () => {
   const { supabase } = useSupabase();
@@ -170,7 +167,6 @@ const Dashboard: React.FC = () => {
 
   const [range, setRange] = useState<7 | 30 | 90>(30);
   const [loading, setLoading] = useState(true);
-  const [syncing, setSyncing] = useState(false);
   const [leadsLoading, setLeadsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -182,46 +178,14 @@ const Dashboard: React.FC = () => {
   const isManager = rolesManager.has(role);
   const affiliateId = profile?.affiliatewp_id ?? null;
 
-  // ------------------------------------------------
-  // SYNC LOGIC: Fetch fresh data from WordPress
-  // ------------------------------------------------
-  const syncData = useCallback(async () => {
-    if (isManager || !affiliateId) return; // Managers see aggregate data, syncs are global
-    
-    try {
-      setSyncing(true);
-      console.log('Syncing AffiliateWP data...');
-      
-      // 1. Call the Edge Function to pull data from WordPress
-      const { error: syncError } = await supabase.functions.invoke('sync-affiliatewp');
-      
-      if (syncError) throw syncError;
-
-      // 2. Refresh the local profile to get the new totals (earnings, visits, etc.)
-      await refreshProfile();
-      
-      // 3. Reload the charts/lists
-      await loadAll();
-      
-      console.log('Sync complete.');
-    } catch (err) {
-      console.error('Sync failed:', err);
-      // Don't block UI on sync fail, just log it
-    } finally {
-      setSyncing(false);
-    }
-  }, [affiliateId, refreshProfile, supabase]);
-
-  // Initial Load
+  // Load fresh profile data on mount to ensure URLs are visible
   useEffect(() => {
-    loadAll();
-    // Auto-sync on mount if we have an ID (ensures "0 visits" updates to "1" quickly)
-    if (profile?.affiliatewp_id) {
-      void syncData();
-    }
+    refreshProfile();
   }, []);
 
+  // =====================================
   // LOAD LEADS
+  // =====================================
   const loadLeads = useCallback(async () => {
     try {
       setLeadsLoading(true);
@@ -237,7 +201,9 @@ const Dashboard: React.FC = () => {
     }
   }, [supabase]);
 
-  // LOAD METRICS (Graph Data)
+  // =====================================
+  // LOAD METRICS
+  // =====================================
   const loadMetrics = useCallback(async () => {
     try {
       setLoading(true);
@@ -300,7 +266,9 @@ const Dashboard: React.FC = () => {
     }
   }, [supabase, range, isManager, affiliateId]);
 
+  // =====================================
   // LOAD REFERRALS
+  // =====================================
   const loadReferrals = useCallback(async () => {
     if (!isManager && !affiliateId) return setReferrals([]);
 
@@ -321,44 +289,53 @@ const Dashboard: React.FC = () => {
     await Promise.all([loadMetrics(), loadReferrals(), loadLeads()]);
   }, [loadMetrics, loadReferrals, loadLeads]);
 
-  // CALCULATE TOTALS (Prefer Profile Snapshot for Accuracy)
+  useEffect(() => {
+    loadAll();
+  }, [loadAll]);
+
+  // =====================================
+  // FIXED: HYBRID TOTALS CALCULATION
+  // =====================================
   const totals = useMemo(() => {
-    if (isManager) {
-      let visits = 0, refs = 0, earn = 0, unpaid = 0;
+    let visits = 0, refs = 0, earn = 0, unpaid = 0;
+
+    // 1. Try to sum up the graph data (Daily Series)
+    if (series.length > 0) {
       series.forEach((r) => {
         visits += r.visits || 0;
         refs += r.referrals || 0;
         earn += r.earnings || 0;
         unpaid += r.unpaid_earnings || 0;
       });
-      return { 
-        visits, 
-        refs, 
-        earn, 
-        unpaid, 
-        conv: visits ? (refs / visits) * 100 : 0 
-      };
     }
 
-    // Rep View: Read directly from profile snapshot to ensure "0" bug is fixed
-    // These fields are updated by the sync-affiliatewp function
+    // 2. FALLBACK: If graph data is missing or zero, read directly from Profile Stats
+    // This fixes the "0 metrics" issue if the daily sync hasn't run perfectly.
+    if (visits === 0 && profile?.affiliatewp_visits) visits = profile.affiliatewp_visits;
+    if (refs === 0 && profile?.affiliatewp_referrals) refs = profile.affiliatewp_referrals;
+    if (earn === 0 && profile?.affiliatewp_earnings) earn = profile.affiliatewp_earnings;
+    if (unpaid === 0 && profile?.affiliatewp_unpaid_earnings) unpaid = profile.affiliatewp_unpaid_earnings;
+
     return {
-      visits: profile?.affiliatewp_visits || 0,
-      refs: profile?.affiliatewp_referrals || 0,
-      earn: profile?.affiliatewp_earnings || 0,
-      unpaid: profile?.affiliatewp_unpaid_earnings || 0,
-      conv: (profile?.affiliatewp_visits || 0) > 0 
-        ? ((profile?.affiliatewp_referrals || 0) / (profile?.affiliatewp_visits || 1)) * 100 
-        : 0,
+      visits,
+      refs,
+      earn,
+      unpaid,
+      conv: visits ? (refs / visits) * 100 : 0,
     };
-  }, [series, profile, isManager]);
+  }, [series, profile]);
 
   const getStatusColor = (s: string) => {
     const map: Record<string, string> = {
-      paid: "bg-emerald-50 text-emerald-700 border-emerald-200",
-      unpaid: "bg-rose-50 text-rose-700 border-rose-200",
-      pending: "bg-amber-50 text-amber-700 border-amber-200",
-      rejected: "bg-slate-100 text-slate-600 border-slate-200",
+      new: "bg-blue-50 text-blue-700 border-blue-200 ring-blue-600/20",
+      contacted: "bg-amber-50 text-amber-700 border-amber-200 ring-amber-600/20",
+      qualified: "bg-purple-50 text-purple-700 border-purple-200 ring-purple-600/20",
+      proposal: "bg-indigo-50 text-indigo-700 border-indigo-200 ring-indigo-600/20",
+      negotiation: "bg-orange-50 text-orange-700 border-orange-200 ring-orange-600/20",
+      closed: "bg-emerald-50 text-emerald-700 border-emerald-200 ring-emerald-600/20",
+      paid: "bg-emerald-50 text-emerald-700 border-emerald-200 ring-emerald-600/20",
+      pending: "bg-amber-50 text-amber-700 border-amber-200 ring-amber-600/20",
+      unpaid: "bg-rose-50 text-rose-700 border-rose-200 ring-rose-600/20",
     };
     return map[s] || "bg-slate-50 text-slate-700 border-slate-200";
   };
@@ -368,9 +345,14 @@ const Dashboard: React.FC = () => {
       <div className="p-8 bg-slate-50 min-h-screen flex items-center justify-center">
         <div className="bg-white border border-rose-200 rounded-xl p-8 max-w-md shadow-lg text-center">
           <AlertCircle className="w-12 h-12 text-rose-500 mx-auto mb-4" />
-          <h1 className="text-xl font-bold text-slate-900 mb-2">Error Loading Dashboard</h1>
+          <h1 className="text-xl font-bold text-slate-900 mb-2">
+            Error Loading Dashboard
+          </h1>
           <p className="text-slate-600 mb-6">{error}</p>
-          <button onClick={() => window.location.reload()} className="w-full rounded-lg bg-rose-600 hover:bg-rose-500 text-white px-6 py-2.5 shadow-sm transition-colors font-medium">
+          <button
+            onClick={loadAll}
+            className="w-full rounded-lg bg-rose-600 hover:bg-rose-500 text-white px-6 py-2.5 shadow-sm transition-colors font-medium"
+          >
             Retry
           </button>
         </div>
@@ -406,76 +388,16 @@ const Dashboard: React.FC = () => {
 
           <button
             onClick={() => {
-              syncData(); // Trigger manual sync on click
-              toast.success("Syncing latest data...");
+              loadAll();
+              refreshProfile();
+              toast.success("Refreshing...");
             }}
-            disabled={syncing || loading}
-            className="inline-flex items-center gap-2 px-4 py-2.5 bg-white border border-slate-200 text-slate-700 rounded-lg font-medium hover:bg-slate-50 hover:border-slate-300 transition shadow-sm disabled:opacity-70"
+            className="inline-flex items-center gap-2 px-4 py-2.5 bg-white border border-slate-200 text-slate-700 rounded-lg font-medium hover:bg-slate-50 hover:border-slate-300 transition shadow-sm"
           >
-            <RefreshCw className={`w-4 h-4 ${syncing || loading ? 'animate-spin' : ''}`} />
-            {syncing ? "Syncing..." : "Refresh"}
+            <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
+            Refresh
           </button>
         </div>
-      </div>
-
-      {/* AFFILIATE LINK BANNER */}
-      <div className="bg-gradient-to-r from-academy-blue-900 to-academy-blue-800 rounded-xl p-6 text-white shadow-lg">
-          <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
-              <div>
-                  <h3 className="text-lg font-semibold mb-1 flex items-center gap-2">
-                    <LinkIcon className="w-5 h-5 text-academy-blue-300" />
-                    Your Affiliate Link
-                  </h3>
-                  <p className="text-academy-blue-100 text-sm">Share this link to track referrals automatically.</p>
-              </div>
-              
-              {profile?.affiliate_referral_url ? (
-                <div className="flex items-center gap-2 w-full md:w-auto bg-white/10 p-1.5 rounded-lg border border-white/10">
-                    <code className="flex-1 md:flex-none text-sm px-3 py-1.5 font-mono text-academy-blue-100 truncate max-w-[300px] select-all">
-                        {profile.affiliate_referral_url}
-                    </code>
-                    <div className="h-6 w-px bg-white/20 mx-1"></div>
-                     <button
-                        onClick={() => {
-                          navigator.clipboard.writeText(profile.affiliate_referral_url || "");
-                          toast.success("Copied to clipboard!");
-                        }}
-                        className="p-2 hover:bg-white/20 rounded-md transition text-white"
-                        title="Copy Link"
-                    >
-                        <Copy className="w-4 h-4" />
-                    </button>
-                     <a
-                        href={profile.affiliate_referral_url}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="p-2 hover:bg-white/20 rounded-md transition text-white"
-                        title="Open Link"
-                    >
-                        <ExternalLink className="w-4 h-4" />
-                    </a>
-                </div>
-              ) : (
-                <div className="flex items-center gap-3 bg-white/10 px-4 py-3 rounded-lg border border-white/10 text-sm">
-                  {profile?.affiliatewp_id ? (
-                    <span className="text-academy-blue-200">Link unavailable. Contact support.</span>
-                  ) : (
-                    <>
-                      <div className="w-2 h-2 bg-academy-blue-400 rounded-full animate-pulse" />
-                      <span className="text-academy-blue-100">Generating your tracking link...</span>
-                      <button 
-                        onClick={async () => {
-                          await syncData();
-                        }}
-                        className="ml-2 text-xs underline text-white hover:text-academy-blue-200"
-                      >
-                        Force Sync
-                      </button>
-                    </>
-                  )}
-                </div>
-              )}
-          </div>
       </div>
 
       {/* KPI TILES */}
@@ -491,6 +413,45 @@ const Dashboard: React.FC = () => {
         <Tile label="Total Earnings" value={fmtMoney(totals.earn)} icon={DollarSign} />
         <Tile label="Unpaid Balance" value={fmtMoney(totals.unpaid)} icon={Clock} />
       </div>
+
+      {/* AFFILIATE LINK (RESTORED OLD UI) */}
+      {(profile?.affiliate_referral_url?.length ?? 0) > 0 && (
+        <div className="bg-gradient-to-r from-slate-900 to-slate-800 rounded-xl p-6 text-white shadow-lg">
+            <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+                <div>
+                    <h3 className="text-lg font-semibold mb-1">Your Affiliate Link</h3>
+                    <p className="text-slate-400 text-sm">Share this link to track referrals automatically.</p>
+                </div>
+                <div className="flex items-center gap-2 w-full md:w-auto bg-white/10 p-1.5 rounded-lg border border-white/10">
+                    <code className="flex-1 md:flex-none text-sm px-3 py-1.5 font-mono text-blue-200 truncate max-w-[300px]">
+                        {profile?.affiliate_referral_url}
+                    </code>
+                    <div className="h-6 w-px bg-white/20 mx-1"></div>
+                     <button
+                        onClick={() => {
+                        navigator.clipboard.writeText(
+                            profile?.affiliate_referral_url || ""
+                        );
+                        toast.success("Copied to clipboard!");
+                        }}
+                        className="p-2 hover:bg-white/20 rounded-md transition text-white"
+                        title="Copy Link"
+                    >
+                        <Copy className="w-4 h-4" />
+                    </button>
+                     <a
+                        href={profile?.affiliate_referral_url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="p-2 hover:bg-white/20 rounded-md transition text-white"
+                        title="Open Link"
+                    >
+                        <ExternalLink className="w-4 h-4" />
+                    </a>
+                </div>
+            </div>
+        </div>
+      )}
 
        {/* QUICK ACTIONS */}
        {!isManager && (
@@ -524,147 +485,151 @@ const Dashboard: React.FC = () => {
         </div>
       )}
 
-      {/* EARNINGS CHART */}
-      <Section title="Earnings Performance">
-        {loading ? (
-          <div className="flex items-center justify-center h-[300px]">
-            <div className="animate-spin h-8 w-8 rounded-full border-2 border-slate-200 border-b-academy-blue-600"></div>
-          </div>
-        ) : series.length === 0 ? (
-          <div className="flex flex-col items-center justify-center h-[300px] text-slate-400">
-            <AlertCircle className="w-10 h-10 mb-3 opacity-50" />
-            <p>No earnings data for this period.</p>
-          </div>
-        ) : (
-          <div className="h-[300px] w-full">
-            <ResponsiveContainer width="100%" height="100%">
-              <AreaChart data={series}>
-                <defs>
-                  <linearGradient id="colorEarnings" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#2563EB" stopOpacity={0.1}/>
-                    <stop offset="95%" stopColor="#2563EB" stopOpacity={0}/>
-                  </linearGradient>
-                </defs>
-                <CartesianGrid stroke="#e2e8f0" strokeDasharray="3 3" vertical={false} />
-                <XAxis 
-                  dataKey="date" 
-                  stroke="#64748b" 
-                  fontSize={12} 
-                  tickLine={false} 
-                  axisLine={false} 
-                  tickFormatter={(str) => new Date(str).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}
-                  dy={10}
-                />
-                <YAxis 
-                  stroke="#64748b" 
-                  fontSize={12} 
-                  tickLine={false} 
-                  axisLine={false} 
-                  tickFormatter={(val) => `$${val}`}
-                  dx={-10}
-                />
-                <Tooltip
-                  contentStyle={{
-                    backgroundColor: "white",
-                    border: "1px solid #e2e8f0",
-                    borderRadius: "12px",
-                    boxShadow: "0 4px 6px -1px rgba(0, 0, 0, 0.1)",
-                    padding: "12px"
-                  }}
-                  cursor={{ stroke: '#94a3b8', strokeWidth: 1, strokeDasharray: '4 4' }}
-                  formatter={(value: number) => [`$${value.toFixed(2)}`, "Earnings"]}
-                  labelFormatter={(label) => new Date(label).toLocaleDateString(undefined, { weekday: 'long', month: 'long', day: 'numeric'})}
-                />
-                <Area
-                  type="monotone"
-                  dataKey="earnings"
-                  stroke="#2563EB"
-                  strokeWidth={2}
-                  fillOpacity={1}
-                  fill="url(#colorEarnings)"
-                  activeDot={{ r: 6, strokeWidth: 0 }}
-                />
-              </AreaChart>
-            </ResponsiveContainer>
-          </div>
-        )}
-      </Section>
+      {/* EARNINGS + LEADS GRID */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 md:gap-6">
 
-      {/* RECENT LEADS */}
-      <Section
-        title="Recent Leads"
-        action={
-          <button
-            onClick={() => navigate("/leads")}
-            className="text-sm font-medium text-academy-blue-600 hover:text-academy-blue-700 flex items-center gap-1 transition-colors"
-          >
-            View All <ArrowUpRight className="w-4 h-4" />
-          </button>
-        }
-      >
-        {leadsLoading ? (
-           <div className="flex items-center justify-center h-[300px]">
-           <div className="animate-spin h-8 w-8 rounded-full border-2 border-slate-200 border-b-academy-blue-600"></div>
-         </div>
-        ) : recentLeads.length === 0 ? (
-          <div className="flex flex-col items-center justify-center h-[300px] text-slate-400">
-            <AlertCircle className="w-10 h-10 mb-3 opacity-50" />
-            <p>No leads generated yet.</p>
-          </div>
-        ) : (
-          <div className="space-y-4">
-            {recentLeads.map((lead) => (
-              <div
-                key={lead.id}
-                className="group flex items-start justify-between p-4 rounded-xl border border-slate-100 bg-slate-50 hover:bg-white hover:border-academy-blue-200 hover:shadow-sm transition-all duration-200"
-              >
-                <div className="flex gap-3">
-                  <div className="w-10 h-10 rounded-full bg-white border border-slate-200 flex items-center justify-center text-slate-400 group-hover:text-academy-blue-600 group-hover:border-academy-blue-200 transition-colors">
-                      <Building2Icon className="w-5 h-5" />
-                  </div>
-                  <div>
-                    <h4 className="text-sm font-semibold text-slate-900">
-                      {lead.company_name}
-                    </h4>
-                    <p className="text-xs text-slate-500 mt-0.5">
-                      {lead.contact_name}
-                    </p>
-                    <div className="flex items-center gap-3 mt-2">
-                       {lead.deal_value > 0 && (
-                          <span className="flex items-center gap-1 text-xs font-medium text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full">
-                              <DollarSign className="w-3 h-3" />
-                              {fmtNum(lead.deal_value)}
-                          </span>
-                      )}
+        {/* CHART */}
+        <Section title="Earnings Performance">
+          {loading ? (
+            <div className="flex items-center justify-center h-[300px]">
+              <div className="animate-spin h-8 w-8 rounded-full border-2 border-slate-200 border-b-blue-600"></div>
+            </div>
+          ) : series.length === 0 ? (
+            <div className="flex flex-col items-center justify-center h-[300px] text-slate-400">
+              <AlertCircle className="w-10 h-10 mb-3 opacity-50" />
+              <p>No earnings data for this period.</p>
+            </div>
+          ) : (
+            <div className="h-[300px] w-full">
+              <ResponsiveContainer width="100%" height="100%">
+                <AreaChart data={series}>
+                  <defs>
+                    <linearGradient id="colorEarnings" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%" stopColor="#2563EB" stopOpacity={0.1}/>
+                      <stop offset="95%" stopColor="#2563EB" stopOpacity={0}/>
+                    </linearGradient>
+                  </defs>
+                  <CartesianGrid stroke="#e2e8f0" strokeDasharray="3 3" vertical={false} />
+                  <XAxis 
+                    dataKey="date" 
+                    stroke="#64748b" 
+                    fontSize={12} 
+                    tickLine={false} 
+                    axisLine={false} 
+                    tickFormatter={(str) => new Date(str).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}
+                    dy={10}
+                  />
+                  <YAxis 
+                    stroke="#64748b" 
+                    fontSize={12} 
+                    tickLine={false} 
+                    axisLine={false} 
+                    tickFormatter={(val) => `$${val}`}
+                    dx={-10}
+                  />
+                  <Tooltip
+                    contentStyle={{
+                      backgroundColor: "white",
+                      border: "1px solid #e2e8f0",
+                      borderRadius: "12px",
+                      boxShadow: "0 4px 6px -1px rgba(0, 0, 0, 0.1)",
+                      padding: "12px"
+                    }}
+                    cursor={{ stroke: '#94a3b8', strokeWidth: 1, strokeDasharray: '4 4' }}
+                    formatter={(value: number) => [`$${value.toFixed(2)}`, "Earnings"]}
+                    labelFormatter={(label) => new Date(label).toLocaleDateString(undefined, { weekday: 'long', month: 'long', day: 'numeric'})}
+                  />
+                  <Area
+                    type="monotone"
+                    dataKey="earnings"
+                    stroke="#2563EB"
+                    strokeWidth={2}
+                    fillOpacity={1}
+                    fill="url(#colorEarnings)"
+                    activeDot={{ r: 6, strokeWidth: 0 }}
+                  />
+                </AreaChart>
+              </ResponsiveContainer>
+            </div>
+          )}
+        </Section>
+
+        {/* RECENT LEADS */}
+        <Section
+          title="Recent Leads"
+          action={
+            <button
+              onClick={() => navigate("/leads")}
+              className="text-sm font-medium text-blue-600 hover:text-blue-700 flex items-center gap-1 transition-colors"
+            >
+              View All <ArrowUpRight className="w-4 h-4" />
+            </button>
+          }
+        >
+          {leadsLoading ? (
+             <div className="flex items-center justify-center h-[300px]">
+             <div className="animate-spin h-8 w-8 rounded-full border-2 border-slate-200 border-b-blue-600"></div>
+           </div>
+          ) : recentLeads.length === 0 ? (
+            <div className="flex flex-col items-center justify-center h-[300px] text-slate-400">
+              <AlertCircle className="w-10 h-10 mb-3 opacity-50" />
+              <p>No leads generated yet.</p>
+            </div>
+          ) : (
+            <div className="space-y-4">
+              {recentLeads.map((lead) => (
+                <div
+                  key={lead.id}
+                  className="group flex items-start justify-between p-4 rounded-xl border border-slate-100 bg-slate-50 hover:bg-white hover:border-blue-200 hover:shadow-sm transition-all duration-200"
+                >
+                  <div className="flex gap-3">
+                    <div className="w-10 h-10 rounded-full bg-white border border-slate-200 flex items-center justify-center text-slate-400 group-hover:text-blue-600 group-hover:border-blue-200 transition-colors">
+                        <Building2Icon className="w-5 h-5" />
+                    </div>
+                    <div>
+                      <h4 className="text-sm font-semibold text-slate-900">
+                        {lead.company_name}
+                      </h4>
+                      <p className="text-xs text-slate-500 mt-0.5">
+                        {lead.contact_name}
+                      </p>
+                      <div className="flex items-center gap-3 mt-2">
+                         {lead.deal_value > 0 && (
+                            <span className="flex items-center gap-1 text-xs font-medium text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full">
+                                <DollarSign className="w-3 h-3" />
+                                {fmtNum(lead.deal_value)}
+                            </span>
+                        )}
+                      </div>
                     </div>
                   </div>
-                </div>
 
-                <div className="text-right">
-                  <span
-                      className={`inline-flex px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wide border ring-1 ring-inset ${getStatusColor(
-                        lead.status
-                      )}`}
-                    >
-                      {lead.status}
-                    </span>
-                    <p className="text-[10px] text-slate-400 mt-2">
-                      {new Date(lead.created_at).toLocaleDateString()}
-                    </p>
+                  <div className="text-right">
+                    <span
+                        className={`inline-flex px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wide border ring-1 ring-inset ${getStatusColor(
+                          lead.status
+                        )}`}
+                      >
+                        {lead.status}
+                      </span>
+                      <p className="text-[10px] text-slate-400 mt-2">
+                        {new Date(lead.created_at).toLocaleDateString()}
+                      </p>
+                  </div>
                 </div>
-              </div>
-            ))}
-          </div>
-        )}
-      </Section>
+              ))}
+            </div>
+          )}
+        </Section>
+      </div>
 
-      {/* REFERRALS TABLE */}
+      {/* REFERRALS */}
       <Section
         title="Recent Referral Commissions"
         action={
           <button
             onClick={() => navigate("/commissions")}
-            className="text-sm font-medium text-academy-blue-600 hover:text-academy-blue-700 flex items-center gap-1 transition-colors"
+            className="text-sm font-medium text-blue-600 hover:text-blue-700 flex items-center gap-1 transition-colors"
           >
             View All <ArrowUpRight className="w-4 h-4" />
           </button>
@@ -728,7 +693,7 @@ const Dashboard: React.FC = () => {
   );
 };
 
-// Custom Icon Component
+// Simple icon component for the leads list
 function Building2Icon(props: React.SVGProps<SVGSVGElement>) {
   return (
     <svg
