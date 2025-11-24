@@ -18,7 +18,6 @@ Deno.serve(async (req) => {
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? ""
     );
 
-    // 1. Get the payload from the database trigger
     const payload = await req.json();
     console.log("Received payload:", payload);
 
@@ -28,14 +27,13 @@ Deno.serve(async (req) => {
       throw new Error("Missing required fields: email or profile_id");
     }
 
-    // 2. Get AffiliateWP Credentials from App Settings
     const { data: settings, error: settingsError } = await supabaseClient
       .from("app_settings")
-      .select("setting_key, setting_value")
-      .in("setting_key", [
+      .select("key, value")
+      .in("key", [
         "affiliatewp_site_url",
-        "affiliatewp_consumer_key",
-        "affiliatewp_consumer_secret",
+        "affiliatewp_api_username",
+        "affiliatewp_api_password",
       ]);
 
     if (settingsError || !settings) {
@@ -43,30 +41,73 @@ Deno.serve(async (req) => {
     }
 
     const config = settings.reduce((acc, curr) => {
-      acc[curr.setting_key] = curr.setting_value;
+      acc[curr.key] = curr.value;
       return acc;
     }, {} as Record<string, string>);
 
     if (
       !config.affiliatewp_site_url ||
-      !config.affiliatewp_consumer_key ||
-      !config.affiliatewp_consumer_secret
+      !config.affiliatewp_api_username ||
+      !config.affiliatewp_api_password
     ) {
       throw new Error("Incomplete AffiliateWP configuration in app_settings");
     }
 
-    // 3. Call AffiliateWP API to create the affiliate
-    // We use the v2 /affiliates endpoint
     const authString = btoa(
-      `${config.affiliatewp_consumer_key}:${config.affiliatewp_consumer_secret}`
+      `${config.affiliatewp_api_username}:${config.affiliatewp_api_password}`
     );
-    const wpUrl = config.affiliatewp_site_url.replace(/\/$/, ""); // Remove trailing slash
-    const apiUrl = `${wpUrl}/wp-json/affwp/v2/affiliates`;
+    const wpUrl = config.affiliatewp_site_url.replace(/\/$/, "");
+    const apiUrl = `${wpUrl}/wp-json/affwp/v1/affiliates`;
 
     console.log(`Creating affiliate for ${email} at ${apiUrl}`);
 
-    // Generate unique user_login from email
     const userLogin = email.split("@")[0].toLowerCase().replace(/[^a-z0-9_]/g, "_");
+    const wpUserUrl = `${wpUrl}/wp-json/wp/v2/users`;
+
+    console.log(`Creating WordPress user at ${wpUserUrl}`);
+
+    const userResponse = await fetch(wpUserUrl, {
+      method: "POST",
+      headers: {
+        Authorization: `Basic ${authString}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        username: userLogin,
+        email: email,
+        name: name || userLogin,
+        password: Math.random().toString(36).slice(-12) + "Aa1!",
+        roles: ["subscriber"],
+      }),
+    });
+
+    let wpUserId: number;
+
+    if (!userResponse.ok) {
+      const userData = await userResponse.json();
+      if (userData.code === "existing_user_login" || userData.code === "existing_user_email") {
+        console.log("User already exists, fetching existing user ID");
+        const getUserUrl = `${wpUrl}/wp-json/wp/v2/users?search=${encodeURIComponent(email)}`;
+        const existingUserResponse = await fetch(getUserUrl, {
+          headers: {
+            Authorization: `Basic ${authString}`,
+          },
+        });
+        const existingUsers = await existingUserResponse.json();
+        if (existingUsers && existingUsers.length > 0) {
+          wpUserId = existingUsers[0].id;
+          console.log(`Found existing user ID: ${wpUserId}`);
+        } else {
+          throw new Error("User exists but could not fetch user ID");
+        }
+      } else {
+        throw new Error(`WordPress user creation failed: ${userData.message || JSON.stringify(userData)}`);
+      }
+    } else {
+      const userData = await userResponse.json();
+      wpUserId = userData.id;
+      console.log(`Created new WordPress user ID: ${wpUserId}`);
+    }
 
     const wpResponse = await fetch(apiUrl, {
       method: "POST",
@@ -75,11 +116,9 @@ Deno.serve(async (req) => {
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        user_email: email,
-        user_login: userLogin,
-        user_nicename: name || userLogin,
+        user_id: wpUserId,
         payment_email: email,
-        rate: 0, // Default commission rate (0 = use site-wide rate)
+        rate: 0,
         rate_type: "percentage",
         status: "active",
       }),
@@ -89,10 +128,8 @@ Deno.serve(async (req) => {
     console.log("AffiliateWP Response:", wpData);
 
     if (!wpResponse.ok) {
-      // If user already exists, try to fetch their ID instead of failing
       if (wpData.error_code === "user_exists" || wpData.code === "existing_user_login") {
         console.log("User exists, attempting to link existing affiliate...");
-        // Logic to find existing affiliate could go here, or we just return an error
       }
       throw new Error(
         `AffiliateWP API Error: ${wpData.message || wpData.error || "Unknown error"}`
@@ -102,21 +139,19 @@ Deno.serve(async (req) => {
     const newAffiliateId = wpData.affiliate_id;
     const referralUrl = `${wpUrl}/?ref=${newAffiliateId}`;
 
-    // 4. Update Supabase Profile with new ID
     const { error: updateError } = await supabaseClient
       .from("profiles")
       .update({
         affiliatewp_id: newAffiliateId,
-        affiliate_referral_url: referralUrl,
+        affiliate_url: referralUrl,
         affiliatewp_sync_status: "completed",
         affiliatewp_account_status: "active",
         last_affiliatewp_sync: new Date().toISOString(),
       })
-      .eq("id", profile_id);
+      .eq("user_id", profile_id);
 
     if (updateError) throw updateError;
 
-    // 5. Update sync log to mark as completed
     const { error: syncLogError } = await supabaseClient
       .from("affiliatewp_sync_log")
       .update({
@@ -149,7 +184,7 @@ Deno.serve(async (req) => {
       JSON.stringify({ success: false, error: error.message }),
       {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
-        status: 500, // Return 500 so pg_net/pg_cron knows to retry if needed
+        status: 500,
       }
     );
   }
