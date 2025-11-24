@@ -276,7 +276,7 @@ export const useDataStore = create<DataState>((set, get) => ({
 
     // Return cached data if valid and not forced
     if (!force && cached && now < cached.expiry) {
-      set({ 
+      set({
         commissions: cached.data.commissions || [],
         affiliateCommissions: cached.data.affiliateCommissions || []
       });
@@ -285,11 +285,11 @@ export const useDataStore = create<DataState>((set, get) => ({
 
     // Use stale data while revalidating
     if (!force && cached && now < cached.timestamp + STALE_WHILE_REVALIDATE) {
-      set({ 
+      set({
         commissions: cached.data.commissions || [],
         affiliateCommissions: cached.data.affiliateCommissions || []
       });
-      
+
       // Revalidate in background
       setTimeout(() => get().loadCommissionsData(companyId, true), 100);
       return;
@@ -298,13 +298,38 @@ export const useDataStore = create<DataState>((set, get) => ({
     try {
       set({ commissionsLoading: true });
 
-      // Load data in parallel
-      const [commissions, affiliateCommissions] = await Promise.all([
+      // Load data in parallel from both internal commissions and AffiliateWP referrals
+      const [commissions, affiliateCommissions, affiliateReferrals] = await Promise.all([
         supabaseService.getCommissions(companyId),
-        commissionService.getCommissionEntries()
+        commissionService.getCommissionEntries(),
+        supabaseService.getAffiliateReferrals()
       ]);
 
-      const data = { commissions, affiliateCommissions };
+      // Merge affiliate referrals into the commissions display
+      const mergedCommissions = [
+        ...affiliateCommissions,
+        ...(affiliateReferrals || []).map((ref: any) => ({
+          id: ref.id,
+          affiliate_id: ref.affiliate_id,
+          affiliatewp_referral_id: ref.affiliatewp_referral_id,
+          commission_type: 'affiliate',
+          customer_name: ref.description || 'Affiliate Referral',
+          customer_email: '',
+          product_name: ref.reference || 'Referral Commission',
+          product_id: 0,
+          order_total: ref.amount || 0,
+          commission_amount: ref.amount || 0,
+          commission_rate: 0,
+          status: ref.status || 'pending',
+          payment_date: null,
+          notes: ref.context,
+          webhook_data: ref.custom,
+          created_at: ref.date || ref.created_at,
+          updated_at: ref.updated_at
+        }))
+      ];
+
+      const data = { commissions, affiliateCommissions: mergedCommissions };
 
       // Update cache
       const newCache = new Map(cache);
@@ -317,14 +342,14 @@ export const useDataStore = create<DataState>((set, get) => ({
       set({
         cache: newCache,
         commissions: commissions,
-        affiliateCommissions: affiliateCommissions
+        affiliateCommissions: mergedCommissions
       });
 
     } catch (error) {
       // Error loading commissions data
       // Use cached data if available on error
       if (cached) {
-        set({ 
+        set({
           commissions: cached.data.commissions || [],
           affiliateCommissions: cached.data.affiliateCommissions || []
         });

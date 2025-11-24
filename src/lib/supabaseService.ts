@@ -158,4 +158,49 @@ export const supabaseService = {
       return [];
     }
   },
+
+  /* ============================================================
+     AFFILIATEWP DATA
+  ============================================================ */
+
+  async getAffiliateReferrals(limit: number = 1000) {
+    try {
+      const { data, error } = await supabase
+        .from("affiliate_referrals")
+        .select("*")
+        .order("created_at", { ascending: false })
+        .limit(limit);
+
+      if (error) throw error;
+      return Array.isArray(data) ? data : [];
+    } catch (err) {
+      console.error("[supabaseService] getAffiliateReferrals error:", err);
+      return [];
+    }
+  },
+
+  async getAffiliateMetrics(affiliateId?: number, dateFrom?: string) {
+    try {
+      let query = supabase
+        .from("affiliate_metrics_daily")
+        .select("*")
+        .order("date", { ascending: false });
+
+      if (affiliateId) {
+        query = query.eq("affiliate_id", affiliateId);
+      }
+
+      if (dateFrom) {
+        query = query.gte("date", dateFrom);
+      }
+
+      const { data, error } = await query.limit(1000);
+
+      if (error) throw error;
+      return Array.isArray(data) ? data : [];
+    } catch (err) {
+      console.error("[supabaseService] getAffiliateMetrics error:", err);
+      return [];
+    }
+  },
 };

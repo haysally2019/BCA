@@ -76,8 +76,37 @@ Deno.serve(async (req: Request) => {
       const { error } = await supabaseClient.from("affiliate_referrals").upsert({ affiliatewp_referral_id: referral.referral_id, affiliate_id: referral.affiliate_id, profile_id: profileData?.user_id || null, amount: parseFloat(referral.amount) || 0, description: referral.description, reference: referral.reference, context: referral.context, status: referral.status, custom: customData, date: referral.date, updated_at: new Date().toISOString() }, { onConflict: "affiliatewp_referral_id" });
       if (!error) referralsInserted++;
     }
-    await supabaseClient.from("affiliatewp_sync_log").insert({ sync_type: "full_sync", status: "completed", records_processed: affiliates.length + referrals.length, completed_at: new Date().toISOString(), metadata: { affiliates: affiliates.length, profiles_updated: updatedCount, referrals: referrals.length, referrals_inserted: referralsInserted } });
-    return new Response(JSON.stringify({ success: true, message: "Sync completed successfully", stats: { affiliates: affiliates.length, profiles_updated: updatedCount, referrals: referrals.length, referrals_inserted: referralsInserted } }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    let metricsInserted = 0;
+    const metricsMap = new Map<string, { visits: number; referrals: number; earnings: number; unpaid_earnings: number }>();
+    for (const referral of referrals) {
+      const date = referral.date ? new Date(referral.date).toISOString().split("T")[0] : new Date().toISOString().split("T")[0];
+      const key = `${referral.affiliate_id}_${date}`;
+      const current = metricsMap.get(key) || { visits: 0, referrals: 0, earnings: 0, unpaid_earnings: 0 };
+      current.referrals += 1;
+      const amount = parseFloat(referral.amount) || 0;
+      current.earnings += amount;
+      if (referral.status === "unpaid" || referral.status === "pending") {
+        current.unpaid_earnings += amount;
+      }
+      metricsMap.set(key, current);
+    }
+    for (const affiliate of affiliates) {
+      const today = new Date().toISOString().split("T")[0];
+      const key = `${affiliate.affiliate_id}_${today}`;
+      const current = metricsMap.get(key) || { visits: 0, referrals: 0, earnings: 0, unpaid_earnings: 0 };
+      current.visits = affiliate.visits || 0;
+      if (!metricsMap.has(key)) {
+        current.unpaid_earnings = parseFloat(affiliate.unpaid_earnings) || 0;
+      }
+      metricsMap.set(key, current);
+    }
+    for (const [key, metrics] of metricsMap.entries()) {
+      const [affiliateId, date] = key.split("_");
+      const { error } = await supabaseClient.from("affiliate_metrics_daily").upsert({ affiliate_id: parseInt(affiliateId), date, visits: metrics.visits, referrals: metrics.referrals, earnings: metrics.earnings, unpaid_earnings: metrics.unpaid_earnings }, { onConflict: "affiliate_id,date" });
+      if (!error) metricsInserted++;
+    }
+    await supabaseClient.from("affiliatewp_sync_log").insert({ sync_type: "full_sync", status: "completed", records_processed: affiliates.length + referrals.length, completed_at: new Date().toISOString(), metadata: { affiliates: affiliates.length, profiles_updated: updatedCount, referrals: referrals.length, referrals_inserted: referralsInserted, metrics_inserted: metricsInserted } });
+    return new Response(JSON.stringify({ success: true, message: "Sync completed successfully", stats: { affiliates: affiliates.length, profiles_updated: updatedCount, referrals: referrals.length, referrals_inserted: referralsInserted, metrics_inserted: metricsInserted } }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
   } catch (error) {
     console.error("Sync error:", error);
     return new Response(JSON.stringify({ success: false, error: error instanceof Error ? error.message : "Unknown error" }), { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } });
