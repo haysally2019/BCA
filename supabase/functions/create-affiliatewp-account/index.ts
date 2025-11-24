@@ -31,11 +31,11 @@ Deno.serve(async (req) => {
     // 2. Get AffiliateWP Credentials from App Settings
     const { data: settings, error: settingsError } = await supabaseClient
       .from("app_settings")
-      .select("key, value")
-      .in("key", [
+      .select("setting_key, setting_value")
+      .in("setting_key", [
         "affiliatewp_site_url",
-        "affiliatewp_api_username",
-        "affiliatewp_api_password",
+        "affiliatewp_consumer_key",
+        "affiliatewp_consumer_secret",
       ]);
 
     if (settingsError || !settings) {
@@ -43,27 +43,30 @@ Deno.serve(async (req) => {
     }
 
     const config = settings.reduce((acc, curr) => {
-      acc[curr.key] = curr.value;
+      acc[curr.setting_key] = curr.setting_value;
       return acc;
     }, {} as Record<string, string>);
 
     if (
       !config.affiliatewp_site_url ||
-      !config.affiliatewp_api_username ||
-      !config.affiliatewp_api_password
+      !config.affiliatewp_consumer_key ||
+      !config.affiliatewp_consumer_secret
     ) {
       throw new Error("Incomplete AffiliateWP configuration in app_settings");
     }
 
     // 3. Call AffiliateWP API to create the affiliate
-    // We use the /affiliates endpoint with create_user=true
+    // We use the v2 /affiliates endpoint
     const authString = btoa(
-      `${config.affiliatewp_api_username}:${config.affiliatewp_api_password}`
+      `${config.affiliatewp_consumer_key}:${config.affiliatewp_consumer_secret}`
     );
     const wpUrl = config.affiliatewp_site_url.replace(/\/$/, ""); // Remove trailing slash
-    const apiUrl = `${wpUrl}/wp-json/affwp/v1/affiliates`;
+    const apiUrl = `${wpUrl}/wp-json/affwp/v2/affiliates`;
 
     console.log(`Creating affiliate for ${email} at ${apiUrl}`);
+
+    // Generate unique user_login from email
+    const userLogin = email.split("@")[0].toLowerCase().replace(/[^a-z0-9_]/g, "_");
 
     const wpResponse = await fetch(apiUrl, {
       method: "POST",
@@ -72,12 +75,12 @@ Deno.serve(async (req) => {
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        create_user: true, // Auto-create WP user
         user_email: email,
-        user_login: email,
-        user_name: name || email.split("@")[0],
+        user_login: userLogin,
+        user_nicename: name || userLogin,
         payment_email: email,
-        rate: 20, // Default commission rate (adjust as needed)
+        rate: 0, // Default commission rate (0 = use site-wide rate)
+        rate_type: "percentage",
         status: "active",
       }),
     });
@@ -104,13 +107,30 @@ Deno.serve(async (req) => {
       .from("profiles")
       .update({
         affiliatewp_id: newAffiliateId,
-        affiliate_url: referralUrl,
-        affiliatewp_status: "active",
-        last_metrics_sync: new Date().toISOString(),
+        affiliate_referral_url: referralUrl,
+        affiliatewp_sync_status: "completed",
+        affiliatewp_account_status: "active",
+        last_affiliatewp_sync: new Date().toISOString(),
       })
       .eq("id", profile_id);
 
     if (updateError) throw updateError;
+
+    // 5. Update sync log to mark as completed
+    const { error: syncLogError } = await supabaseClient
+      .from("affiliatewp_sync_log")
+      .update({
+        status: "completed",
+        affiliatewp_id: newAffiliateId,
+        completed_at: new Date().toISOString(),
+      })
+      .eq("profile_id", profile_id)
+      .eq("operation", "create")
+      .eq("status", "pending");
+
+    if (syncLogError) {
+      console.warn("Could not update sync log:", syncLogError);
+    }
 
     return new Response(
       JSON.stringify({

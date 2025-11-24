@@ -54,28 +54,42 @@ class AffiliateWPService {
     this.config = config;
   }
 
-  private async makeRequest<T>(endpoint: string, params: Record<string, any> = {}): Promise<T> {
+  private async makeRequest<T>(
+    endpoint: string,
+    params: Record<string, any> = {},
+    method: 'GET' | 'POST' | 'PUT' | 'DELETE' = 'GET',
+    body?: any
+  ): Promise<T> {
     if (!this.config) {
       throw new Error('AffiliateWP API not configured');
     }
 
     const url = new URL(`${this.config.wpUrl}/wp-json/affwp/v2/${endpoint}`);
 
-    // Add query parameters
-    Object.entries(params).forEach(([key, value]) => {
-      if (value !== undefined && value !== null) {
-        url.searchParams.append(key, String(value));
-      }
-    });
+    // Add query parameters for GET requests
+    if (method === 'GET') {
+      Object.entries(params).forEach(([key, value]) => {
+        if (value !== undefined && value !== null) {
+          url.searchParams.append(key, String(value));
+        }
+      });
+    }
 
     const headers = new Headers();
     headers.set('Authorization', 'Basic ' + btoa(`${this.config.consumerKey}:${this.config.consumerSecret}`));
     headers.set('Content-Type', 'application/json');
 
-    const response = await fetch(url.toString(), {
-      method: 'GET',
+    const fetchOptions: RequestInit = {
+      method,
       headers,
-    });
+    };
+
+    // Add body for POST/PUT requests
+    if ((method === 'POST' || method === 'PUT') && body) {
+      fetchOptions.body = JSON.stringify(body);
+    }
+
+    const response = await fetch(url.toString(), fetchOptions);
 
     if (!response.ok) {
       const errorText = await response.text();
@@ -105,6 +119,29 @@ class AffiliateWPService {
       number: 1,
     });
     return affiliates.length > 0 ? affiliates[0] : null;
+  }
+
+  // Create new affiliate
+  async createAffiliate(data: {
+    user_login: string;
+    user_email: string;
+    payment_email?: string;
+    user_nicename?: string;
+    rate?: number;
+    rate_type?: string;
+    status?: string;
+  }): Promise<AffiliateWPAffiliate> {
+    const body = {
+      user_login: data.user_login,
+      user_email: data.user_email,
+      payment_email: data.payment_email || data.user_email,
+      user_nicename: data.user_nicename || data.user_login,
+      rate: data.rate || 0,
+      rate_type: data.rate_type || 'percentage',
+      status: data.status || 'active',
+    };
+
+    return this.makeRequest<AffiliateWPAffiliate>('affiliates', {}, 'POST', body);
   }
 
   // Get referrals for an affiliate
