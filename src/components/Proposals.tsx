@@ -16,7 +16,7 @@ import {
 } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import toast from "react-hot-toast";
-import { SendProposalModal } from "./modals/SendProposalModal";
+import { SendProposalModal, ProposalDetailsModal } from "./modals";
 
 type ProposalStatus = "draft" | "sent" | "viewed" | "accepted" | "rejected";
 
@@ -26,8 +26,17 @@ type Proposal = {
   lead_name: string;
   lead_email: string;
   company_name: string;
-  status: ProposalStatus;
+  contact_name: string;
+  contact_email: string;
+  contact_phone: string;
+  package_name: string;
+  monthly_investment: number;
+  annual_value: number;
   amount: number;
+  proposal_content: string;
+  affiliate_link: string;
+  sent_via: string;
+  status: ProposalStatus;
   sent_at?: string;
   viewed_at?: string;
   responded_at?: string;
@@ -45,6 +54,8 @@ const Proposals: React.FC = () => {
   const [statusFilter, setStatusFilter] = useState<ProposalStatus | "all">("all");
   const [showSendModal, setShowSendModal] = useState(false);
   const [selectedLead, setSelectedLead] = useState<any>(null);
+  const [showDetailsModal, setShowDetailsModal] = useState(false);
+  const [selectedProposal, setSelectedProposal] = useState<Proposal | null>(null);
 
   const isManager = ["admin", "manager", "owner"].includes(
     profile?.user_role?.toLowerCase() || ""
@@ -92,11 +103,20 @@ const Proposals: React.FC = () => {
         data?.map((p: any) => ({
           id: p.id,
           lead_id: p.lead_id,
-          lead_name: p.leads?.contact_name || "Unknown",
-          lead_email: p.leads?.email || "",
-          company_name: p.leads?.company_name || "",
-          status: p.status,
-          amount: p.amount || 0,
+          lead_name: p.contact_name || p.leads?.contact_name || "Unknown",
+          lead_email: p.contact_email || p.leads?.email || "",
+          company_name: p.company_name || p.leads?.company_name || "",
+          contact_name: p.contact_name || "",
+          contact_email: p.contact_email || "",
+          contact_phone: p.contact_phone || "",
+          package_name: p.package_name || "",
+          monthly_investment: p.monthly_investment || 0,
+          annual_value: p.annual_value || 0,
+          amount: p.amount || p.annual_value || 0,
+          proposal_content: p.proposal_content || "",
+          affiliate_link: p.affiliate_link || "",
+          sent_via: p.sent_via || "email",
+          status: p.status || "sent",
           sent_at: p.sent_at,
           viewed_at: p.viewed_at,
           responded_at: p.responded_at,
@@ -112,6 +132,11 @@ const Proposals: React.FC = () => {
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleViewProposal = (proposal: Proposal) => {
+    setSelectedProposal(proposal);
+    setShowDetailsModal(true);
   };
 
   const getStatusIcon = (status: ProposalStatus) => {
@@ -360,7 +385,10 @@ const Proposals: React.FC = () => {
                       </div>
                     </td>
                     <td className="px-6 py-4">
-                      <button className="text-blue-600 hover:text-blue-800 text-sm font-medium">
+                      <button
+                        onClick={() => handleViewProposal(proposal)}
+                        className="text-blue-600 hover:text-blue-800 text-sm font-medium"
+                      >
                         View
                       </button>
                     </td>
@@ -385,6 +413,17 @@ const Proposals: React.FC = () => {
             setShowSendModal(false);
             setSelectedLead(null);
           }}
+        />
+      )}
+
+      {showDetailsModal && (
+        <ProposalDetailsModal
+          isOpen={showDetailsModal}
+          onClose={() => {
+            setShowDetailsModal(false);
+            setSelectedProposal(null);
+          }}
+          proposal={selectedProposal}
         />
       )}
     </div>

@@ -57,15 +57,51 @@ export function SendProposalModal({ isOpen, onClose, lead, onProposalSent }: Sen
   const [sendVia, setSendVia] = useState<"email" | "sms" | "both">("email");
   const [loading, setLoading] = useState(false);
   const [customTemplate, setCustomTemplate] = useState("");
+  const [leads, setLeads] = useState<Lead[]>([]);
+  const [selectedLead, setSelectedLead] = useState<Lead | null>(null);
+  const [searchTerm, setSearchTerm] = useState("");
 
   useEffect(() => {
-    if (isOpen && lead) {
+    if (isOpen) {
       setCustomTemplate(PROPOSAL_TEMPLATE);
       setPackageName("Standard Plan");
       setMonthlyInvestment(299);
-      setSendVia(lead.email ? "email" : lead.phone ? "sms" : "email");
+
+      if (lead) {
+        setSelectedLead(lead);
+        setSendVia(lead.email ? "email" : lead.phone ? "sms" : "email");
+      } else {
+        setSelectedLead(null);
+        fetchLeads();
+      }
     }
   }, [isOpen, lead]);
+
+  const fetchLeads = async () => {
+    if (!supabase || !profile) return;
+
+    try {
+      const { data, error } = await supabase
+        .from("leads")
+        .select("id, company_name, contact_name, email, phone, status")
+        .order("created_at", { ascending: false })
+        .limit(100);
+
+      if (error) throw error;
+
+      setLeads(data || []);
+    } catch (error) {
+      console.error("Error fetching leads:", error);
+    }
+  };
+
+  const handleLeadSelect = (leadId: string) => {
+    const lead = leads.find((l) => l.id === leadId);
+    if (lead) {
+      setSelectedLead(lead);
+      setSendVia(lead.email ? "email" : lead.phone ? "sms" : "email");
+    }
+  };
 
   const affiliateLink = useMemo(() => {
     if (!profile?.affiliatewp_id) return "https://yourcrm.com/signup";
@@ -73,12 +109,13 @@ export function SendProposalModal({ isOpen, onClose, lead, onProposalSent }: Sen
   }, [profile]);
 
   const filledProposal = useMemo(() => {
-    if (!lead) return "";
+    const activeLead = selectedLead || lead;
+    if (!activeLead) return "";
 
     let result = customTemplate;
     const replacements: Record<string, string> = {
-      "{{contact_name}}": lead.contact_name || "",
-      "{{company_name}}": lead.company_name || "",
+      "{{contact_name}}": activeLead.contact_name || "",
+      "{{company_name}}": activeLead.company_name || "",
       "{{package_name}}": packageName,
       "{{monthly_investment}}": `$${monthlyInvestment}`,
       "{{annual_value}}": `$${monthlyInvestment * 12}`,
@@ -91,27 +128,42 @@ export function SendProposalModal({ isOpen, onClose, lead, onProposalSent }: Sen
     }
 
     return result;
-  }, [customTemplate, lead, packageName, monthlyInvestment, affiliateLink, profile]);
+  }, [customTemplate, selectedLead, lead, packageName, monthlyInvestment, affiliateLink, profile]);
+
+  const filteredLeads = useMemo(() => {
+    if (!searchTerm) return leads;
+    const term = searchTerm.toLowerCase();
+    return leads.filter(
+      (l) =>
+        l.company_name?.toLowerCase().includes(term) ||
+        l.contact_name?.toLowerCase().includes(term) ||
+        l.email?.toLowerCase().includes(term)
+    );
+  }, [leads, searchTerm]);
 
   const handleSend = async () => {
-    if (!lead || !supabase || !profile) return;
+    const activeLead = selectedLead || lead;
+    if (!activeLead || !supabase || !profile) return;
 
     setLoading(true);
     try {
+      const annualValue = monthlyInvestment * 12;
       const proposalData = {
-        lead_id: lead.id,
+        lead_id: activeLead.id,
         created_by: profile.user_id,
-        company_name: lead.company_name,
-        contact_name: lead.contact_name,
-        contact_email: lead.email || null,
-        contact_phone: lead.phone || null,
+        company_name: activeLead.company_name,
+        contact_name: activeLead.contact_name,
+        contact_email: activeLead.email || null,
+        contact_phone: activeLead.phone || null,
         package_name: packageName,
         monthly_investment: monthlyInvestment,
-        annual_value: monthlyInvestment * 12,
+        annual_value: annualValue,
+        amount: annualValue,
         proposal_content: filledProposal,
         affiliate_link: affiliateLink,
         sent_via: sendVia,
         sent_at: new Date().toISOString(),
+        status: 'sent',
       };
 
       const { error } = await supabase
@@ -119,6 +171,11 @@ export function SendProposalModal({ isOpen, onClose, lead, onProposalSent }: Sen
         .insert(proposalData);
 
       if (error) throw error;
+
+      await supabase
+        .from("leads")
+        .update({ status: "proposal_sent" })
+        .eq("id", activeLead.id);
 
       alert(`Proposal sent successfully via ${sendVia}!`);
       onProposalSent();
@@ -140,7 +197,9 @@ export function SendProposalModal({ isOpen, onClose, lead, onProposalSent }: Sen
     }
   };
 
-  if (!isOpen || !lead) return null;
+  if (!isOpen) return null;
+
+  const activeLead = selectedLead || lead;
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
@@ -148,9 +207,11 @@ export function SendProposalModal({ isOpen, onClose, lead, onProposalSent }: Sen
         <div className="flex items-center justify-between p-6 border-b border-gray-200">
           <div>
             <h2 className="text-xl font-bold text-gray-900">Send Proposal</h2>
-            <p className="text-sm text-gray-600 mt-1">
-              {lead.company_name} - {lead.contact_name}
-            </p>
+            {activeLead && (
+              <p className="text-sm text-gray-600 mt-1">
+                {activeLead.company_name} - {activeLead.contact_name}
+              </p>
+            )}
           </div>
           <button
             onClick={onClose}
@@ -161,6 +222,32 @@ export function SendProposalModal({ isOpen, onClose, lead, onProposalSent }: Sen
         </div>
 
         <div className="flex-1 overflow-y-auto p-6 space-y-6">
+          {!lead && (
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Select Lead
+              </label>
+              <input
+                type="text"
+                placeholder="Search leads..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 outline-none mb-2"
+              />
+              <select
+                value={selectedLead?.id || ""}
+                onChange={(e) => handleLeadSelect(e.target.value)}
+                className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 outline-none"
+              >
+                <option value="">-- Select a lead --</option>
+                {filteredLeads.map((l) => (
+                  <option key={l.id} value={l.id}>
+                    {l.company_name} - {l.contact_name} ({l.status})
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -197,53 +284,55 @@ export function SendProposalModal({ isOpen, onClose, lead, onProposalSent }: Sen
             </label>
           </div>
 
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Send Via
-            </label>
-            <div className="flex gap-3">
-              {lead.email && (
-                <button
-                  onClick={() => setSendVia("email")}
-                  className={`flex items-center gap-2 px-4 py-2 rounded-lg border transition ${
-                    sendVia === "email"
-                      ? "border-blue-500 bg-blue-50 text-blue-700"
-                      : "border-gray-300 text-gray-700 hover:bg-gray-50"
-                  }`}
-                >
-                  <Mail className="w-4 h-4" />
-                  Email
-                </button>
-              )}
-              {lead.phone && (
-                <button
-                  onClick={() => setSendVia("sms")}
-                  className={`flex items-center gap-2 px-4 py-2 rounded-lg border transition ${
-                    sendVia === "sms"
-                      ? "border-blue-500 bg-blue-50 text-blue-700"
-                      : "border-gray-300 text-gray-700 hover:bg-gray-50"
-                  }`}
-                >
-                  <MessageSquare className="w-4 h-4" />
-                  SMS
-                </button>
-              )}
-              {lead.email && lead.phone && (
-                <button
-                  onClick={() => setSendVia("both")}
-                  className={`flex items-center gap-2 px-4 py-2 rounded-lg border transition ${
-                    sendVia === "both"
-                      ? "border-blue-500 bg-blue-50 text-blue-700"
-                      : "border-gray-300 text-gray-700 hover:bg-gray-50"
-                  }`}
-                >
-                  <Mail className="w-4 h-4" />
-                  <MessageSquare className="w-4 h-4" />
-                  Both
-                </button>
-              )}
+          {activeLead && (
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Send Via
+              </label>
+              <div className="flex gap-3">
+                {activeLead.email && (
+                  <button
+                    onClick={() => setSendVia("email")}
+                    className={`flex items-center gap-2 px-4 py-2 rounded-lg border transition ${
+                      sendVia === "email"
+                        ? "border-blue-500 bg-blue-50 text-blue-700"
+                        : "border-gray-300 text-gray-700 hover:bg-gray-50"
+                    }`}
+                  >
+                    <Mail className="w-4 h-4" />
+                    Email
+                  </button>
+                )}
+                {activeLead.phone && (
+                  <button
+                    onClick={() => setSendVia("sms")}
+                    className={`flex items-center gap-2 px-4 py-2 rounded-lg border transition ${
+                      sendVia === "sms"
+                        ? "border-blue-500 bg-blue-50 text-blue-700"
+                        : "border-gray-300 text-gray-700 hover:bg-gray-50"
+                    }`}
+                  >
+                    <MessageSquare className="w-4 h-4" />
+                    SMS
+                  </button>
+                )}
+                {activeLead.email && activeLead.phone && (
+                  <button
+                    onClick={() => setSendVia("both")}
+                    className={`flex items-center gap-2 px-4 py-2 rounded-lg border transition ${
+                      sendVia === "both"
+                        ? "border-blue-500 bg-blue-50 text-blue-700"
+                        : "border-gray-300 text-gray-700 hover:bg-gray-50"
+                    }`}
+                  >
+                    <Mail className="w-4 h-4" />
+                    <MessageSquare className="w-4 h-4" />
+                    Both
+                  </button>
+                )}
+              </div>
             </div>
-          </div>
+          )}
 
           <div>
             <div className="flex items-center justify-between mb-2">
@@ -296,7 +385,7 @@ export function SendProposalModal({ isOpen, onClose, lead, onProposalSent }: Sen
           </button>
           <button
             onClick={handleSend}
-            disabled={loading || !lead.email && !lead.phone}
+            disabled={loading || !activeLead || (!activeLead.email && !activeLead.phone)}
             className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-lg transition disabled:opacity-50 disabled:cursor-not-allowed"
           >
             <Send className="w-4 h-4" />
