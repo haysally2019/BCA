@@ -169,25 +169,41 @@ export const useAuthStore = create<AuthState>((set, get) => ({
    * INITIALIZE
    * -------------------------------------------------------- */
   initialize: async () => {
-    if (get().initialized) return null;
+    console.log("[AuthStore] Initialize called");
+    if (get().initialized) {
+      console.log("[AuthStore] Already initialized, skipping");
+      return null;
+    }
     set({ loading: true });
 
     try {
+      console.log("[AuthStore] Getting session...");
       const { data: { session } } = await supabase.auth.getSession();
+      console.log("[AuthStore] Session:", session ? "Found" : "Not found");
 
       if (session?.user) {
-        const { data: profile } = await supabase
+        console.log("[AuthStore] Fetching profile for user:", session.user.id);
+        const { data: profile, error: profileError } = await supabase
           .from("profiles")
           .select("*")
           .eq("user_id", session.user.id)
           .maybeSingle();
 
+        if (profileError) {
+          console.error("[AuthStore] Profile fetch error:", profileError);
+        } else {
+          console.log("[AuthStore] Profile loaded:", profile ? "Success" : "Not found");
+        }
+
         set({ user: session.user, profile: profile ?? null, loading: false, initialized: true });
       } else {
+        console.log("[AuthStore] No session, setting to logged out state");
         set({ user: null, profile: null, loading: false, initialized: true });
       }
 
+      console.log("[AuthStore] Setting up auth state listener");
       const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+        console.log("[AuthStore] Auth state changed:", event);
         if (event === "SIGNED_OUT") {
           set({ user: null, profile: null, loading: false });
         } else if (session?.user) {
@@ -200,8 +216,10 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         }
       });
 
+      console.log("[AuthStore] Initialize complete");
       return { unsubscribe: () => subscription.unsubscribe() };
     } catch (error) {
+      console.error("[AuthStore] Initialize error:", error);
       set({ user: null, profile: null, loading: false, initialized: true });
       return null;
     }

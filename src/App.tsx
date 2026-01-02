@@ -47,34 +47,34 @@ const App: React.FC = () => {
   const lastBlurTime = useRef<number>(0);
 
   // ------------------------------------------------------------
-  // CRASH FIX: AUTO-REFRESH LOGIC
+  // CRASH FIX: AUTO-REFRESH LOGIC (DISABLED FOR DEBUGGING)
   // ------------------------------------------------------------
-  useEffect(() => {
-    const handleBlur = () => {
-      lastBlurTime.current = Date.now();
-    };
+  // useEffect(() => {
+  //   const handleBlur = () => {
+  //     lastBlurTime.current = Date.now();
+  //   };
 
-    const handleFocus = () => {
-      const now = Date.now();
-      
-      // CHECK: If user was away for more than 2 seconds (2000ms)
-      // We force a hard browser reload to restore the database connection.
-      if (lastBlurTime.current > 0 && (now - lastBlurTime.current > 2000)) {
-        console.log("[App] Connection stale. Forcing hard reload...");
-        window.location.reload();
-      }
-      
-      lastBlurTime.current = 0;
-    };
+  //   const handleFocus = () => {
+  //     const now = Date.now();
 
-    window.addEventListener("blur", handleBlur);
-    window.addEventListener("focus", handleFocus);
+  //     // CHECK: If user was away for more than 2 seconds (2000ms)
+  //     // We force a hard browser reload to restore the database connection.
+  //     if (lastBlurTime.current > 0 && (now - lastBlurTime.current > 2000)) {
+  //       console.log("[App] Connection stale. Forcing hard reload...");
+  //       window.location.reload();
+  //     }
 
-    return () => {
-      window.removeEventListener("blur", handleBlur);
-      window.removeEventListener("focus", handleFocus);
-    };
-  }, []);
+  //     lastBlurTime.current = 0;
+  //   };
+
+  //   window.addEventListener("blur", handleBlur);
+  //   window.addEventListener("focus", handleFocus);
+
+  //   return () => {
+  //     window.removeEventListener("blur", handleBlur);
+  //     window.removeEventListener("focus", handleFocus);
+  //   };
+  // }, []);
 
   return (
     // LAYOUT FIX: h-screen + overflow-hidden locks the outer body

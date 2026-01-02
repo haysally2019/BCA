@@ -21,12 +21,16 @@ const ErrorFallback = ({ error }: { error: Error }) => (
 );
 
 function Root() {
+  console.log("[Root] Rendering Root component");
   return (
     <BrowserRouter basename="/">
       <App />
     </BrowserRouter>
   );
 }
+
+console.log("[main.tsx] Starting app initialization");
+console.log("[main.tsx] Root element:", document.getElementById('root'));
 
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
@@ -40,3 +44,5 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
     </ErrorBoundary>
   </React.StrictMode>
 );
+
+console.log("[main.tsx] Render called");
