@@ -176,9 +176,21 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     }
     set({ loading: true });
 
+    // Safety timeout - if initialization takes more than 10 seconds, force it to complete
+    const safetyTimeout = setTimeout(() => {
+      console.error("[AuthStore] Initialize timeout - forcing completion");
+      set({ user: null, profile: null, loading: false, initialized: true });
+    }, 10000);
+
     try {
       console.log("[AuthStore] Getting session...");
-      const { data: { session } } = await supabase.auth.getSession();
+      const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+
+      if (sessionError) {
+        console.error("[AuthStore] Session error:", sessionError);
+        throw sessionError;
+      }
+
       console.log("[AuthStore] Session:", session ? "Found" : "Not found");
 
       if (session?.user) {
@@ -216,10 +228,12 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         }
       });
 
+      clearTimeout(safetyTimeout);
       console.log("[AuthStore] Initialize complete");
       return { unsubscribe: () => subscription.unsubscribe() };
     } catch (error) {
       console.error("[AuthStore] Initialize error:", error);
+      clearTimeout(safetyTimeout);
       set({ user: null, profile: null, loading: false, initialized: true });
       return null;
     }

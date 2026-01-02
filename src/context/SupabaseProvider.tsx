@@ -15,12 +15,19 @@ export const SupabaseProvider = ({ children }: { children: React.ReactNode }) =>
   const initialize = useAuthStore((state) => state.initialize);
 
   useEffect(() => {
+    console.log("[SupabaseProvider] Starting initialization");
     let unsubscribe: (() => void) | null = null;
 
     const init = async () => {
-      const result = await initialize();
-      if (result) {
-        unsubscribe = result.unsubscribe;
+      try {
+        console.log("[SupabaseProvider] Calling initialize");
+        const result = await initialize();
+        console.log("[SupabaseProvider] Initialize result:", result ? "Success" : "No result");
+        if (result) {
+          unsubscribe = result.unsubscribe;
+        }
+      } catch (error) {
+        console.error("[SupabaseProvider] Initialize error:", error);
       }
     };
 
@@ -40,6 +47,7 @@ export const SupabaseProvider = ({ children }: { children: React.ReactNode }) =>
     };
   }, [initialize]);
 
+  console.log("[SupabaseProvider] Rendering children");
   return (
     <SupabaseContext.Provider value={{ supabase }}>
       {children}

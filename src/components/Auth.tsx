@@ -6,7 +6,8 @@ import { validateEmail, validatePassword, getErrorMessage } from '../lib/errorUt
 import toast from 'react-hot-toast';
 
 const Auth: React.FC = () => {
-  const navigate = useNavigate(); // Hook for navigation
+  console.log("[Auth] Rendering Auth component");
+  const navigate = useNavigate();
   const [isLogin, setIsLogin] = useState(true);
   const [loading, setLoading] = useState(false);
   const [formData, setFormData] = useState({
@@ -15,15 +16,14 @@ const Auth: React.FC = () => {
     name: ''
   });
 
-  const { signIn, signUp, user, initialize } = useAuthStore();
+  const { signIn, signUp, user } = useAuthStore();
 
-  useEffect(() => {
-    initialize();
-  }, [initialize]);
+  console.log("[Auth] User state:", user ? "Logged in" : "Logged out");
 
-  // NEW: Automatically redirect to dashboard when user is logged in
+  // Automatically redirect to dashboard when user is logged in
   useEffect(() => {
     if (user) {
+      console.log("[Auth] User detected, redirecting to dashboard");
       navigate('/dashboard', { replace: true });
     }
   }, [user, navigate]);

@@ -19,20 +19,28 @@ import { useAuthStore } from "./store/authStore";
 // Protected Route Component
 // ----------------------------
 const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
-  const { user, loading } = useAuthStore();
+  const { user, loading, initialized } = useAuthStore();
 
-  if (loading) {
+  console.log("[ProtectedRoute] State:", { user: !!user, loading, initialized });
+
+  if (loading || !initialized) {
+    console.log("[ProtectedRoute] Showing loading spinner");
     return (
       <div className="w-full h-screen flex items-center justify-center bg-gray-50">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+        <div className="flex flex-col items-center gap-4">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+          <p className="text-sm text-gray-600">Loading...</p>
+        </div>
       </div>
     );
   }
 
   if (!user) {
+    console.log("[ProtectedRoute] No user, redirecting to /auth");
     return <Navigate to="/auth" replace />;
   }
 
+  console.log("[ProtectedRoute] User authenticated, rendering children");
   return <>{children}</>;
 };
 
@@ -40,9 +48,12 @@ const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
 // Main App Component
 // ----------------------------
 const App: React.FC = () => {
+  console.log("[App] Rendering App component");
   const { user } = useAuthStore();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  
+
+  console.log("[App] User state:", user ? "Logged in" : "Logged out");
+
   // Ref to track when the user left the tab (Auto-refresh logic)
   const lastBlurTime = useRef<number>(0);
 
