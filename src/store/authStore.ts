@@ -68,15 +68,14 @@ const isManagerProfile = (profile: Profile | null): boolean => {
 export const useAuthStore = create<AuthState>((set, get) => ({
   user: null,
   profile: null,
-  loading: true,
-  initialized: false,
+  loading: false,
+  initialized: true,
 
   /* ----------------------------------------------------------
    * SIGN IN
    * -------------------------------------------------------- */
   signIn: async (email: string, password: string) => {
     try {
-      set({ loading: true });
       const { data, error } = await supabase.auth.signInWithPassword({
         email,
         password,
@@ -94,13 +93,12 @@ export const useAuthStore = create<AuthState>((set, get) => ({
 
       if (profileError) {
         console.error("[AuthStore] signIn profile error:", profileError);
-        set({ user, profile: null, loading: false, initialized: true });
+        set({ user, profile: null });
         return;
       }
 
-      set({ user, profile, loading: false, initialized: true });
+      set({ user, profile });
     } catch (error) {
-      set({ loading: false });
       const msg = error instanceof Error ? error.message : "Sign in failed.";
       console.error("[AuthStore] signIn error:", error);
       throw new Error(msg);
@@ -117,7 +115,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       if (!data.user) throw new Error("No user returned.");
 
       const user = data.user;
-      
+
       // Poll for profile creation (since it's done by a trigger)
       let profile: Profile | null = null;
       let attempt = 0;
@@ -135,7 +133,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         await new Promise((r) => setTimeout(r, 1000));
       }
 
-      set({ user, profile: profile ?? null, loading: false, initialized: true });
+      set({ user, profile: profile ?? null });
     } catch (error) {
       console.error("[AuthStore] signUp failed:", error);
       throw new Error(error instanceof Error ? error.message : "Sign up failed.");
@@ -148,13 +146,13 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   signOut: async () => {
     try {
       // 1. Clear global state immediately
-      set({ user: null, profile: null, loading: false, initialized: false });
-      
+      set({ user: null, profile: null });
+
       // 2. Attempt Supabase sign out
       await supabase.auth.signOut();
-      
+
       // 3. Clear storage manually to be safe
-      localStorage.clear(); 
+      localStorage.clear();
       sessionStorage.clear();
 
     } catch (error) {
@@ -169,17 +167,6 @@ export const useAuthStore = create<AuthState>((set, get) => ({
    * INITIALIZE
    * -------------------------------------------------------- */
   initialize: async () => {
-    if (get().initialized) {
-      return null;
-    }
-    set({ loading: true });
-
-    // Safety timeout - if initialization takes more than 10 seconds, force it to complete
-    const safetyTimeout = setTimeout(() => {
-      console.error("[AuthStore] Initialize timeout - forcing completion");
-      set({ user: null, profile: null, loading: false, initialized: true });
-    }, 10000);
-
     try {
       const { data: { session }, error: sessionError } = await supabase.auth.getSession();
 
@@ -199,14 +186,14 @@ export const useAuthStore = create<AuthState>((set, get) => ({
           console.error("[AuthStore] Profile fetch error:", profileError);
         }
 
-        set({ user: session.user, profile: profile ?? null, loading: false, initialized: true });
+        set({ user: session.user, profile: profile ?? null });
       } else {
-        set({ user: null, profile: null, loading: false, initialized: true });
+        set({ user: null, profile: null });
       }
 
       const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
         if (event === "SIGNED_OUT") {
-          set({ user: null, profile: null, loading: false });
+          set({ user: null, profile: null });
         } else if (session?.user) {
            const { data: profile } = await supabase
             .from("profiles")
@@ -217,12 +204,10 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         }
       });
 
-      clearTimeout(safetyTimeout);
       return { unsubscribe: () => subscription.unsubscribe() };
     } catch (error) {
       console.error("[AuthStore] Initialize error:", error);
-      clearTimeout(safetyTimeout);
-      set({ user: null, profile: null, loading: false, initialized: true });
+      set({ user: null, profile: null });
       return null;
     }
   },
