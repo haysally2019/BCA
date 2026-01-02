@@ -3,7 +3,7 @@ import { Routes, Route, Navigate } from "react-router-dom";
 
 import Sidebar from "./components/Sidebar";
 import MobileNav from "./components/MobileNav";
-import MobileHeader from "./components/MobileHeader";
+import MobileHeader from "./components/MobileHeader"; 
 
 import Dashboard from "./components/Dashboard";
 import SalesTools from "./components/SalesTools";
@@ -12,12 +12,8 @@ import CommissionsTracker from "./components/CommissionsTracker";
 import Settings from "./components/Settings";
 import TeamManagement from "./components/TeamManagement";
 import Auth from "./components/Auth";
-import SystemDisabled from "./components/SystemDisabled";
 
 import { useAuthStore } from "./store/authStore";
-
-// Set to false to re-enable the portal
-const SYSTEM_DISABLED = true;
 
 // ----------------------------
 // Protected Route Component
@@ -79,10 +75,6 @@ const App: React.FC = () => {
       window.removeEventListener("focus", handleFocus);
     };
   }, []);
-
-  if (SYSTEM_DISABLED) {
-    return <SystemDisabled />;
-  }
 
   return (
     // LAYOUT FIX: h-screen + overflow-hidden locks the outer body
