@@ -1,5 +1,5 @@
 // src/components/modals/LeadDetailsModal.tsx
-import React from "react";
+import React, { useEffect, useState } from "react";
 import {
   User,
   Phone,
@@ -9,12 +9,19 @@ import {
   Building2,
   ClipboardList,
   X,
+  FileText,
+  Calendar,
+  Send,
 } from "lucide-react";
 import BaseModal from "./BaseModal";
+import { useSupabase } from "../../context/SupabaseProvider";
 
 export type SaaSStatus =
   | "new"
   | "contacted"
+  | "qualified"
+  | "proposal_sent"
+  | "negotiation"
   | "trial_started"
   | "closed_won"
   | "closed_lost";
@@ -42,6 +49,16 @@ interface LeadDetailsModalProps {
   lead: SaaSLead | null;
 }
 
+type Proposal = {
+  id: string;
+  package_name: string;
+  monthly_investment: number;
+  annual_value: number;
+  sent_via: string;
+  sent_at: string;
+  proposal_content: string;
+};
+
 const getStatusBadge = (statusRaw: SaaSLead["status"]) => {
   const status = (statusRaw || "new").toString() as SaaSStatus;
 
@@ -55,6 +72,21 @@ const getStatusBadge = (statusRaw: SaaSLead["status"]) => {
       return {
         label: "Contacted",
         className: "bg-amber-50 text-amber-700",
+      };
+    case "qualified":
+      return {
+        label: "Qualified",
+        className: "bg-indigo-50 text-indigo-700",
+      };
+    case "proposal_sent":
+      return {
+        label: "Proposal Sent",
+        className: "bg-purple-50 text-purple-700",
+      };
+    case "negotiation":
+      return {
+        label: "Negotiation",
+        className: "bg-orange-50 text-orange-700",
       };
     case "trial_started":
       return {
@@ -84,6 +116,38 @@ const LeadDetailsModal: React.FC<LeadDetailsModalProps> = ({
   onClose,
   lead,
 }) => {
+  const { supabase } = useSupabase();
+  const [proposals, setProposals] = useState<Proposal[]>([]);
+  const [loadingProposals, setLoadingProposals] = useState(false);
+  const [expandedProposal, setExpandedProposal] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (isOpen && lead?.id && supabase) {
+      loadProposals();
+    }
+  }, [isOpen, lead?.id, supabase]);
+
+  const loadProposals = async () => {
+    if (!lead?.id || !supabase) return;
+
+    setLoadingProposals(true);
+    try {
+      const { data, error } = await supabase
+        .from("proposals")
+        .select("*")
+        .eq("lead_id", lead.id)
+        .order("sent_at", { ascending: false });
+
+      if (!error && data) {
+        setProposals(data as Proposal[]);
+      }
+    } catch (error) {
+      console.error("Error loading proposals:", error);
+    } finally {
+      setLoadingProposals(false);
+    }
+  };
+
   if (!lead) return null;
 
   const companyName = lead.company_name || "Unnamed Roofing Company";
@@ -242,6 +306,92 @@ const LeadDetailsModal: React.FC<LeadDetailsModalProps> = ({
               )}
             </div>
           </div>
+        </div>
+
+        {/* Proposals History Section */}
+        <div className="border-t pt-6">
+          <div className="flex items-center justify-between mb-4">
+            <h4 className="text-sm font-semibold text-gray-700 flex items-center gap-2">
+              <FileText className="w-4 h-4" />
+              Proposal History
+            </h4>
+            {proposals.length > 0 && (
+              <span className="text-xs text-gray-500">
+                {proposals.length} proposal{proposals.length !== 1 ? 's' : ''} sent
+              </span>
+            )}
+          </div>
+
+          {loadingProposals ? (
+            <div className="text-center py-8 text-sm text-gray-500">
+              Loading proposals...
+            </div>
+          ) : proposals.length === 0 ? (
+            <div className="bg-gray-50 rounded-lg border border-dashed border-gray-300 p-6 text-center">
+              <FileText className="w-8 h-8 text-gray-400 mx-auto mb-2" />
+              <p className="text-sm text-gray-600">No proposals sent yet</p>
+              <p className="text-xs text-gray-500 mt-1">
+                Use the "Send Proposal" button in the leads view to create and send a proposal
+              </p>
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {proposals.map((proposal) => (
+                <div
+                  key={proposal.id}
+                  className="bg-white border border-gray-200 rounded-lg overflow-hidden"
+                >
+                  <div className="p-4">
+                    <div className="flex items-start justify-between gap-4">
+                      <div className="flex-1">
+                        <div className="flex items-center gap-2 mb-2">
+                          <h5 className="text-sm font-semibold text-gray-900">
+                            {proposal.package_name}
+                          </h5>
+                          <span className="text-xs px-2 py-0.5 rounded-full bg-blue-50 text-blue-700">
+                            ${proposal.monthly_investment}/mo
+                          </span>
+                        </div>
+                        <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-gray-600">
+                          <div className="flex items-center gap-1">
+                            <Calendar className="w-3 h-3" />
+                            {new Date(proposal.sent_at).toLocaleString()}
+                          </div>
+                          <div className="flex items-center gap-1">
+                            <Send className="w-3 h-3" />
+                            Sent via {proposal.sent_via}
+                          </div>
+                          <div className="flex items-center gap-1">
+                            <DollarSign className="w-3 h-3" />
+                            Annual: ${proposal.annual_value.toLocaleString()}
+                          </div>
+                        </div>
+                      </div>
+                      <button
+                        onClick={() => setExpandedProposal(
+                          expandedProposal === proposal.id ? null : proposal.id
+                        )}
+                        className="text-xs text-blue-600 hover:text-blue-700 font-medium"
+                      >
+                        {expandedProposal === proposal.id ? 'Hide' : 'View'}
+                      </button>
+                    </div>
+
+                    {expandedProposal === proposal.id && (
+                      <div className="mt-4 pt-4 border-t border-gray-200">
+                        <p className="text-xs text-gray-500 mb-2 font-medium">Proposal Content:</p>
+                        <div className="bg-gray-50 rounded-lg p-3 max-h-60 overflow-y-auto">
+                          <pre className="whitespace-pre-wrap text-xs text-gray-700 font-sans">
+                            {proposal.proposal_content}
+                          </pre>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       </div>
     </BaseModal>

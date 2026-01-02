@@ -10,6 +10,7 @@ import {
   Mail,
   Building2,
   UserPlus,
+  Send,
 } from "lucide-react";
 import toast from "react-hot-toast";
 
@@ -20,10 +21,14 @@ import BaseModal from "./modals/BaseModal";
 import ConfirmationModal from "./modals/ConfirmationModal";
 import LeadDetailsModal from "./modals/LeadDetailsModal";
 import ImportLeadsModal from "./modals/ImportLeadsModal";
+import { SendProposalModal } from "./modals/SendProposalModal";
 
 export type SaaSStatus =
   | "new"
   | "contacted"
+  | "qualified"
+  | "proposal_sent"
+  | "negotiation"
   | "trial_started"
   | "closed_won"
   | "closed_lost";
@@ -75,11 +80,13 @@ const LeadManagement: React.FC = () => {
   const [showDetailsModal, setShowDetailsModal] = useState(false);
   const [showImportModal, setShowImportModal] = useState(false);
   const [showAssignModal, setShowAssignModal] = useState(false);
+  const [showProposalModal, setShowProposalModal] = useState(false);
 
   const [editingLead, setEditingLead] = useState<SaaSLead | null>(null);
   const [leadToDelete, setLeadToDelete] = useState<SaaSLead | null>(null);
   const [detailsLead, setDetailsLead] = useState<SaaSLead | null>(null);
   const [leadToAssign, setLeadToAssign] = useState<SaaSLead | null>(null);
+  const [proposalLead, setProposalLead] = useState<SaaSLead | null>(null);
   const [saving, setSaving] = useState(false);
 
   const [teamMembers, setTeamMembers] = useState<any[]>([]);
@@ -370,6 +377,18 @@ const LeadManagement: React.FC = () => {
     setShowAssignModal(true);
   };
 
+  // OPEN SEND PROPOSAL MODAL
+  const openProposalModal = (lead: SaaSLead) => {
+    setProposalLead(lead);
+    setShowProposalModal(true);
+  };
+
+  // HANDLE PROPOSAL SENT
+  const handleProposalSent = () => {
+    fetchLeads();
+    toast.success("Proposal sent successfully!");
+  };
+
   // ASSIGN LEAD
   const assignLead = async () => {
     if (!leadToAssign) return;
@@ -642,6 +661,13 @@ const LeadManagement: React.FC = () => {
                           <Eye className="w-3.5 h-3.5 text-slate-600" />
                         </button>
                         <button
+                          onClick={() => openProposalModal(lead)}
+                          className="p-1.5 rounded-full hover:bg-green-50 transition"
+                          title="Send proposal"
+                        >
+                          <Send className="w-3.5 h-3.5 text-green-600" />
+                        </button>
+                        <button
                           onClick={() => openEditLead(lead)}
                           className="p-1.5 rounded-full hover:bg-slate-100 transition"
                           title="Edit lead"
@@ -875,6 +901,14 @@ const LeadManagement: React.FC = () => {
           </div>
         </div>
       </BaseModal>
+
+      {/* SEND PROPOSAL MODAL */}
+      <SendProposalModal
+        isOpen={showProposalModal}
+        onClose={() => setShowProposalModal(false)}
+        lead={proposalLead}
+        onProposalSent={handleProposalSent}
+      />
     </div>
   );
 };

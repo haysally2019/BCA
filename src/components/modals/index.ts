@@ -6,3 +6,4 @@ export { default as LeadDetailsModal } from './LeadDetailsModal';
 export { default as DealDetailsModal } from './DealDetailsModal';
 export { default as ImportLeadsModal } from './ImportLeadsModal';
 export * from './FormValidation';
+export { SendProposalModal } from './SendProposalModal';
