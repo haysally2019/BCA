@@ -19,7 +19,7 @@ type SendProposalModalProps = {
   onProposalSent: () => void;
 };
 
-const PROPOSAL_TEMPLATE = String.raw`Dear {{contact_name}},
+const PROPOSAL_TEMPLATE = `Dear {{contact_name}},
 
 Thank you for taking the time to speak with me about {{company_name}}'s sales process. Based on our conversation, I believe our CRM platform is a perfect fit for your needs.
 
@@ -32,8 +32,8 @@ WHAT YOU GET:
 • Priority customer support
 
 INVESTMENT:
-• ${{monthly_investment}}/month
-• Annual Value: ${{annual_value}}
+• {{monthly_investment}}/month
+• Annual Value: {{annual_value}}
 • No setup fees
 • Cancel anytime
 
@@ -80,8 +80,8 @@ export function SendProposalModal({ isOpen, onClose, lead, onProposalSent }: Sen
       "{{contact_name}}": lead.contact_name || "",
       "{{company_name}}": lead.company_name || "",
       "{{package_name}}": packageName,
-      "{{monthly_investment}}": monthlyInvestment.toString(),
-      "{{annual_value}}": (monthlyInvestment * 12).toString(),
+      "{{monthly_investment}}": `$${monthlyInvestment}`,
+      "{{annual_value}}": `$${monthlyInvestment * 12}`,
       "{{affiliate_link}}": affiliateLink,
       "{{rep_name}}": profile?.full_name || profile?.email || "Your Sales Rep",
     };
