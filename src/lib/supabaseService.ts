@@ -59,8 +59,6 @@ export const supabaseService = {
         notes: payload.notes || "",
         user_id: payload.user_id,
         company_id: payload.company_id,
-        // FIX: Ensure assigned_to is passed if provided
-        assigned_to: payload.assigned_to || payload.user_id 
       };
 
       const { data, error } = await supabase
@@ -121,7 +119,7 @@ export const supabaseService = {
   },
 
   /* ============================================================
-     COMMISSIONS (UNCHANGED)
+     COMMISSIONS (UNCHANGED IF WORKING)
   ============================================================ */
 
   async getCommissions(companyId: string) {
@@ -142,7 +140,7 @@ export const supabaseService = {
   },
 
   /* ============================================================
-     TEAM MEMBERS (UNCHANGED)
+     TEAM MEMBERS (UNCHANGED IF WORKING)
   ============================================================ */
 
   async getTeamMembers(companyId: string) {

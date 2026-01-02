@@ -1,14 +1,18 @@
 /*
-  # Recreate Leads Table for SaaS CRM (FIXED)
+  # Recreate Leads Table for SaaS CRM
 
   1. Changes
     - Drop existing leads table with all dependencies
-    - Create new leads table with SaaS-focused fields AND 'assigned_to'
-    - Fix RLS policies to allow Manager/Admin access to company leads
+    - Create new leads table with SaaS-focused fields:
+      - company_name, contact_name, email, phone
+      - service_area, company_size, crm_used_now
+      - status, deal_value, notes
+      - company_id and user_id for multi-tenancy
     
   2. Security
     - Enable RLS on leads table
-    - Policies distinguish between "Individual Reps" and "Managers"
+    - Add policies for SELECT, INSERT, UPDATE, DELETE
+    - Users can only access their own leads (user_id = auth.uid())
 */
 
 -- ============================================================
@@ -36,99 +40,56 @@ CREATE TABLE IF NOT EXISTS leads (
     deal_value numeric DEFAULT 0,
     notes text,
 
-    -- Multi-tenancy fields
     company_id text,
-    user_id text,          -- The creator of the lead
-    assigned_to text       -- The rep currently working the lead
+    user_id text
 );
 
 -- ============================================================
--- 3. ENABLE ROW LEVEL SECURITY
+-- 3. ENABLE ROW LEVEL SECURITY (required in Bolt/Supabase)
 -- ============================================================
 ALTER TABLE leads ENABLE ROW LEVEL SECURITY;
 
 -- ============================================================
--- 4. POLICIES (Access Control)
+-- 4. ALLOW USER TO READ ONLY THEIR OWN LEADS
 -- ============================================================
-
--- A. VIEW LEADS
--- 1. Users can see leads they created OR are assigned to
--- 2. Managers/Admins can see ALL leads for their company
-CREATE POLICY "View Permissions" 
+CREATE POLICY "Users can select own leads" 
 ON leads
 FOR SELECT
 TO authenticated
-USING (
-  user_id = auth.uid()::text 
-  OR 
-  assigned_to = auth.uid()::text
-  OR
-  EXISTS (
-    SELECT 1 FROM profiles 
-    WHERE profiles.user_id = auth.uid() 
-      AND profiles.company_id::text = leads.company_id 
-      AND profiles.user_role IN ('admin', 'manager', 'owner')
-  )
-);
+USING (user_id = auth.uid()::text);
 
--- B. INSERT LEADS
--- Users can insert leads. Usually, they tag themselves as user_id.
-CREATE POLICY "Insert Permissions" 
+-- ============================================================
+-- 5. ALLOW USER TO INSERT ONLY THEIR OWN LEADS
+-- ============================================================
+CREATE POLICY "Users can insert own leads" 
 ON leads
 FOR INSERT
 TO authenticated
-WITH CHECK (
-  auth.uid()::text = user_id
-  OR
-  EXISTS (
-    SELECT 1 FROM profiles 
-    WHERE profiles.user_id = auth.uid() 
-      AND profiles.company_id::text = company_id
-  )
-);
+WITH CHECK (user_id = auth.uid()::text);
 
--- C. UPDATE LEADS
--- 1. Users can update their own leads
--- 2. Managers can update any company lead
-CREATE POLICY "Update Permissions" 
+-- ============================================================
+-- 6. ALLOW USER TO UPDATE ONLY THEIR OWN LEADS
+-- ============================================================
+CREATE POLICY "Users can update own leads" 
 ON leads
 FOR UPDATE
 TO authenticated
-USING (
-  user_id = auth.uid()::text 
-  OR 
-  assigned_to = auth.uid()::text
-  OR
-  EXISTS (
-    SELECT 1 FROM profiles 
-    WHERE profiles.user_id = auth.uid() 
-      AND profiles.company_id::text = leads.company_id 
-      AND profiles.user_role IN ('admin', 'manager', 'owner')
-  )
-);
+USING (user_id = auth.uid()::text)
+WITH CHECK (user_id = auth.uid()::text);
 
--- D. DELETE LEADS
--- Only Managers/Admins or the owner can delete
-CREATE POLICY "Delete Permissions" 
+-- ============================================================
+-- 7. ALLOW USER TO DELETE ONLY THEIR OWN LEADS
+-- ============================================================
+CREATE POLICY "Users can delete own leads" 
 ON leads
 FOR DELETE
 TO authenticated
-USING (
-  user_id = auth.uid()::text 
-  OR
-  EXISTS (
-    SELECT 1 FROM profiles 
-    WHERE profiles.user_id = auth.uid() 
-      AND profiles.company_id::text = leads.company_id 
-      AND profiles.user_role IN ('admin', 'manager', 'owner')
-  )
-);
+USING (user_id = auth.uid()::text);
 
 -- ============================================================
--- 5. CREATE INDEXES FOR PERFORMANCE
+-- 8. CREATE INDEXES FOR PERFORMANCE
 -- ============================================================
 CREATE INDEX IF NOT EXISTS idx_leads_user_id ON leads(user_id);
 CREATE INDEX IF NOT EXISTS idx_leads_company_id ON leads(company_id);
-CREATE INDEX IF NOT EXISTS idx_leads_assigned_to ON leads(assigned_to);
 CREATE INDEX IF NOT EXISTS idx_leads_status ON leads(status);
 CREATE INDEX IF NOT EXISTS idx_leads_created_at ON leads(created_at DESC);

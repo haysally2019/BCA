@@ -40,22 +40,41 @@ const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
 // Main App Component
 // ----------------------------
 const App: React.FC = () => {
-  const { user, silentSessionRefresh } = useAuthStore();
+  const { user } = useAuthStore();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   
+  // Ref to track when the user left the tab (Auto-refresh logic)
+  const lastBlurTime = useRef<number>(0);
+
   // ------------------------------------------------------------
-  // FIX: NON-DESTRUCTIVE SESSION CHECK
+  // CRASH FIX: AUTO-REFRESH LOGIC
   // ------------------------------------------------------------
   useEffect(() => {
-    const handleFocus = () => {
-      // Instead of forcing a hard reload (which wipes form state),
-      // we silently verify the session is still active.
-      silentSessionRefresh().catch(console.error);
+    const handleBlur = () => {
+      lastBlurTime.current = Date.now();
     };
 
+    const handleFocus = () => {
+      const now = Date.now();
+      
+      // CHECK: If user was away for more than 2 seconds (2000ms)
+      // We force a hard browser reload to restore the database connection.
+      if (lastBlurTime.current > 0 && (now - lastBlurTime.current > 2000)) {
+        console.log("[App] Connection stale. Forcing hard reload...");
+        window.location.reload();
+      }
+      
+      lastBlurTime.current = 0;
+    };
+
+    window.addEventListener("blur", handleBlur);
     window.addEventListener("focus", handleFocus);
-    return () => window.removeEventListener("focus", handleFocus);
-  }, [silentSessionRefresh]);
+
+    return () => {
+      window.removeEventListener("blur", handleBlur);
+      window.removeEventListener("focus", handleFocus);
+    };
+  }, []);
 
   return (
     // LAYOUT FIX: h-screen + overflow-hidden locks the outer body
