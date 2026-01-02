@@ -19,7 +19,7 @@ type SendProposalModalProps = {
   onProposalSent: () => void;
 };
 
-const PROPOSAL_TEMPLATE = `Dear {{contact_name}},
+const PROPOSAL_TEMPLATE = String.raw`Dear {{contact_name}},
 
 Thank you for taking the time to speak with me about {{company_name}}'s sales process. Based on our conversation, I believe our CRM platform is a perfect fit for your needs.
 
