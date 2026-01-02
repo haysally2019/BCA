@@ -8,6 +8,7 @@ import {
   Briefcase,
   Building2,
   ChevronRight,
+  FileText,
 } from "lucide-react";
 import { useAuthStore } from "../store/authStore";
 
@@ -22,6 +23,7 @@ const Sidebar: React.FC = () => {
   const menuItems = [
     { path: "/dashboard", label: "Dashboard", icon: Home },
     { path: "/leads", label: "Leads", icon: Users },
+    { path: "/proposals", label: "Proposals", icon: FileText },
     ...(isManager
       ? [
           {

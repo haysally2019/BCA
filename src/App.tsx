@@ -11,6 +11,7 @@ import LeadManagement from "./components/LeadManagement";
 import CommissionsTracker from "./components/CommissionsTracker";
 import Settings from "./components/Settings";
 import TeamManagement from "./components/TeamManagement";
+import Proposals from "./components/Proposals";
 import Auth from "./components/Auth";
 
 import { useAuthStore } from "./store/authStore";
@@ -109,6 +110,7 @@ const App: React.FC = () => {
               <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
               <Route path="/sales-tools" element={<ProtectedRoute><SalesTools /></ProtectedRoute>} />
               <Route path="/leads" element={<ProtectedRoute><LeadManagement /></ProtectedRoute>} />
+              <Route path="/proposals" element={<ProtectedRoute><Proposals /></ProtectedRoute>} />
               <Route path="/team" element={<ProtectedRoute><TeamManagement /></ProtectedRoute>} />
               <Route path="/commissions" element={<ProtectedRoute><CommissionsTracker /></ProtectedRoute>} />
               <Route path="/settings" element={<ProtectedRoute><Settings /></ProtectedRoute>} />
