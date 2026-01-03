@@ -1,4 +1,3 @@
-// src/components/modals/LeadDetailsModal.tsx
 import React, { useEffect, useState } from "react";
 import {
   User,
@@ -12,9 +11,12 @@ import {
   FileText,
   Calendar,
   Send,
+  Package,
+  TrendingUp,
 } from "lucide-react";
 import BaseModal from "./BaseModal";
 import { useSupabase } from "../../context/SupabaseProvider";
+import { formatDistanceToNow } from "date-fns";
 
 export type SaaSStatus =
   | "new"
@@ -57,6 +59,7 @@ type Proposal = {
   sent_via: string;
   sent_at: string;
   proposal_content: string;
+  status: string;
 };
 
 const getStatusBadge = (statusRaw: SaaSLead["status"]) => {
@@ -66,47 +69,47 @@ const getStatusBadge = (statusRaw: SaaSLead["status"]) => {
     case "new":
       return {
         label: "New Lead",
-        className: "bg-blue-50 text-blue-700",
+        className: "bg-blue-100 text-blue-800 border-blue-200",
       };
     case "contacted":
       return {
         label: "Contacted",
-        className: "bg-amber-50 text-amber-700",
+        className: "bg-amber-100 text-amber-800 border-amber-200",
       };
     case "qualified":
       return {
         label: "Qualified",
-        className: "bg-indigo-50 text-indigo-700",
+        className: "bg-teal-100 text-teal-800 border-teal-200",
       };
     case "proposal_sent":
       return {
         label: "Proposal Sent",
-        className: "bg-purple-50 text-purple-700",
+        className: "bg-purple-100 text-purple-800 border-purple-200",
       };
     case "negotiation":
       return {
         label: "Negotiation",
-        className: "bg-orange-50 text-orange-700",
+        className: "bg-orange-100 text-orange-800 border-orange-200",
       };
     case "trial_started":
       return {
         label: "Trial Started",
-        className: "bg-emerald-50 text-emerald-700",
+        className: "bg-emerald-100 text-emerald-800 border-emerald-200",
       };
     case "closed_won":
       return {
         label: "Closed Won",
-        className: "bg-green-50 text-green-700",
+        className: "bg-green-100 text-green-800 border-green-200",
       };
     case "closed_lost":
       return {
         label: "Closed Lost",
-        className: "bg-red-50 text-red-700",
+        className: "bg-red-100 text-red-800 border-red-200",
       };
     default:
       return {
         label: statusRaw || "New Lead",
-        className: "bg-gray-50 text-gray-700",
+        className: "bg-gray-100 text-gray-800 border-gray-200",
       };
   }
 };
@@ -169,219 +172,268 @@ const LeadDetailsModal: React.FC<LeadDetailsModalProps> = ({
     <BaseModal
       isOpen={isOpen}
       onClose={onClose}
-      title={`Lead Details – ${companyName}`}
-      size="lg"
+      title=""
+      size="2xl"
     >
       <div className="space-y-6">
-        {/* Top: Company + Status */}
-        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-          <div className="flex items-center gap-3">
-            <div className="w-12 h-12 rounded-full bg-blue-50 flex items-center justify-center">
-              <Building2 className="w-6 h-6 text-blue-600" />
+        {/* Header Section with gradient */}
+        <div className="relative -mt-6 -mx-6 px-6 py-6 bg-gradient-to-br from-blue-50 via-slate-50 to-gray-50 border-b border-gray-200">
+          <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
+            <div className="flex items-start gap-4">
+              <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center shadow-lg">
+                <Building2 className="w-7 h-7 text-white" />
+              </div>
+              <div>
+                <h2 className="text-2xl font-bold text-gray-900">
+                  {companyName}
+                </h2>
+                <p className="text-sm text-gray-600 mt-1">
+                  Roofing Contractor Target
+                </p>
+              </div>
             </div>
-            <div>
-              <h3 className="text-lg font-semibold text-gray-900">
-                {companyName}
-              </h3>
-              <p className="text-xs text-gray-500">
-                Roofing company target for Blue Collar Academy CRM
-              </p>
+            <div className="flex items-center gap-2">
+              <span
+                className={`inline-flex items-center px-3 py-1.5 rounded-xl text-xs font-semibold border ${statusMeta.className}`}
+              >
+                {statusMeta.label}
+              </span>
+              <button
+                onClick={onClose}
+                className="p-2 rounded-xl hover:bg-white/80 transition-colors"
+              >
+                <X className="w-5 h-5 text-gray-500" />
+              </button>
             </div>
-          </div>
-          <div className="flex items-center gap-2">
-            <span
-              className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-medium ${statusMeta.className}`}
-            >
-              {statusMeta.label}
-            </span>
-            <button
-              type="button"
-              onClick={onClose}
-              className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg border text-xs text-gray-600 hover:bg-gray-50"
-            >
-              <X className="w-3 h-3" />
-              Close
-            </button>
           </div>
         </div>
 
-        {/* Main grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          {/* Column 1: Contact + company info */}
-          <div className="space-y-4">
-            <div className="bg-gray-50 rounded-lg border p-4 space-y-3">
-              <h4 className="text-xs font-semibold text-gray-500 uppercase tracking-wide">
-                Decision Maker
-              </h4>
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-full bg-gray-100 flex items-center justify-center">
-                  <User className="w-5 h-5 text-gray-500" />
-                </div>
+        {/* Main Content Grid */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          {/* Left Column - Contact Info */}
+          <div className="lg:col-span-1 space-y-4">
+            {/* Contact Card */}
+            <div className="bg-gradient-to-br from-white to-gray-50 rounded-2xl border border-gray-200 p-5 shadow-sm">
+              <div className="flex items-center gap-2 mb-4">
+                <User className="w-5 h-5 text-blue-600" />
+                <h3 className="text-sm font-bold text-gray-900 uppercase tracking-wide">
+                  Decision Maker
+                </h3>
+              </div>
+
+              <div className="space-y-4">
                 <div>
-                  <p className="text-sm font-medium text-gray-900">
+                  <p className="text-lg font-semibold text-gray-900">
                     {contactName}
                   </p>
                   <p className="text-xs text-gray-500">
-                    Owner / GM / Key Contact
+                    Owner / General Manager
                   </p>
                 </div>
-              </div>
 
-              <div className="space-y-2 text-xs text-gray-700">
-                {phone && (
-                  <div className="flex items-center gap-2">
-                    <Phone className="w-3.5 h-3.5 text-gray-400" />
-                    <span>{phone}</span>
+                <div className="space-y-3">
+                  {phone && (
+                    <div className="flex items-center gap-3 p-2.5 bg-white rounded-lg border border-gray-200">
+                      <Phone className="w-4 h-4 text-gray-400 flex-shrink-0" />
+                      <span className="text-sm text-gray-700">{phone}</span>
+                    </div>
+                  )}
+                  {email && (
+                    <div className="flex items-center gap-3 p-2.5 bg-white rounded-lg border border-gray-200">
+                      <Mail className="w-4 h-4 text-gray-400 flex-shrink-0" />
+                      <span className="text-sm text-gray-700 break-all">{email}</span>
+                    </div>
+                  )}
+                  <div className="flex items-center gap-3 p-2.5 bg-white rounded-lg border border-gray-200">
+                    <MapPin className="w-4 h-4 text-gray-400 flex-shrink-0" />
+                    <span className="text-sm text-gray-700">{serviceArea}</span>
                   </div>
-                )}
-                {email && (
-                  <div className="flex items-center gap-2 break-all">
-                    <Mail className="w-3.5 h-3.5 text-gray-400" />
-                    <span>{email}</span>
-                  </div>
-                )}
-                <div className="flex items-center gap-2">
-                  <MapPin className="w-3.5 h-3.5 text-gray-400" />
-                  <span>{serviceArea}</span>
                 </div>
               </div>
             </div>
 
-            <div className="bg-gray-50 rounded-lg border p-4 space-y-2 text-xs text-gray-700">
-              <h4 className="text-xs font-semibold text-gray-500 uppercase tracking-wide">
-                Company Snapshot
-              </h4>
-              <div className="flex items-center justify-between">
-                <span>Company Size</span>
-                <span className="font-medium">{companySize}</span>
+            {/* Company Info Card */}
+            <div className="bg-gradient-to-br from-white to-gray-50 rounded-2xl border border-gray-200 p-5 shadow-sm">
+              <div className="flex items-center gap-2 mb-4">
+                <Building2 className="w-5 h-5 text-blue-600" />
+                <h3 className="text-sm font-bold text-gray-900 uppercase tracking-wide">
+                  Company Info
+                </h3>
               </div>
-              <div className="flex items-center justify-between">
-                <span>Current CRM</span>
-                <span className="font-medium">{crmNow}</span>
-              </div>
-              <div className="flex items-center justify-between">
-                <span>Created</span>
-                <span>{createdAt}</span>
+
+              <div className="space-y-3">
+                <div className="flex items-center justify-between py-2 border-b border-gray-100">
+                  <span className="text-xs text-gray-600">Company Size</span>
+                  <span className="text-sm font-semibold text-gray-900">{companySize}</span>
+                </div>
+                <div className="flex items-center justify-between py-2 border-b border-gray-100">
+                  <span className="text-xs text-gray-600">Current CRM</span>
+                  <span className="text-sm font-semibold text-gray-900">{crmNow}</span>
+                </div>
+                <div className="flex items-center justify-between py-2">
+                  <span className="text-xs text-gray-600">Added</span>
+                  <span className="text-xs text-gray-700">{createdAt}</span>
+                </div>
               </div>
             </div>
           </div>
 
-          {/* Column 2: Deal + notes */}
-          <div className="space-y-4">
-            <div className="bg-white rounded-lg border p-4 space-y-3">
-              <h4 className="text-xs font-semibold text-gray-500 uppercase tracking-wide">
-                Deal Overview
-              </h4>
+          {/* Right Column - Deal & Notes */}
+          <div className="lg:col-span-2 space-y-4">
+            {/* Deal Value Card */}
+            <div className="bg-gradient-to-br from-green-50 to-emerald-50 rounded-2xl border border-green-200 p-5 shadow-sm">
               <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <DollarSign className="w-4 h-4 text-green-500" />
-                  <span className="text-xs text-gray-600">
-                    Expected Value (monthly or package)
-                  </span>
+                <div className="flex items-center gap-3">
+                  <div className="w-12 h-12 rounded-xl bg-green-600 flex items-center justify-center shadow-md">
+                    <TrendingUp className="w-6 h-6 text-white" />
+                  </div>
+                  <div>
+                    <p className="text-xs font-medium text-gray-600 uppercase tracking-wide">
+                      Expected Deal Value
+                    </p>
+                    <p className="text-3xl font-bold text-gray-900 mt-1">
+                      ${dealValue.toLocaleString()}
+                    </p>
+                  </div>
                 </div>
-                <span className="text-base font-semibold text-gray-900">
-                  ${dealValue.toLocaleString()}
-                </span>
+                <DollarSign className="w-8 h-8 text-green-600/30" />
               </div>
-              <p className="text-[11px] text-gray-500">
-                This is the estimated value if this roofing company converts on
-                the Blue Collar Academy CRM offer.
+              <p className="text-xs text-gray-600 mt-4">
+                Estimated monthly or annual value if this roofing company converts to Blue Collar Academy CRM.
               </p>
             </div>
 
-            <div className="bg-white rounded-lg border p-4 space-y-2">
-              <h4 className="text-xs font-semibold text-gray-500 uppercase tracking-wide flex items-center gap-1.5">
-                <ClipboardList className="w-3.5 h-3.5" />
-                Notes & Context
-              </h4>
+            {/* Notes Card */}
+            <div className="bg-white rounded-2xl border border-gray-200 p-5 shadow-sm">
+              <div className="flex items-center gap-2 mb-4">
+                <ClipboardList className="w-5 h-5 text-blue-600" />
+                <h3 className="text-sm font-bold text-gray-900 uppercase tracking-wide">
+                  Notes & Context
+                </h3>
+              </div>
               {notes ? (
-                <p className="text-xs text-gray-700 whitespace-pre-line">
-                  {notes}
-                </p>
+                <div className="bg-gray-50 rounded-xl p-4 border border-gray-200">
+                  <p className="text-sm text-gray-700 whitespace-pre-line leading-relaxed">
+                    {notes}
+                  </p>
+                </div>
               ) : (
-                <p className="text-xs text-gray-400 italic">
-                  No notes yet. Use the main Leads screen to edit this lead and
-                  capture pain points, objections, and call notes.
-                </p>
+                <div className="bg-gray-50 rounded-xl p-6 border border-dashed border-gray-300 text-center">
+                  <ClipboardList className="w-8 h-8 text-gray-400 mx-auto mb-2" />
+                  <p className="text-sm text-gray-500">
+                    No notes yet. Edit this lead to add pain points, objections, and call notes.
+                  </p>
+                </div>
               )}
             </div>
           </div>
         </div>
 
-        {/* Proposals History Section */}
-        <div className="border-t pt-6">
-          <div className="flex items-center justify-between mb-4">
-            <h4 className="text-sm font-semibold text-gray-700 flex items-center gap-2">
-              <FileText className="w-4 h-4" />
-              Proposal History
-            </h4>
+        {/* Proposals Section */}
+        <div className="border-t border-gray-200 pt-6">
+          <div className="flex items-center justify-between mb-5">
+            <div className="flex items-center gap-2">
+              <FileText className="w-5 h-5 text-blue-600" />
+              <h3 className="text-lg font-bold text-gray-900">
+                Proposal History
+              </h3>
+            </div>
             {proposals.length > 0 && (
-              <span className="text-xs text-gray-500">
-                {proposals.length} proposal{proposals.length !== 1 ? 's' : ''} sent
+              <span className="px-3 py-1 rounded-full text-xs font-semibold bg-blue-100 text-blue-800">
+                {proposals.length} {proposals.length === 1 ? 'Proposal' : 'Proposals'}
               </span>
             )}
           </div>
 
           {loadingProposals ? (
-            <div className="text-center py-8 text-sm text-gray-500">
-              Loading proposals...
+            <div className="text-center py-12">
+              <div className="w-8 h-8 border-2 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto mb-3"></div>
+              <p className="text-sm text-gray-500">Loading proposals...</p>
             </div>
           ) : proposals.length === 0 ? (
-            <div className="bg-gray-50 rounded-lg border border-dashed border-gray-300 p-6 text-center">
-              <FileText className="w-8 h-8 text-gray-400 mx-auto mb-2" />
-              <p className="text-sm text-gray-600">No proposals sent yet</p>
-              <p className="text-xs text-gray-500 mt-1">
-                Use the "Send Proposal" button in the leads view to create and send a proposal
+            <div className="bg-gray-50 rounded-2xl border-2 border-dashed border-gray-300 p-8 text-center">
+              <FileText className="w-12 h-12 text-gray-400 mx-auto mb-3" />
+              <p className="text-base font-semibold text-gray-700">No proposals sent yet</p>
+              <p className="text-sm text-gray-500 mt-2 max-w-md mx-auto">
+                Click the "Send Proposal" button in the leads table to create and send your first proposal to this company.
               </p>
             </div>
           ) : (
-            <div className="space-y-3">
-              {proposals.map((proposal) => (
+            <div className="space-y-4">
+              {proposals.map((proposal, index) => (
                 <div
                   key={proposal.id}
-                  className="bg-white border border-gray-200 rounded-lg overflow-hidden"
+                  className="bg-gradient-to-r from-white to-gray-50 border border-gray-200 rounded-2xl overflow-hidden shadow-sm hover:shadow-md transition-shadow"
                 >
-                  <div className="p-4">
+                  <div className="p-5">
                     <div className="flex items-start justify-between gap-4">
                       <div className="flex-1">
-                        <div className="flex items-center gap-2 mb-2">
-                          <h5 className="text-sm font-semibold text-gray-900">
-                            {proposal.package_name}
-                          </h5>
-                          <span className="text-xs px-2 py-0.5 rounded-full bg-blue-50 text-blue-700">
-                            ${proposal.monthly_investment}/mo
-                          </span>
+                        <div className="flex items-center gap-3 mb-3">
+                          <div className="w-10 h-10 rounded-xl bg-blue-100 flex items-center justify-center">
+                            <Package className="w-5 h-5 text-blue-600" />
+                          </div>
+                          <div>
+                            <h4 className="text-base font-bold text-gray-900">
+                              {proposal.package_name}
+                            </h4>
+                            <p className="text-xs text-gray-500">
+                              Proposal #{proposals.length - index}
+                            </p>
+                          </div>
                         </div>
-                        <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-gray-600">
-                          <div className="flex items-center gap-1">
-                            <Calendar className="w-3 h-3" />
-                            {new Date(proposal.sent_at).toLocaleString()}
+
+                        <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-3">
+                          <div className="bg-white rounded-lg p-3 border border-gray-200">
+                            <p className="text-xs text-gray-600 mb-1">Monthly</p>
+                            <p className="text-sm font-bold text-gray-900">
+                              ${proposal.monthly_investment}/mo
+                            </p>
                           </div>
-                          <div className="flex items-center gap-1">
-                            <Send className="w-3 h-3" />
-                            Sent via {proposal.sent_via}
+                          <div className="bg-white rounded-lg p-3 border border-gray-200">
+                            <p className="text-xs text-gray-600 mb-1">Annual</p>
+                            <p className="text-sm font-bold text-gray-900">
+                              ${proposal.annual_value.toLocaleString()}
+                            </p>
                           </div>
-                          <div className="flex items-center gap-1">
-                            <DollarSign className="w-3 h-3" />
-                            Annual: ${proposal.annual_value.toLocaleString()}
+                          <div className="bg-white rounded-lg p-3 border border-gray-200">
+                            <p className="text-xs text-gray-600 mb-1">Sent Via</p>
+                            <p className="text-sm font-semibold text-gray-900 capitalize">
+                              {proposal.sent_via}
+                            </p>
                           </div>
+                          <div className="bg-white rounded-lg p-3 border border-gray-200">
+                            <p className="text-xs text-gray-600 mb-1">Sent</p>
+                            <p className="text-xs font-medium text-gray-900">
+                              {formatDistanceToNow(new Date(proposal.sent_at), { addSuffix: true })}
+                            </p>
+                          </div>
+                        </div>
+
+                        <div className="flex items-center gap-2 text-xs text-gray-500">
+                          <Calendar className="w-3 h-3" />
+                          {new Date(proposal.sent_at).toLocaleString()}
                         </div>
                       </div>
+
                       <button
-                        onClick={() => setExpandedProposal(
-                          expandedProposal === proposal.id ? null : proposal.id
-                        )}
-                        className="text-xs text-blue-600 hover:text-blue-700 font-medium"
+                        onClick={() =>
+                          setExpandedProposal(
+                            expandedProposal === proposal.id ? null : proposal.id
+                          )
+                        }
+                        className="px-4 py-2 text-sm font-semibold text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
                       >
-                        {expandedProposal === proposal.id ? 'Hide' : 'View'}
+                        {expandedProposal === proposal.id ? "Hide" : "View"}
                       </button>
                     </div>
 
                     {expandedProposal === proposal.id && (
-                      <div className="mt-4 pt-4 border-t border-gray-200">
-                        <p className="text-xs text-gray-500 mb-2 font-medium">Proposal Content:</p>
-                        <div className="bg-gray-50 rounded-lg p-3 max-h-60 overflow-y-auto">
-                          <pre className="whitespace-pre-wrap text-xs text-gray-700 font-sans">
+                      <div className="mt-5 pt-5 border-t border-gray-200">
+                        <p className="text-xs font-bold text-gray-700 uppercase tracking-wide mb-3">
+                          Full Proposal Content:
+                        </p>
+                        <div className="bg-white rounded-xl p-5 border border-gray-200 max-h-80 overflow-y-auto">
+                          <pre className="whitespace-pre-wrap text-sm text-gray-700 font-sans leading-relaxed">
                             {proposal.proposal_content}
                           </pre>
                         </div>

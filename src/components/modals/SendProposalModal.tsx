@@ -1,7 +1,8 @@
 import React, { useState, useEffect, useMemo } from "react";
-import { X, Send, MessageSquare, Mail, Copy } from "lucide-react";
+import { X, Send, Mail, MessageSquare, Copy, FileText, DollarSign, Package } from "lucide-react";
 import { useSupabase } from "../../context/SupabaseProvider";
 import { useAuthStore } from "../../store/authStore";
+import toast from "react-hot-toast";
 
 type Lead = {
   id: string;
@@ -60,12 +61,14 @@ export function SendProposalModal({ isOpen, onClose, lead, onProposalSent }: Sen
   const [leads, setLeads] = useState<Lead[]>([]);
   const [selectedLead, setSelectedLead] = useState<Lead | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
+  const [showPreview, setShowPreview] = useState(true);
 
   useEffect(() => {
     if (isOpen) {
       setCustomTemplate(PROPOSAL_TEMPLATE);
       setPackageName("Standard Plan");
       setMonthlyInvestment(299);
+      setShowPreview(true);
 
       if (lead) {
         setSelectedLead(lead);
@@ -177,12 +180,12 @@ export function SendProposalModal({ isOpen, onClose, lead, onProposalSent }: Sen
         .update({ status: "proposal_sent" })
         .eq("id", activeLead.id);
 
-      alert(`Proposal sent successfully via ${sendVia}!`);
+      toast.success(`Proposal sent successfully via ${sendVia}!`);
       onProposalSent();
       onClose();
     } catch (error) {
       console.error("Error sending proposal:", error);
-      alert("Failed to send proposal. Please try again.");
+      toast.error("Failed to send proposal. Please try again.");
     } finally {
       setLoading(false);
     }
@@ -191,9 +194,9 @@ export function SendProposalModal({ isOpen, onClose, lead, onProposalSent }: Sen
   const copyToClipboard = async () => {
     try {
       await navigator.clipboard.writeText(filledProposal);
-      alert("Proposal copied to clipboard!");
+      toast.success("Proposal copied to clipboard!");
     } catch (error) {
-      alert("Failed to copy proposal");
+      toast.error("Failed to copy proposal");
     }
   };
 
@@ -202,195 +205,237 @@ export function SendProposalModal({ isOpen, onClose, lead, onProposalSent }: Sen
   const activeLead = selectedLead || lead;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-      <div className="bg-white rounded-2xl shadow-xl max-w-4xl w-full max-h-[90vh] overflow-hidden flex flex-col">
-        <div className="flex items-center justify-between p-6 border-b border-gray-200">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm">
+      <div className="bg-white rounded-3xl shadow-2xl w-full max-w-6xl max-h-[95vh] overflow-hidden flex flex-col">
+        {/* Header */}
+        <div className="flex items-center justify-between px-6 py-5 border-b border-gray-200 bg-gradient-to-r from-blue-50 to-slate-50">
           <div>
-            <h2 className="text-xl font-bold text-gray-900">Send Proposal</h2>
+            <h2 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
+              <FileText className="w-6 h-6 text-blue-600" />
+              Create Proposal
+            </h2>
             {activeLead && (
               <p className="text-sm text-gray-600 mt-1">
-                {activeLead.company_name} - {activeLead.contact_name}
+                {activeLead.company_name} · {activeLead.contact_name}
               </p>
             )}
           </div>
           <button
             onClick={onClose}
-            className="text-gray-400 hover:text-gray-600 transition"
+            className="p-2 rounded-full hover:bg-gray-100 transition-colors"
+            aria-label="Close"
           >
-            <X className="w-6 h-6" />
+            <X className="w-6 h-6 text-gray-500" />
           </button>
         </div>
 
-        <div className="flex-1 overflow-y-auto p-6 space-y-6">
-          {!lead && (
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Select Lead
-              </label>
-              <input
-                type="text"
-                placeholder="Search leads..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 outline-none mb-2"
-              />
-              <select
-                value={selectedLead?.id || ""}
-                onChange={(e) => handleLeadSelect(e.target.value)}
-                className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 outline-none"
-              >
-                <option value="">-- Select a lead --</option>
-                {filteredLeads.map((l) => (
-                  <option key={l.id} value={l.id}>
-                    {l.company_name} - {l.contact_name} ({l.status})
-                  </option>
-                ))}
-              </select>
-            </div>
-          )}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Package Name
-              </label>
-              <select
-                value={packageName}
-                onChange={(e) => setPackageName(e.target.value)}
-                className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 outline-none"
-              >
-                <option>Standard Plan</option>
-                <option>Professional Plan</option>
-                <option>Enterprise Plan</option>
-                <option>Custom Package</option>
-              </select>
-            </div>
+        {/* Content - Two Column Layout */}
+        <div className="flex-1 overflow-hidden flex">
+          {/* Left Column - Form */}
+          <div className="w-full lg:w-1/2 overflow-y-auto p-6 space-y-6 bg-gray-50">
 
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Monthly Investment ($)
-              </label>
-              <input
-                type="number"
-                value={monthlyInvestment}
-                onChange={(e) => setMonthlyInvestment(Number(e.target.value) || 0)}
-                className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 outline-none"
-              />
-            </div>
-          </div>
+            {/* Lead Selection */}
+            {!lead && (
+              <div className="bg-white rounded-2xl p-4 border border-gray-200 shadow-sm">
+                <label className="block text-sm font-semibold text-gray-900 mb-3">
+                  Select Lead
+                </label>
+                <input
+                  type="text"
+                  placeholder="Search by company or contact name..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="w-full rounded-xl border border-gray-300 px-4 py-2.5 text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none mb-3"
+                />
+                <select
+                  value={selectedLead?.id || ""}
+                  onChange={(e) => handleLeadSelect(e.target.value)}
+                  className="w-full rounded-xl border border-gray-300 px-4 py-2.5 text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
+                >
+                  <option value="">-- Select a lead --</option>
+                  {filteredLeads.map((l) => (
+                    <option key={l.id} value={l.id}>
+                      {l.company_name} - {l.contact_name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
 
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Annual Value: ${(monthlyInvestment * 12).toLocaleString()}
-            </label>
-          </div>
+            {/* Package Details */}
+            <div className="bg-white rounded-2xl p-4 border border-gray-200 shadow-sm">
+              <div className="flex items-center gap-2 mb-4">
+                <Package className="w-5 h-5 text-blue-600" />
+                <h3 className="text-sm font-semibold text-gray-900">Package Details</h3>
+              </div>
 
-          {activeLead && (
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Send Via
-              </label>
-              <div className="flex gap-3">
-                {activeLead.email && (
-                  <button
-                    onClick={() => setSendVia("email")}
-                    className={`flex items-center gap-2 px-4 py-2 rounded-lg border transition ${
-                      sendVia === "email"
-                        ? "border-blue-500 bg-blue-50 text-blue-700"
-                        : "border-gray-300 text-gray-700 hover:bg-gray-50"
-                    }`}
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-xs font-medium text-gray-700 mb-2">
+                    Package Name
+                  </label>
+                  <select
+                    value={packageName}
+                    onChange={(e) => setPackageName(e.target.value)}
+                    className="w-full rounded-xl border border-gray-300 px-4 py-2.5 text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
                   >
-                    <Mail className="w-4 h-4" />
-                    Email
-                  </button>
-                )}
-                {activeLead.phone && (
-                  <button
-                    onClick={() => setSendVia("sms")}
-                    className={`flex items-center gap-2 px-4 py-2 rounded-lg border transition ${
-                      sendVia === "sms"
-                        ? "border-blue-500 bg-blue-50 text-blue-700"
-                        : "border-gray-300 text-gray-700 hover:bg-gray-50"
-                    }`}
-                  >
-                    <MessageSquare className="w-4 h-4" />
-                    SMS
-                  </button>
-                )}
-                {activeLead.email && activeLead.phone && (
-                  <button
-                    onClick={() => setSendVia("both")}
-                    className={`flex items-center gap-2 px-4 py-2 rounded-lg border transition ${
-                      sendVia === "both"
-                        ? "border-blue-500 bg-blue-50 text-blue-700"
-                        : "border-gray-300 text-gray-700 hover:bg-gray-50"
-                    }`}
-                  >
-                    <Mail className="w-4 h-4" />
-                    <MessageSquare className="w-4 h-4" />
-                    Both
-                  </button>
-                )}
+                    <option>Standard Plan</option>
+                    <option>Professional Plan</option>
+                    <option>Enterprise Plan</option>
+                    <option>Custom Package</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-medium text-gray-700 mb-2">
+                    Monthly Investment ($)
+                  </label>
+                  <div className="relative">
+                    <DollarSign className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                    <input
+                      type="number"
+                      value={monthlyInvestment}
+                      onChange={(e) => setMonthlyInvestment(Number(e.target.value) || 0)}
+                      className="w-full pl-10 rounded-xl border border-gray-300 px-4 py-2.5 text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
+                    />
+                  </div>
+                  <p className="mt-2 text-xs text-gray-600">
+                    Annual Value: <span className="font-semibold text-gray-900">${(monthlyInvestment * 12).toLocaleString()}</span>
+                  </p>
+                </div>
               </div>
             </div>
-          )}
 
-          <div>
-            <div className="flex items-center justify-between mb-2">
-              <label className="block text-sm font-medium text-gray-700">
-                Proposal Template
-              </label>
-              <button
-                onClick={copyToClipboard}
-                className="flex items-center gap-1 text-sm text-blue-600 hover:text-blue-700"
-              >
-                <Copy className="w-4 h-4" />
-                Copy
-              </button>
+            {/* Send Via */}
+            {activeLead && (
+              <div className="bg-white rounded-2xl p-4 border border-gray-200 shadow-sm">
+                <label className="block text-sm font-semibold text-gray-900 mb-3">
+                  Send Via
+                </label>
+                <div className="grid grid-cols-2 gap-3">
+                  {activeLead.email && (
+                    <button
+                      onClick={() => setSendVia("email")}
+                      className={`flex flex-col items-center gap-2 p-4 rounded-xl border-2 transition-all ${
+                        sendVia === "email"
+                          ? "border-blue-500 bg-blue-50 shadow-sm"
+                          : "border-gray-200 hover:border-gray-300"
+                      }`}
+                    >
+                      <Mail className={`w-5 h-5 ${sendVia === "email" ? "text-blue-600" : "text-gray-400"}`} />
+                      <span className={`text-xs font-medium ${sendVia === "email" ? "text-blue-900" : "text-gray-600"}`}>
+                        Email
+                      </span>
+                    </button>
+                  )}
+                  {activeLead.phone && (
+                    <button
+                      onClick={() => setSendVia("sms")}
+                      className={`flex flex-col items-center gap-2 p-4 rounded-xl border-2 transition-all ${
+                        sendVia === "sms"
+                          ? "border-blue-500 bg-blue-50 shadow-sm"
+                          : "border-gray-200 hover:border-gray-300"
+                      }`}
+                    >
+                      <MessageSquare className={`w-5 h-5 ${sendVia === "sms" ? "text-blue-600" : "text-gray-400"}`} />
+                      <span className={`text-xs font-medium ${sendVia === "sms" ? "text-blue-900" : "text-gray-600"}`}>
+                        SMS
+                      </span>
+                    </button>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* Template Editor */}
+            <div className="bg-white rounded-2xl p-4 border border-gray-200 shadow-sm">
+              <div className="flex items-center justify-between mb-3">
+                <label className="block text-sm font-semibold text-gray-900">
+                  Proposal Template
+                </label>
+                <button
+                  onClick={() => setShowPreview(!showPreview)}
+                  className="text-xs text-blue-600 hover:text-blue-700 font-medium"
+                >
+                  {showPreview ? "Hide Preview" : "Show Preview"}
+                </button>
+              </div>
+              <textarea
+                value={customTemplate}
+                onChange={(e) => setCustomTemplate(e.target.value)}
+                className="w-full h-48 rounded-xl border border-gray-300 px-4 py-3 text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none font-mono resize-none"
+                placeholder="Edit your proposal template..."
+              />
+              <p className="text-xs text-gray-500 mt-2">
+                Available: {`{{contact_name}}, {{company_name}}, {{package_name}}, {{monthly_investment}}, {{annual_value}}, {{affiliate_link}}, {{rep_name}}`}
+              </p>
             </div>
-            <textarea
-              value={customTemplate}
-              onChange={(e) => setCustomTemplate(e.target.value)}
-              className="w-full h-32 rounded-lg border border-gray-300 px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 outline-none font-mono"
-              placeholder="Edit your proposal template..."
-            />
-            <p className="text-xs text-gray-500 mt-1">
-              Available variables: {`{{contact_name}}, {{company_name}}, {{package_name}}, {{monthly_investment}}, {{annual_value}}, {{affiliate_link}}, {{rep_name}}`}
-            </p>
+
+            {!profile?.affiliatewp_id && (
+              <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 text-sm text-amber-900">
+                <strong>Note:</strong> Your affiliate tracking link is being set up. The proposal will include a generic signup link until your affiliate account is active.
+              </div>
+            )}
           </div>
 
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Preview
-            </label>
-            <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
-              <pre className="whitespace-pre-wrap text-sm text-gray-800 font-sans">
-                {filledProposal}
-              </pre>
+          {/* Right Column - Preview */}
+          <div className="hidden lg:block w-1/2 overflow-y-auto p-6 bg-white border-l border-gray-200">
+            <div className="sticky top-0">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-lg font-semibold text-gray-900">Live Preview</h3>
+                <button
+                  onClick={copyToClipboard}
+                  className="flex items-center gap-2 px-3 py-1.5 text-xs font-medium text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                >
+                  <Copy className="w-4 h-4" />
+                  Copy
+                </button>
+              </div>
+              <div className="bg-gray-50 border border-gray-200 rounded-2xl p-6 min-h-[400px]">
+                <pre className="whitespace-pre-wrap text-sm text-gray-800 font-sans leading-relaxed">
+                  {filledProposal || "Select a lead and fill in the details to see the preview..."}
+                </pre>
+              </div>
             </div>
           </div>
-
-          {!profile?.affiliatewp_id && (
-            <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 text-sm text-yellow-900">
-              Note: Your affiliate tracking link is being set up. The proposal will include a generic signup link until your affiliate account is active.
-            </div>
-          )}
         </div>
 
-        <div className="flex items-center justify-end gap-3 p-6 border-t border-gray-200 bg-gray-50">
-          <button
-            onClick={onClose}
-            className="px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100 rounded-lg transition"
-          >
-            Cancel
-          </button>
-          <button
-            onClick={handleSend}
-            disabled={loading || !activeLead || (!activeLead.email && !activeLead.phone)}
-            className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-lg transition disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            <Send className="w-4 h-4" />
-            {loading ? "Sending..." : "Send Proposal"}
-          </button>
+        {/* Footer */}
+        <div className="flex flex-col sm:flex-row items-center justify-between gap-3 px-6 py-4 border-t border-gray-200 bg-gray-50">
+          <div className="flex items-center gap-2">
+            <button
+              onClick={copyToClipboard}
+              className="lg:hidden flex items-center gap-2 px-3 py-2 text-xs font-medium text-gray-700 hover:bg-gray-100 rounded-lg transition-colors"
+            >
+              <Copy className="w-4 h-4" />
+              Copy
+            </button>
+          </div>
+          <div className="flex items-center gap-3">
+            <button
+              onClick={onClose}
+              className="px-6 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-100 rounded-xl transition-colors"
+            >
+              Cancel
+            </button>
+            <button
+              onClick={handleSend}
+              disabled={loading || !activeLead || (!activeLead.email && !activeLead.phone)}
+              className="flex items-center gap-2 px-6 py-2.5 text-sm font-semibold text-white bg-blue-600 hover:bg-blue-700 rounded-xl transition-colors shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {loading ? (
+                <>
+                  <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                  Sending...
+                </>
+              ) : (
+                <>
+                  <Send className="w-4 h-4" />
+                  Send Proposal
+                </>
+              )}
+            </button>
+          </div>
         </div>
       </div>
     </div>

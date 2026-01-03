@@ -383,6 +383,19 @@ const LeadManagement: React.FC = () => {
     setShowProposalModal(true);
   };
 
+  // FETCH LEADS HELPER
+  const fetchLeads = async () => {
+    if (!profile) return;
+
+    try {
+      const result = await supabaseService.getLeads();
+      const safe = Array.isArray(result) ? (result as SaaSLead[]) : [];
+      setLeads(safe);
+    } catch (err) {
+      console.error("Error loading leads:", err);
+    }
+  };
+
   // HANDLE PROPOSAL SENT
   const handleProposalSent = () => {
     fetchLeads();
