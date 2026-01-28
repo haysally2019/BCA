@@ -30,9 +30,11 @@ export const supabaseService = {
     try {
       // RLS policies handle access control automatically
       // Admins see all leads, managers see company leads, reps see their own
+      // Exclude pool leads (those are shown in Cold Call section)
       const { data, error } = await supabase
         .from("leads")
         .select("*")
+        .eq("is_pool_lead", false)
         .order("created_at", { ascending: false });
 
       if (error) throw error;
@@ -59,6 +61,7 @@ export const supabaseService = {
         notes: payload.notes || "",
         user_id: payload.user_id,
         company_id: payload.company_id,
+        is_pool_lead: false, // Regular leads are not pool leads
       };
 
       const { data, error } = await supabase
