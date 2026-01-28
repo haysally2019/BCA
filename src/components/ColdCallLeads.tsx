@@ -22,10 +22,7 @@ type Lead = {
   contact_name: string;
   email: string;
   phone: string;
-  address: string;
-  city: string;
-  state: string;
-  zip_code: string;
+  service_area: string;
   notes: string;
   status: string;
   created_at: string;
@@ -78,10 +75,7 @@ const ColdCallLeads: React.FC = () => {
           contact_name: lead.contact_name || "",
           email: lead.email || "",
           phone: lead.phone || "",
-          address: lead.address || "",
-          city: lead.city || "",
-          state: lead.state || "",
-          zip_code: lead.zip_code || "",
+          service_area: lead.service_area || "",
           notes: lead.notes || "",
           status: lead.status || "new",
           created_at: lead.created_at,
@@ -311,12 +305,10 @@ const ColdCallLeads: React.FC = () => {
                           <span className="truncate">{lead.email}</span>
                         </div>
                       )}
-                      {(lead.city || lead.state) && (
+                      {lead.service_area && (
                         <div className="flex items-center gap-2 text-gray-600">
                           <MapPin className="w-4 h-4" />
-                          <span>
-                            {[lead.city, lead.state].filter(Boolean).join(", ")}
-                          </span>
+                          <span>{lead.service_area}</span>
                         </div>
                       )}
                       <div className="flex items-center gap-2 text-gray-500 text-xs">
@@ -438,28 +430,15 @@ const ColdCallLeads: React.FC = () => {
                 </div>
               </div>
 
-              {(selectedLead.address ||
-                selectedLead.city ||
-                selectedLead.state) && (
+              {selectedLead.service_area && (
                 <div>
                   <h3 className="text-sm font-semibold text-gray-700 uppercase tracking-wider mb-3">
-                    Location
+                    Service Area
                   </h3>
                   <div className="flex items-start gap-3 p-3 bg-gray-50 rounded-lg">
                     <MapPin className="w-5 h-5 text-gray-400 mt-0.5" />
                     <div className="text-gray-900">
-                      {selectedLead.address && (
-                        <p>{selectedLead.address}</p>
-                      )}
-                      <p>
-                        {[
-                          selectedLead.city,
-                          selectedLead.state,
-                          selectedLead.zip_code,
-                        ]
-                          .filter(Boolean)
-                          .join(", ")}
-                      </p>
+                      <p>{selectedLead.service_area}</p>
                     </div>
                   </div>
                 </div>
