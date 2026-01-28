@@ -28,6 +28,7 @@ type Lead = {
   created_at: string;
   assigned_to?: string;
   assigned_to_name?: string;
+  claimed_by?: string;
 };
 
 const ColdCallLeads: React.FC = () => {
@@ -58,6 +59,7 @@ const ColdCallLeads: React.FC = () => {
           )
         `
         )
+        .eq("is_pool_lead", true)
         .order("created_at", { ascending: false });
 
       if (statusFilter !== "all") {
@@ -81,6 +83,7 @@ const ColdCallLeads: React.FC = () => {
           created_at: lead.created_at,
           assigned_to: lead.assigned_to,
           assigned_to_name: lead.profiles?.full_name || "Unassigned",
+          claimed_by: lead.claimed_by,
         })) || [];
 
       setLeads(formatted);
@@ -101,6 +104,34 @@ const ColdCallLeads: React.FC = () => {
   const handleEmailClick = (email: string) => {
     if (email) {
       window.location.href = `mailto:${email}`;
+    }
+  };
+
+  const handleClaimLead = async (lead: Lead) => {
+    if (!supabase || !profile) return;
+
+    try {
+      const { error } = await supabase
+        .from("leads")
+        .update({
+          is_pool_lead: false,
+          claimed_by: profile.id,
+          claimed_at: new Date().toISOString(),
+          user_id: profile.id,
+          assigned_to: profile.id,
+        })
+        .eq("id", lead.id);
+
+      if (error) throw error;
+
+      toast.success(
+        `${lead.company_name} has been added to your leads!`
+      );
+      fetchLeads();
+      setSelectedLead(null);
+    } catch (error: any) {
+      console.error("Error claiming lead:", error);
+      toast.error("Failed to claim lead");
     }
   };
 
@@ -333,6 +364,16 @@ const ColdCallLeads: React.FC = () => {
                     <button
                       onClick={(e) => {
                         e.stopPropagation();
+                        handleClaimLead(lead);
+                      }}
+                      className="flex-1 lg:flex-none inline-flex items-center justify-center gap-2 px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors font-semibold"
+                    >
+                      <CheckCircle className="w-4 h-4" />
+                      Claim Lead
+                    </button>
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
                         handleCallClick(lead.phone);
                       }}
                       disabled={!lead.phone}
@@ -480,7 +521,14 @@ const ColdCallLeads: React.FC = () => {
               </div>
             </div>
 
-            <div className="p-6 border-t border-gray-200 flex justify-end">
+            <div className="p-6 border-t border-gray-200 flex justify-between">
+              <button
+                onClick={() => handleClaimLead(selectedLead)}
+                className="inline-flex items-center gap-2 px-6 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors font-semibold"
+              >
+                <CheckCircle className="w-4 h-4" />
+                Claim Lead & Add to My Leads
+              </button>
               <button
                 onClick={() => setSelectedLead(null)}
                 className="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors"
