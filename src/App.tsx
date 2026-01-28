@@ -8,6 +8,7 @@ import MobileHeader from "./components/MobileHeader";
 import Dashboard from "./components/Dashboard";
 import SalesTools from "./components/SalesTools";
 import LeadManagement from "./components/LeadManagement";
+import ColdCallLeads from "./components/ColdCallLeads";
 import CommissionsTracker from "./components/CommissionsTracker";
 import Settings from "./components/Settings";
 import TeamManagement from "./components/TeamManagement";
@@ -97,6 +98,7 @@ const App: React.FC = () => {
               <Route path="/auth" element={<Auth />} />
 
               <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
+              <Route path="/cold-call" element={<ProtectedRoute><ColdCallLeads /></ProtectedRoute>} />
               <Route path="/sales-tools" element={<ProtectedRoute><SalesTools /></ProtectedRoute>} />
               <Route path="/leads" element={<ProtectedRoute><LeadManagement /></ProtectedRoute>} />
               <Route path="/proposals" element={<ProtectedRoute><Proposals /></ProtectedRoute>} />

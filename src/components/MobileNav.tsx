@@ -1,6 +1,6 @@
 import React, { useEffect } from 'react';
 import { NavLink } from 'react-router-dom';
-import { X, Home, Users, Settings, Target, DollarSign, Briefcase, LogOut, FileText } from 'lucide-react';
+import { X, Home, Users, Settings, Target, DollarSign, Briefcase, LogOut, FileText, PhoneCall } from 'lucide-react';
 import { useAuthStore } from '../store/authStore';
 
 interface MobileNavProps {
@@ -28,6 +28,7 @@ const MobileNav: React.FC<MobileNavProps> = ({ isOpen, onClose }) => {
 
   const menuItems = [
     { path: '/dashboard', label: 'Dashboard', icon: Home },
+    { path: '/cold-call', label: 'Cold Call', icon: PhoneCall },
     { path: '/leads', label: 'Leads', icon: Users },
     { path: '/proposals', label: 'Proposals', icon: FileText },
     ...(isManager ? [{ path: '/team', label: 'Team Management', icon: Target }] : []),

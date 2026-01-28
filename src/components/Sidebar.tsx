@@ -9,6 +9,7 @@ import {
   Building2,
   ChevronRight,
   FileText,
+  PhoneCall,
 } from "lucide-react";
 import { useAuthStore } from "../store/authStore";
 
@@ -22,6 +23,7 @@ const Sidebar: React.FC = () => {
 
   const menuItems = [
     { path: "/dashboard", label: "Dashboard", icon: Home },
+    { path: "/cold-call", label: "Cold Call", icon: PhoneCall },
     { path: "/leads", label: "Leads", icon: Users },
     { path: "/proposals", label: "Proposals", icon: FileText },
     ...(isManager
